@@ -86,8 +86,9 @@ impl AppError {
                 "Couldn't reach that server. Check your internet connection and try again.".into()
             }
             Self::Tls(_) => {
-                "The secure handshake was rejected. The server may be offline or misconfigured."
-                    .into()
+                // Almost always a certificate that matches neither the endpoint
+                // nor the masking domain, so name the actual next step.
+                "The secure handshake was rejected. The server's certificate doesn't match its address or masking domain - re-add the link, or add allowInsecure=1 if you control the server.".into()
             }
             Self::Protocol(_) => {
                 "The server refused the session. Your access key may be wrong or expired.".into()

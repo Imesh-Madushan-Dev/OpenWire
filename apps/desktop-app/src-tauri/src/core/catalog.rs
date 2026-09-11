@@ -157,7 +157,8 @@ pub fn parse_vless_uri(uri: &str) -> AppResult<ServerNode> {
     let mut sni = String::new();
     let mut alpn = vec!["h2".to_string(), "http/1.1".to_string()];
     let mut allow_insecure = false;
-    let mut security_tls = false;
+    let mut security = String::new();
+    let mut transport = String::new();
 
     for pair in query.split('&').filter(|p| !p.is_empty()) {
         let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
@@ -168,7 +169,8 @@ pub fn parse_vless_uri(uri: &str) -> AppResult<ServerNode> {
                     sni = value;
                 }
             }
-            "security" => security_tls = matches!(value.as_str(), "tls" | "reality" | "xtls"),
+            "security" => security = value,
+            "type" => transport = value,
             "alpn" => {
                 let parsed: Vec<String> = value
                     .split(',')
@@ -184,8 +186,19 @@ pub fn parse_vless_uri(uri: &str) -> AppResult<ServerNode> {
         }
     }
 
-    if !security_tls && query.contains("security=") {
-        return Err(invalid("only TLS links are supported"));
+    // Reject what this client cannot actually speak, rather than importing a
+    // node that would fail later with a confusing handshake error. REALITY and
+    // XTLS in particular look like TLS in the link but need a different
+    // handshake entirely.
+    if !security.is_empty() && security != "tls" {
+        return Err(invalid(&format!(
+            "`{security}` isn't supported yet - this client speaks plain TLS"
+        )));
+    }
+    if !transport.is_empty() && transport != "tcp" {
+        return Err(invalid(&format!(
+            "`{transport}` transport isn't supported yet - this client speaks raw TCP"
+        )));
     }
     // Without an explicit SNI there is nothing to camouflage as; fall back to the
     // real host so the handshake at least stays valid.
@@ -289,6 +302,45 @@ mod tests {
         assert!(parse_vless_uri("vless://no-at-sign").is_err());
         assert!(parse_vless_uri("vless://uuid@host").is_err());
         assert!(parse_vless_uri("vless://uuid@host:notaport").is_err());
+    }
+
+    /// A real share link: the decoy SNI differs from the endpoint, and the
+    /// percent-encoded ALPN list and label both have to survive decoding.
+    #[test]
+    fn parses_a_masked_link_with_a_decoy_sni() {
+        let node = parse_vless_uri(
+            "vless://2b4f8c1e-0000-4000-8000-abcdefabcdef@edge.example.org:443?alpn=h2%2Chttp%2F1.1&encryption=none&fp=chrome&security=tls&sni=aka.ms&type=tcp#MY%20NODE-imesh",
+        )
+        .expect("should parse");
+
+        assert_eq!(node.name, "MY NODE-imesh");
+        assert_eq!(node.host, "edge.example.org");
+        match node.outbound {
+            Outbound::Vless(v) => {
+                assert_eq!(v.sni, "aka.ms", "decoy must not collapse into the host");
+                assert_eq!(v.alpn, vec!["h2".to_string(), "http/1.1".to_string()]);
+                assert!(!v.allow_insecure);
+            }
+            _ => panic!("expected vless outbound"),
+        }
+    }
+
+    /// Importing a node this client cannot speak must fail at import time, not
+    /// with a mystery handshake error on first connect.
+    #[test]
+    fn rejects_unsupported_transports_and_security() {
+        for uri in [
+            "vless://key@host:443?security=reality&pbk=abc&type=tcp",
+            "vless://key@host:443?security=xtls&type=tcp",
+            "vless://key@host:443?security=tls&type=ws&path=%2Fws",
+            "vless://key@host:443?security=tls&type=grpc",
+        ] {
+            let err = parse_vless_uri(uri).expect_err("should reject");
+            assert_eq!(err.code(), "INVALID_INPUT", "{uri}");
+        }
+
+        // Plain TLS over raw TCP is the supported combination.
+        assert!(parse_vless_uri("vless://key@host:443?security=tls&type=tcp").is_ok());
     }
 
     #[test]

@@ -84,10 +84,33 @@ Any VLESS + TLS server works (Xray, V2Ray). Minimum inbound:
 }
 ```
 
-Certificate validation is **on** by default, so the endpoint must present a
-certificate valid for the `sni` you use. `allowInsecure=1` in the link turns it
-off — only do that when you control both ends and understand that an on-path
-attacker could then impersonate the exit.
+### Certificate checking with a decoy SNI
+
+Certificate validation is **on** by default, and it accounts for the fact that
+the ClientHello name is a decoy. A self-hosted node can only ever prove the name
+it owns, so the client accepts a certificate valid for **either**:
+
+- the endpoint you dial (`meetzoom.example.org`) — the self-hosted case, or
+- the masking domain (`sni=`) — the genuinely CDN-fronted case.
+
+Both names come from your own link, so either proof authenticates the peer you
+meant to reach. Chain, expiry and revocation are still enforced — only the name
+matched against differs. Verifying *only* the decoy would reject every
+self-hosted server, which is what `allowInsecure=1` is usually a workaround for.
+
+`allowInsecure=1` still exists and skips the name check entirely. You should not
+need it for a normal masked setup.
+
+### Supported subset
+
+Only `security=tls` over `type=tcp`. Links using REALITY, XTLS, WebSocket, gRPC
+or HTTPUpgrade are **rejected at import** with a message saying why, rather than
+being added as a node that fails later with a confusing handshake error.
+
+`fp=chrome` (uTLS fingerprint mimicry) is parsed but not applied — the client
+uses rustls, whose TLS fingerprint differs from Chrome's. This matters only
+against DPI that fingerprints the handshake itself; SNI-based filtering is
+unaffected.
 
 ## Safety properties
 

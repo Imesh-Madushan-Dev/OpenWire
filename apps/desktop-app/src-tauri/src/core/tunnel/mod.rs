@@ -77,7 +77,7 @@ impl Tunnel {
 
         // Build the TLS config once per session, not once per connection.
         let tls = match &node.outbound {
-            Outbound::Vless(cfg) => Some(vless::build_tls(cfg)?),
+            Outbound::Vless(cfg) => Some(vless::build_tls(cfg, &node.host)?),
             Outbound::Direct => None,
         };
 
