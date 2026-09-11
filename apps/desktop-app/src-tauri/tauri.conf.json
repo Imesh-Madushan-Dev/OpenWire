@@ -13,14 +13,23 @@
     "windows": [
       {
         "title": "Maizy VPN",
-        "width": 800,
-        "height": 600,
+        "label": "main",
+        "width": 1040,
+        "height": 700,
+        "minWidth": 900,
+        "minHeight": 620,
+        "center": true,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "decorations": false,
+        "shadow": true,
+        "dragDropEnabled": false,
+        "backgroundColor": "#060B08"
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:5173; style-src 'self' 'unsafe-inline' http://localhost:5173; img-src 'self' data: blob: http://localhost:5173; font-src 'self' data: http://localhost:5173; connect-src 'self' ipc: http://ipc.localhost http://localhost:5173 ws://localhost:5173"
     }
   },
   "bundle": {

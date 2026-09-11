@@ -3,24 +3,18 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/figtree";
 
-@custom-variant dark (&:is(.dark *));
+/* ---------------------------------------------------------------------------
+ * Maizy design system
+ *
+ * One committed look: a deep, near-black surface with a single signal colour
+ * (#14f471) reserved for protection state. Colour is never decoration here -
+ * if something is green, it means "you are covered".
+ * ------------------------------------------------------------------------ */
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: 'Figtree Variable', sans-serif;
-    --color-sidebar-ring: var(--sidebar-ring);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar: var(--sidebar);
-    --color-chart-5: var(--chart-5);
-    --color-chart-4: var(--chart-4);
-    --color-chart-3: var(--chart-3);
-    --color-chart-2: var(--chart-2);
-    --color-chart-1: var(--chart-1);
+    --font-sans: 'Figtree Variable', ui-sans-serif, system-ui, sans-serif;
+
     --color-ring: var(--ring);
     --color-input: var(--input);
     --color-border: var(--border);
@@ -39,6 +33,15 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
+
+    /* App-specific surfaces, layered by elevation rather than by hue. */
+    --color-rail: var(--rail);
+    --color-surface: var(--surface);
+    --color-surface-hover: var(--surface-hover);
+    --color-hairline: var(--hairline);
+    --color-warning: var(--warning);
+
+    /* Generous radii: nothing in this UI has a corner tighter than 12px. */
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -49,82 +52,140 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
-}
+    color-scheme: dark;
 
-.dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --radius: 1rem;
+
+    --background: #070d0a;
+    --foreground: #e8f4ec;
+
+    --rail: #040806;
+    --surface: rgba(255, 255, 255, 0.045);
+    --surface-hover: rgba(255, 255, 255, 0.075);
+    --hairline: rgba(255, 255, 255, 0.07);
+
+    /* Opaque surfaces for overlays, which cannot rely on what is behind them. */
+    --card: #101815;
+    --card-foreground: #e8f4ec;
+    --popover: #101815;
+    --popover-foreground: #e8f4ec;
+
+    --primary: #14f471;
+    --primary-foreground: #04200f;
+
+    --secondary: #17211c;
+    --secondary-foreground: #e8f4ec;
+
+    --muted: #131c17;
+    --muted-foreground: #7f9488;
+
+    --accent: #17241d;
+    --accent-foreground: #e8f4ec;
+
+    --destructive: #ff6b6b;
+    --warning: #ffc861;
+
+    --border: rgba(255, 255, 255, 0.08);
+    --input: rgba(255, 255, 255, 0.1);
+    --ring: #14f471;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+    * {
+        @apply border-border outline-ring/50;
     }
-  body {
-    @apply bg-background text-foreground;
+
+    html,
+    body,
+    #root {
+        height: 100%;
     }
-  html {
-    @apply font-sans;
+
+    html {
+        @apply font-sans antialiased;
+    }
+
+    body {
+        @apply bg-background text-foreground overflow-hidden;
+        /* The window is frameless; the app paints its own rounded shell. */
+        background: transparent;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* Nothing in a desktop shell should be text-selectable by accident. */
+    body {
+        user-select: none;
+        cursor: default;
+    }
+
+    input,
+    textarea,
+    [data-selectable] {
+        user-select: text;
+    }
+
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background-color: rgba(255, 255, 255, 0.1);
+        border: 3px solid transparent;
+        border-radius: 999px;
+        background-clip: content-box;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(255, 255, 255, 0.18);
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+}
+
+@layer components {
+    /* The ambient field behind the power orb. Sized in vmin so it scales with
+     * the window instead of clipping at small sizes. */
+    .ambient-field {
+        background:
+            radial-gradient(60vmin 60vmin at 50% 38%, color-mix(in oklab, var(--primary) 16%, transparent), transparent 70%),
+            radial-gradient(90vmin 70vmin at 50% 120%, color-mix(in oklab, var(--primary) 7%, transparent), transparent 72%);
+    }
+
+    .panel {
+        background-color: var(--surface);
+        border: 1px solid var(--hairline);
+    }
+
+    .panel-interactive {
+        background-color: var(--surface);
+        border: 1px solid var(--hairline);
+        transition:
+            background-color 180ms cubic-bezier(0.32, 0.72, 0, 1),
+            border-color 180ms cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    .panel-interactive:hover {
+        background-color: var(--surface-hover);
+        border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    /* Numeric readouts must not reflow as digits change. */
+    .numeric {
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: "tnum";
+    }
+}
+
+/* Motion is a layer of polish, never a prerequisite for understanding state. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
     }
 }
