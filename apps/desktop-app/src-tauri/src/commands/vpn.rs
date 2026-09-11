@@ -59,6 +59,7 @@ pub async fn vpn_connect(
             kill_switch: settings.kill_switch,
         },
         Arc::clone(&state.metrics),
+        Arc::clone(&state.usage),
         events_tx,
     )
     .await
@@ -85,7 +86,11 @@ pub async fn vpn_connect(
     let mut guard: Option<ProxyGuard> = None;
     if settings.system_proxy {
         if sysproxy::is_supported() {
-            match ProxyGuard::engage(listen_addr.port(), settings.lan_bypass) {
+            match ProxyGuard::engage(
+                listen_addr.port(),
+                settings.lan_bypass,
+                &state.proxy_backup_path(),
+            ) {
                 Ok(engaged) => {
                     guard = Some(engaged);
                     proxy_engaged = true;

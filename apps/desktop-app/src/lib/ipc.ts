@@ -18,6 +18,9 @@ import type {
   Settings,
   SettingsPatch,
   StatsSnapshot,
+  UsageRange,
+  UsageSample,
+  UsageSummary,
 } from './types'
 
 export class VpnError extends Error {
@@ -73,9 +76,13 @@ export const api = {
   removeServer: (id: string) => call<void>('servers_remove', { id }),
   optimalServer: () => call<ServerSummary | null>('servers_optimal'),
 
+  usageTimeline: (range: UsageRange) => call<UsageSample[]>('usage_timeline', { range }),
+  usageSummary: (range: UsageRange) => call<UsageSummary>('usage_summary', { range }),
+
   settings: () => call<Settings>('settings_get'),
   updateSettings: (patch: SettingsPatch) => call<Settings>('settings_update', { patch }),
   platform: () => call<PlatformInfo>('platform_info'),
+  restoreNetwork: () => call<string>('network_restore'),
 }
 
 // -- events -----------------------------------------------------------------
@@ -84,6 +91,7 @@ export const EVENTS = {
   state: 'vpn:state',
   stats: 'vpn:stats',
   notice: 'vpn:notice',
+  usageSample: 'usage:sample',
 } as const
 
 export function onConnectionState(handler: (state: ConnectionState) => void) {
@@ -96,6 +104,11 @@ export function onStats(handler: (stats: StatsSnapshot) => void) {
 
 export function onNotice(handler: (notice: Notice) => void) {
   return listen<Notice>(EVENTS.notice, (event) => handler(event.payload))
+}
+
+/** One tick per second, emitted whether or not the tunnel is up. */
+export function onUsageSample(handler: (sample: UsageSample) => void) {
+  return listen<UsageSample>(EVENTS.usageSample, (event) => handler(event.payload))
 }
 
 export type { UnlistenFn }

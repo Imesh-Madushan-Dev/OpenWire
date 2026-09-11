@@ -32,11 +32,16 @@ bun run tauri:dev      # from apps/desktop-app
 bun run tauri:build    # installer
 ```
 
-Rust tests (protocol framing, relay, LAN routing, registry round-trip):
+Rust tests (protocol framing, relay, LAN routing, usage accounting):
 
 ```bash
 cd src-tauri && cargo test
+cd src-tauri && cargo test -- --ignored   # OS proxy tests, see below
 ```
+
+The system-proxy tests are `#[ignore]`d on purpose: they mutate the
+machine-global WinINET settings that a running Maizy session also owns, so a
+routine `cargo test` must not switch your networking out from under you.
 
 ## Adding a server
 
@@ -112,12 +117,48 @@ uses rustls, whose TLS fingerprint differs from Chrome's. This matters only
 against DPI that fingerprints the handshake itself; SNI-based filtering is
 unaffected.
 
+## Network usage meter
+
+A GlassWire-style meter lives under **Network**, with two tabs.
+
+**Graph** — live throughput at one sample per second, across five time ranges
+(5 min / 3 hours / 24 hours / week / month), a fixed-or-auto y-axis ceiling, a
+pause control on the live range, and a scrubber on the rolled-up ones.
+
+**Usage** — a totals ring plus three ranked columns: Apps, Hosts, Traffic type.
+
+Two different data sources feed it, and the difference matters:
+
+| Shown | Source | Scope |
+| --- | --- | --- |
+| Graph, and the ring's Total/Incoming/Outgoing | `GetIfTable2` interface counters | Everything this machine sends and receives |
+| Apps / Hosts / Traffic type, and "Through Maizy" | The relay's own per-connection counters | Only traffic that went through the tunnel |
+
+Per-app names come from the OS TCP table: apps reach the proxy over loopback, so
+the client-side port identifies the owning process (`GetExtendedTcpTable` →
+`QueryFullProcessImageNameW`). No kernel driver and no elevation — which is the
+whole reason this works where GlassWire needs both. Naming the app behind
+arbitrary *system* traffic does need a driver, so those columns stay tunnel-only
+and the UI says so rather than looking broken.
+
+History is stored in three tiers (seconds → minutes → hours) plus per-day
+breakdowns, so a month costs a few thousand rows rather than two million. Daily
+buckets use the machine's local midnight. Retention is 90 days; per-day key maps
+are capped, with the tail folded into `Other` so a long browsing session cannot
+grow the store without bound. It lives in `usage.json` beside the other config.
+
 ## Safety properties
 
 - The listener binds `127.0.0.1` only and rejects non-loopback peers, so it can
   never become an open relay for your network.
 - System proxy changes are snapshotted and restored by an RAII guard — quitting,
   crashing, or disconnecting all put your settings back.
+- The snapshot is also written to disk **before** the OS is touched, so a
+  process that is *killed* rather than asked to stop still leaves a recoverable
+  trail. The next launch detects a proxy still aimed at our loopback port and
+  undoes it; **Settings → Restore network settings** does the same on demand.
+  Recovery only touches settings still pointing at us, so a proxy you configured
+  yourself is never clobbered.
 - **Kill switch** fails closed: while the server is unreachable the proxy refuses
   connections rather than letting traffic out unmasked.
 - The webview has no filesystem, shell, or HTTP capability (see
@@ -134,6 +175,7 @@ src/
   features/
     vpn/                  dashboard, power orb, live stats
     servers/              location picker, vless:// import
+    usage/                throughput graph, totals ring, ranked breakdown
     protection/           kill switch, LAN bypass, routing, startup
     settings/             port, servers, diagnostics
 
@@ -141,6 +183,7 @@ src-tauri/src/
   commands/               the IPC surface (vpn, servers, settings)
   core/
     tunnel/               inbound proxy, VLESS outbound, relay, health watch
+    usage/                history tiers, per-app attribution, interface counters
     sysproxy/             per-platform OS proxy control
     catalog · models · metrics · probe · store
   state.rs                the one owner of mutable state
@@ -156,3 +199,8 @@ src-tauri/src/
   `servers.json` is the source of truth.
 - **macOS / Linux system proxy.** The tunnel runs everywhere; automatic OS
   routing is Windows-only, and the UI says so and shows the manual address.
+- **Per-app names for non-tunnel traffic.** Attribution covers connections that
+  went through the proxy. System-wide per-app accounting needs a WFP/ETW
+  driver; totals for that traffic are shown, names are not.
+- **App icons and host geolocation** in the usage columns: both need assets the
+  app does not ship (icon extraction, a GeoIP database).

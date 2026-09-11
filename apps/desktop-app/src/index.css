@@ -40,6 +40,8 @@
     --color-surface-hover: var(--surface-hover);
     --color-hairline: var(--hairline);
     --color-warning: var(--warning);
+    --color-chart-down: var(--chart-down);
+    --color-chart-up: var(--chart-up);
 
     /* Generous radii: nothing in this UI has a corner tighter than 12px. */
     --radius-sm: calc(var(--radius) * 0.6);
@@ -84,6 +86,12 @@
 
     --destructive: #ff6b6b;
     --warning: #ffc861;
+
+    /* Two categorical series for the usage meter. Download carries the brand
+     * colour because it is the dominant series; upload takes a cool hue that
+     * stays legible beside it without competing. */
+    --chart-down: #14f471;
+    --chart-up: #45d4ff;
 
     --border: rgba(255, 255, 255, 0.08);
     --input: rgba(255, 255, 255, 0.1);

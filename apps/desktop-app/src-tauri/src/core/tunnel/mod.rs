@@ -17,6 +17,7 @@ use tokio::time::timeout;
 use crate::core::metrics::Metrics;
 use crate::core::models::{Outbound, ServerNode};
 use crate::core::probe;
+use crate::core::usage::{ConnRecorder, TrafficKind, UsageKey, UsageTracker};
 use crate::error::{AppError, AppResult};
 
 const RELAY_BUFFER: usize = 16 * 1024;
@@ -51,6 +52,7 @@ struct Session {
     lan_bypass: bool,
     kill_switch: bool,
     metrics: Arc<Metrics>,
+    usage: Arc<UsageTracker>,
     /// Set when health checks fail. With the kill switch on, this makes the
     /// proxy refuse connections rather than let traffic find another way out.
     degraded: AtomicBool,
@@ -68,6 +70,7 @@ impl Tunnel {
     pub async fn start(
         config: TunnelConfig,
         metrics: Arc<Metrics>,
+        usage: Arc<UsageTracker>,
         events: mpsc::UnboundedSender<TunnelEvent>,
     ) -> AppResult<Self> {
         let node = config.node;
@@ -98,6 +101,7 @@ impl Tunnel {
             lan_bypass: config.lan_bypass,
             kill_switch: config.kill_switch,
             metrics,
+            usage,
             degraded: AtomicBool::new(false),
             tls,
         });
@@ -214,6 +218,11 @@ impl Drop for Tunnel {
 async fn handle(mut client: TcpStream, session: Arc<Session>) -> AppResult<()> {
     let _ = client.set_nodelay(true);
 
+    // Resolved while the socket is certainly in the OS table - a moment later
+    // the process may have exited and the attribution would be lost.
+    let client_port = client.peer_addr().map(|addr| addr.port()).unwrap_or(0);
+    let app = session.usage.app_for_port(client_port);
+
     let request = timeout(HANDSHAKE_TIMEOUT, inbound::negotiate(&mut client))
         .await
         .map_err(|_| AppError::Protocol("client handshake timed out".into()))??;
@@ -237,9 +246,27 @@ async fn handle(mut client: TcpStream, session: Arc<Session>) -> AppResult<()> {
 
     inbound::send_reply(&mut client, request.protocol, true).await?;
 
+    // Held for the lifetime of the relay: dropping it flushes the final bytes
+    // and deregisters the connection.
+    let usage = session.usage.open(
+        UsageKey {
+            app,
+            host: request.host.clone(),
+            kind: TrafficKind::from_port(request.port),
+        },
+        Arc::clone(&session.metrics),
+    );
+
     // VLESS answers with its own 2+N byte head that the client must never see.
     let strip_head = !direct;
-    relay(client, upstream, session, request.prefix, strip_head).await
+    relay(
+        client,
+        upstream,
+        Arc::clone(&usage.recorder),
+        request.prefix,
+        strip_head,
+    )
+    .await
 }
 
 async fn dial(
@@ -282,7 +309,7 @@ async fn dial(
 async fn relay(
     client: TcpStream,
     upstream: Box<dyn IoStream>,
-    session: Arc<Session>,
+    recorder: Arc<ConnRecorder>,
     prefix: Vec<u8>,
     strip_head: bool,
 ) -> AppResult<()> {
@@ -294,17 +321,23 @@ async fn relay(
             .write_all(&prefix)
             .await
             .map_err(|e| AppError::Protocol(format!("forward request head: {e}")))?;
-        session.metrics.add_up(prefix.len() as u64);
+        recorder.add_up(prefix.len() as u64);
     }
 
-    let up = {
-        let metrics = Arc::clone(&session.metrics);
-        pump(client_read, upstream_write, metrics, Direction::Up, false)
-    };
-    let down = {
-        let metrics = Arc::clone(&session.metrics);
-        pump(upstream_read, client_write, metrics, Direction::Down, strip_head)
-    };
+    let up = pump(
+        client_read,
+        upstream_write,
+        Arc::clone(&recorder),
+        Direction::Up,
+        false,
+    );
+    let down = pump(
+        upstream_read,
+        client_write,
+        recorder,
+        Direction::Down,
+        strip_head,
+    );
 
     // Both directions run to completion; each closes its write half on EOF so
     // the peer learns the stream is finished.
@@ -321,7 +354,7 @@ enum Direction {
 async fn pump<R, W>(
     mut reader: R,
     mut writer: W,
-    metrics: Arc<Metrics>,
+    recorder: Arc<ConnRecorder>,
     direction: Direction,
     strip_head: bool,
 ) -> AppResult<()>
@@ -359,8 +392,8 @@ where
         }
         writer.write_all(&buf[..read]).await.map_err(io)?;
         match direction {
-            Direction::Up => metrics.add_up(read as u64),
-            Direction::Down => metrics.add_down(read as u64),
+            Direction::Up => recorder.add_up(read as u64),
+            Direction::Down => recorder.add_down(read as u64),
         }
     }
 
@@ -442,6 +475,7 @@ mod tests {
         });
 
         let metrics = Arc::new(Metrics::new());
+        let usage = Arc::new(UsageTracker::load(std::path::Path::new("no-such-usage.json")));
         let (tx, _rx) = mpsc::unbounded_channel();
         let tunnel = Tunnel::start(
             TunnelConfig {
@@ -455,6 +489,7 @@ mod tests {
                 kill_switch: false,
             },
             Arc::clone(&metrics),
+            Arc::clone(&usage),
             tx,
         )
         .await
@@ -483,12 +518,30 @@ mod tests {
         assert_eq!(snap.down_bytes, 5);
         assert_eq!(snap.total_connections, 1);
 
+        // The same bytes must also arrive attributed. This covers the whole
+        // chain: accept -> resolve the owning process -> key the connection ->
+        // fold into the day bucket.
+        usage.sample();
+        let summary = usage.summary(crate::core::usage::history::Range::Day);
+        assert_eq!(summary.tunnel_up, 5);
+        assert_eq!(summary.tunnel_down, 5);
+
+        let app = &summary.apps[0].key;
+        assert!(
+            app.ends_with(".exe"),
+            "expected the calling process to be named, got {app}"
+        );
+        assert_eq!(summary.hosts[0].key, "127.0.0.1");
+        // The echo server is on an ephemeral port, so it classifies as Other.
+        assert_eq!(summary.kinds[0].key, "Other");
+
         tunnel.stop();
     }
 
     #[tokio::test]
     async fn unconfigured_node_is_refused_before_binding() {
         let metrics = Arc::new(Metrics::new());
+        let usage = Arc::new(UsageTracker::load(std::path::Path::new("no-such-usage.json")));
         let (tx, _rx) = mpsc::unbounded_channel();
         let node = crate::core::catalog::default_nodes()
             .into_iter()
@@ -503,6 +556,7 @@ mod tests {
                 kill_switch: false,
             },
             metrics,
+            usage,
             tx,
         )
         .await;

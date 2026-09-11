@@ -108,3 +108,53 @@ export function isActive(phase: Phase): boolean {
 export function isBusy(phase: Phase): boolean {
   return phase === 'connecting' || phase === 'disconnecting'
 }
+
+// ---------------------------------------------------------------------------
+// Network usage — mirrors `src-tauri/src/core/usage/`
+// ---------------------------------------------------------------------------
+
+/** Which tier of history a query reads from. */
+export type UsageRange = 'fiveMinutes' | 'threeHours' | 'day' | 'week' | 'month'
+
+export interface UsageSample {
+  /** Unix seconds at the start of the bucket. */
+  t: number
+  /** Everything across this machine's interfaces, in bytes. */
+  up: number
+  down: number
+  /** The subset that went through the tunnel. */
+  tunnelUp: number
+  tunnelDown: number
+}
+
+export interface UsageEntry {
+  key: string
+  up: number
+  down: number
+  total: number
+}
+
+export interface UsageSummary {
+  range: UsageRange
+  totalUp: number
+  totalDown: number
+  tunnelUp: number
+  tunnelDown: number
+  apps: UsageEntry[]
+  hosts: UsageEntry[]
+  kinds: UsageEntry[]
+  /** False where per-app names cannot be resolved on this platform. */
+  attributionSupported: boolean
+}
+
+export const EMPTY_SUMMARY: UsageSummary = {
+  range: 'day',
+  totalUp: 0,
+  totalDown: 0,
+  tunnelUp: 0,
+  tunnelDown: 0,
+  apps: [],
+  hosts: [],
+  kinds: [],
+  attributionSupported: true,
+}

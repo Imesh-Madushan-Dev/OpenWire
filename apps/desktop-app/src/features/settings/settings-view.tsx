@@ -17,6 +17,7 @@ import { ViewShell } from '@/components/view-shell'
 import { staggerChild, staggerParent } from '@/lib/motion'
 import { isActive } from '@/lib/types'
 import { ServerImportField } from '@/features/servers/server-import-field'
+import { RestoreNetworkRow } from './restore-network-row'
 import { useVpn } from '@/features/vpn/vpn-context'
 
 export function SettingsView() {
@@ -45,6 +46,7 @@ export function SettingsView() {
             checked={settings.launchMinimized}
             onChange={(next) => void updateSettings({ launchMinimized: next })}
           />
+          <RestoreNetworkRow />
         </SettingGroup>
 
         <section className="flex flex-col gap-2">

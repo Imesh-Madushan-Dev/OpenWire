@@ -5,3 +5,4 @@ pub mod probe;
 pub mod store;
 pub mod sysproxy;
 pub mod tunnel;
+pub mod usage;

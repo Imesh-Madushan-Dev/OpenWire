@@ -8,10 +8,13 @@ mod tray;
 
 use std::time::{Duration, Instant};
 
-use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 
 use crate::core::metrics::RateSampler;
 use crate::state::AppState;
+
+/// Live throughput tick for the usage graph.
+const EVENT_USAGE_SAMPLE: &str = "usage:sample";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -47,6 +50,9 @@ pub fn run() {
             commands::settings::settings_get,
             commands::settings::settings_update,
             commands::settings::platform_info,
+            commands::settings::network_restore,
+            commands::usage::usage_timeline,
+            commands::usage::usage_summary,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -92,12 +98,18 @@ pub fn run() {
     });
 }
 
-/// Pushes a throughput sample to the UI once a second while connected.
+/// One-second heartbeat: samples network usage always, and pushes VPN
+/// throughput while a tunnel is up.
 fn spawn_stats_ticker(app: AppHandle) {
+    // Usage history is flushed on a slower cadence than it is sampled; a crash
+    // costs at most this much history, and the disk stays quiet.
+    const PERSIST_EVERY_TICKS: u32 = 60;
+
     tauri::async_runtime::spawn(async move {
         let mut sampler = RateSampler::default();
         let mut ticker = tokio::time::interval(Duration::from_secs(1));
         let mut last_tick = Instant::now();
+        let mut ticks: u32 = 0;
 
         loop {
             ticker.tick().await;
@@ -105,6 +117,14 @@ fn spawn_stats_ticker(app: AppHandle) {
             let Some(state) = app.try_state::<AppState>() else {
                 break;
             };
+
+            let sample = state.usage.sample();
+            let _ = app.emit(EVENT_USAGE_SAMPLE, &sample);
+
+            ticks = ticks.wrapping_add(1);
+            if ticks % PERSIST_EVERY_TICKS == 0 {
+                state.persist_usage();
+            }
 
             if !state.is_tunnel_up() {
                 // Avoid a false spike on the first tick of the next session.

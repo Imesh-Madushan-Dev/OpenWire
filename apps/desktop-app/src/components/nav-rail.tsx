@@ -1,13 +1,18 @@
 /** Left navigation rail. */
 
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
-import { GlobalIcon, PuzzleIcon, Settings02Icon } from '@hugeicons/core-free-icons'
+import {
+  Analytics01Icon,
+  GlobalIcon,
+  PuzzleIcon,
+  Settings02Icon,
+} from '@hugeicons/core-free-icons'
 import { motion } from 'motion/react'
 import { cn } from 'cn'
 
 import { spring } from '@/lib/motion'
 
-export type ViewId = 'vpn' | 'protection' | 'settings'
+export type ViewId = 'vpn' | 'usage' | 'protection' | 'settings'
 
 interface NavItem {
   id: ViewId
@@ -17,6 +22,7 @@ interface NavItem {
 
 const PRIMARY: NavItem[] = [
   { id: 'vpn', label: 'VPN', icon: GlobalIcon },
+  { id: 'usage', label: 'Network', icon: Analytics01Icon },
   { id: 'protection', label: 'Features', icon: PuzzleIcon },
 ]
 

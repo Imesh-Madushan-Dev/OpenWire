@@ -17,8 +17,9 @@ use crate::core::models::{
     ConnectionState, ServerNode, ServerSummary, Settings, StatsSnapshot,
 };
 use crate::core::store;
-use crate::core::sysproxy::ProxyGuard;
+use crate::core::sysproxy::{self, ProxyGuard, Recovery};
 use crate::core::tunnel::Tunnel;
+use crate::core::usage::UsageTracker;
 use crate::error::{AppError, AppResult};
 
 pub const EVENT_STATE: &str = "vpn:state";
@@ -33,6 +34,7 @@ pub struct AppState {
     latency: RwLock<HashMap<String, u32>>,
     connection: RwLock<ConnectionState>,
     pub metrics: Arc<Metrics>,
+    pub usage: Arc<UsageTracker>,
     /// Dropping either of these tears down the matching resource, so the order
     /// in `teardown` is what guarantees the OS proxy is always restored.
     tunnel: Mutex<Option<Tunnel>>,
@@ -48,6 +50,16 @@ impl AppState {
 
         let settings_path = config_dir.join("settings.json");
         let catalog_path = config_dir.join("servers.json");
+        let usage_path = config_dir.join("usage.json");
+
+        // Before anything else: if a previous run was killed while the system
+        // proxy was engaged, the machine currently has no working networking.
+        // Undoing that is more urgent than any of our own state.
+        match sysproxy::recover(&config_dir.join("proxy-backup.json")) {
+            Ok(Recovery::NothingToDo) => {}
+            Ok(outcome) => log::warn!("recovered system proxy after an unclean exit: {outcome:?}"),
+            Err(err) => log::error!("could not check for a stranded system proxy: {err}"),
+        }
 
         let mut settings: Settings = store::read_json(&settings_path)?.unwrap_or_default();
         if settings.validate().is_err() {
@@ -74,6 +86,7 @@ impl AppState {
             latency: RwLock::new(HashMap::new()),
             connection: RwLock::new(ConnectionState::default()),
             metrics: Arc::new(Metrics::new()),
+            usage: Arc::new(UsageTracker::load(&usage_path)),
             tunnel: Mutex::new(None),
             proxy: Mutex::new(None),
         })
@@ -87,6 +100,18 @@ impl AppState {
 
     fn catalog_path(&self) -> PathBuf {
         self.config_dir.join("servers.json")
+    }
+
+    pub fn proxy_backup_path(&self) -> PathBuf {
+        self.config_dir.join("proxy-backup.json")
+    }
+
+    /// Flushes usage history to disk. Cheap enough to call on a timer, and
+    /// called again on exit so a clean quit never loses the last minute.
+    pub fn persist_usage(&self) {
+        if let Err(err) = self.usage.persist(&self.config_dir.join("usage.json")) {
+            log::warn!("could not save usage history: {err}");
+        }
     }
 
     // -- settings -----------------------------------------------------------
@@ -244,6 +269,7 @@ impl AppState {
         }
 
         self.metrics.reset();
+        self.persist_usage();
     }
 }
 

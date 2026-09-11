@@ -40,7 +40,7 @@ export function ProtectionView() {
           <SettingRow
             icon={Shield01Icon}
             title="Kill switch"
-            description="Block traffic instead of letting it out unmasked if the server becomes unreachable."
+            description="If the server drops, block everything rather than let traffic out unprotected. Your internet stops until the tunnel recovers - that is the trade."
             checked={settings.killSwitch}
             onChange={(next) => void updateSettings({ killSwitch: next })}
             hint={restartHint}

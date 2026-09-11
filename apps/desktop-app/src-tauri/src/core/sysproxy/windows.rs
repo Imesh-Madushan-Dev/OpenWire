@@ -5,6 +5,7 @@
 
 use std::ffi::c_void;
 
+use serde::{Deserialize, Serialize};
 use winreg::enums::{HKEY_CURRENT_USER, KEY_READ, KEY_WRITE};
 use winreg::RegKey;
 
@@ -30,7 +31,8 @@ extern "system" {
 
 /// Exactly the three values we overwrite, so restore is a faithful rollback
 /// rather than a guess at sane defaults.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProxySnapshot {
     enable: u32,
     server: Option<String>,
@@ -91,6 +93,32 @@ pub fn restore(snapshot: &ProxySnapshot) -> AppResult<()> {
     Ok(())
 }
 
+/// True when the OS proxy is on and aimed at our own loopback address.
+///
+/// The check is what keeps recovery safe: a proxy the user configured
+/// themselves points somewhere else, and must never be touched.
+pub fn points_at_loopback() -> bool {
+    let Ok(key) = open(KEY_READ) else {
+        return false;
+    };
+    if key.get_value::<u32, _>("ProxyEnable").unwrap_or(0) != 1 {
+        return false;
+    }
+    key.get_value::<String, _>("ProxyServer")
+        .map(|server| server.contains("127.0.0.1"))
+        .unwrap_or(false)
+}
+
+/// Switches the proxy off without claiming to know what preceded it.
+pub fn disable() -> AppResult<()> {
+    let key = open(KEY_WRITE)?;
+    key.set_value("ProxyEnable", &0u32)
+        .map_err(|e| AppError::SystemProxy(format!("disable proxy: {e}")))?;
+    let _ = key.delete_value("ProxyServer");
+    notify();
+    Ok(())
+}
+
 /// Tells already-running WinINET consumers to re-read the settings. Without
 /// this, open browsers keep using the old proxy until they restart.
 fn notify() {
@@ -119,7 +147,13 @@ mod tests {
     /// Round-trips the real registry: capture, apply, restore, and confirm the
     /// user's original settings came back byte-for-byte.
     #[test]
+    // Ignored by default: this mutates the machine-global WinINET settings,
+    // which a running Maizy session (or any other proxy app) also owns. A
+    // routine `cargo test` must never switch a user's networking out from
+    // under them. Run deliberately with `cargo test -- --ignored`.
+    #[ignore]
     fn apply_then_restore_leaves_no_trace() {
+        let _serial = super::super::lock_registry();
         let before = capture().expect("capture");
         apply("127.0.0.1:65000", super::super::LOOPBACK_BYPASS).expect("apply");
 
@@ -127,11 +161,33 @@ mod tests {
         assert_eq!(during.enable, 1);
         assert_eq!(during.server.as_deref(), Some("127.0.0.1:65000"));
 
+        assert!(points_at_loopback(), "our own proxy must be recognised");
+
         restore(&before).expect("restore");
 
         let after = capture().expect("capture after");
         assert_eq!(after.enable, before.enable);
         assert_eq!(after.server, before.server);
         assert_eq!(after.override_list, before.override_list);
+    }
+
+    /// Recovery must never reach for a proxy the user set up themselves.
+    #[test]
+    // Ignored by default: this mutates the machine-global WinINET settings,
+    // which a running Maizy session (or any other proxy app) also owns. A
+    // routine `cargo test` must never switch a user's networking out from
+    // under them. Run deliberately with `cargo test -- --ignored`.
+    #[ignore]
+    fn a_third_party_proxy_is_not_mistaken_for_ours() {
+        let _serial = super::super::lock_registry();
+        let before = capture().expect("capture");
+
+        apply("proxy.corp.example:8080", super::super::LOOPBACK_BYPASS).expect("apply");
+        assert!(
+            !points_at_loopback(),
+            "a non-loopback proxy must be left alone"
+        );
+
+        restore(&before).expect("restore");
     }
 }

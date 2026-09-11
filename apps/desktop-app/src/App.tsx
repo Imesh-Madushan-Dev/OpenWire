@@ -10,6 +10,7 @@ import { viewVariants } from '@/lib/motion'
 import { isActive } from '@/lib/types'
 import { ProtectionView } from '@/features/protection/protection-view'
 import { SettingsView } from '@/features/settings/settings-view'
+import { UsageView } from '@/features/usage/usage-view'
 import { useVpn } from '@/features/vpn/vpn-context'
 import { VpnProvider } from '@/features/vpn/vpn-provider'
 import { VpnView } from '@/features/vpn/vpn-view'
@@ -45,6 +46,7 @@ function Shell() {
               className="absolute inset-0"
             >
               {view === 'vpn' && <VpnView onOpenFeatures={() => setView('protection')} />}
+              {view === 'usage' && <UsageView />}
               {view === 'protection' && <ProtectionView />}
               {view === 'settings' && <SettingsView />}
             </motion.div>

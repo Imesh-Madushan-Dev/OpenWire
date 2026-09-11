@@ -6,11 +6,13 @@
 //! loopback address and lets the user point their browser at it manually -
 //! which works today and leaks nothing.
 
+use serde::{Deserialize, Serialize};
+
 use crate::error::AppResult;
 
 pub const IS_SUPPORTED: bool = false;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxySnapshot;
 
 pub fn capture() -> AppResult<ProxySnapshot> {
@@ -23,5 +25,13 @@ pub fn apply(addr: &str, _bypass: &str) -> AppResult<()> {
 }
 
 pub fn restore(_snapshot: &ProxySnapshot) -> AppResult<()> {
+    Ok(())
+}
+
+pub fn points_at_loopback() -> bool {
+    false
+}
+
+pub fn disable() -> AppResult<()> {
     Ok(())
 }
