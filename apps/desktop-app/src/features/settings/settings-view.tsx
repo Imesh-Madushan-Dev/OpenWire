@@ -1,6 +1,6 @@
 /** Settings: local proxy, servers, and diagnostics. */
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ComputerIcon,
@@ -17,7 +17,7 @@ import { ViewShell } from '@/components/view-shell'
 import { staggerChild, staggerParent } from '@/lib/motion'
 import { isActive } from '@/lib/types'
 import { ServerImportField } from '@/features/servers/server-import-field'
-import { useVpn } from '@/features/vpn/vpn-provider'
+import { useVpn } from '@/features/vpn/vpn-context'
 
 export function SettingsView() {
   const { settings, platform, servers, connection, updateSettings, removeServer } = useVpn()
@@ -35,7 +35,9 @@ export function SettingsView() {
         className="flex flex-col gap-6"
       >
         <SettingGroup title="Local proxy">
-          <PortRow />
+          {/* Keyed by the stored port: a change elsewhere remounts the field
+              with the right value instead of syncing it through an effect. */}
+          <PortRow key={settings.listenPort} port={settings.listenPort} />
           <SettingRow
             icon={ComputerIcon}
             title="Start in the tray"
@@ -152,22 +154,16 @@ function Fact({ label, value, mono }: { label: string; value: string; mono?: boo
  * The port is committed on blur or Enter rather than per keystroke - otherwise
  * every intermediate value would be validated and rejected.
  */
-function PortRow() {
-  const { settings, updateSettings, notify } = useVpn()
-  const [draft, setDraft] = useState(String(settings?.listenPort ?? ''))
-
-  useEffect(() => {
-    if (settings) setDraft(String(settings.listenPort))
-  }, [settings])
-
-  if (!settings) return null
+function PortRow({ port }: { port: number }) {
+  const { updateSettings, notify } = useVpn()
+  const [draft, setDraft] = useState(String(port))
 
   const commit = () => {
     const parsed = Number.parseInt(draft, 10)
-    if (parsed === settings.listenPort) return
+    if (parsed === port) return
 
     if (!Number.isFinite(parsed) || parsed < 1024 || parsed > 65535) {
-      setDraft(String(settings.listenPort))
+      setDraft(String(port))
       notify({ level: 'error', message: 'Choose a port between 1024 and 65535.' })
       return
     }

@@ -7,8 +7,6 @@
  */
 
 import {
-  createContext,
-  use,
   useCallback,
   useEffect,
   useMemo,
@@ -32,32 +30,7 @@ import {
   type StatsSnapshot,
 } from '@/lib/types'
 
-interface VpnContextValue {
-  connection: ConnectionState
-  stats: StatsSnapshot
-  servers: ServerSummary[]
-  settings: Settings | null
-  platform: PlatformInfo | null
-  optimal: ServerSummary | null
-  /** The node currently in use, or the one that would be used next. */
-  targetServer: ServerSummary | null
-  notice: Notice | null
-  probing: boolean
-  ready: boolean
-
-  toggle: () => Promise<void>
-  connect: (serverId?: string | null) => Promise<void>
-  disconnect: () => Promise<void>
-  chooseServer: (id: string) => Promise<void>
-  probeServers: () => Promise<void>
-  importServer: (uri: string) => Promise<ServerSummary | null>
-  removeServer: (id: string) => Promise<void>
-  updateSettings: (patch: SettingsPatch) => Promise<void>
-  notify: (notice: Notice) => void
-  dismissNotice: () => void
-}
-
-const VpnContext = createContext<VpnContextValue | null>(null)
+import { VpnContext, type VpnContextValue } from './vpn-context'
 
 export function VpnProvider({ children }: { children: ReactNode }) {
   const [connection, setConnection] = useState<ConnectionState>(INITIAL_CONNECTION)
@@ -72,6 +45,16 @@ export function VpnProvider({ children }: { children: ReactNode }) {
 
   /** Guards against overlapping connect/disconnect from the UI and the tray. */
   const inFlight = useRef(false)
+
+  /**
+   * Single funnel for connection updates. Zeroing the readout here - rather
+   * than in an effect watching the phase - avoids a cascading re-render and
+   * keeps the two pieces of state in step within one commit.
+   */
+  const applyConnection = useCallback((next: ConnectionState) => {
+    setConnection(next)
+    if (next.phase === 'disconnected') setStats(INITIAL_STATS)
+  }, [])
 
   const notify = useCallback((next: Notice) => setNotice(next), [])
   const dismissNotice = useCallback(() => setNotice(null), [])
@@ -102,7 +85,7 @@ export function VpnProvider({ children }: { children: ReactNode }) {
             api.optimalServer(),
           ])
         if (cancelled) return
-        setConnection(status)
+        applyConnection(status)
         setServers(serverList)
         setSettings(storedSettings)
         setPlatform(platformInfo)
@@ -118,13 +101,13 @@ export function VpnProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [surface])
+  }, [applyConnection, surface])
 
   useEffect(() => {
     // `listen` resolves to an unlisten fn; collect them so StrictMode's double
     // mount cannot leave a duplicate subscription behind.
     const pending = [
-      onConnectionState(setConnection),
+      onConnectionState(applyConnection),
       onStats(setStats),
       onNotice(setNotice),
     ]
@@ -134,12 +117,7 @@ export function VpnProvider({ children }: { children: ReactNode }) {
         void subscription.then((unlisten) => unlisten())
       }
     }
-  }, [])
-
-  /** Zero the readout as soon as a session ends, rather than freezing it. */
-  useEffect(() => {
-    if (connection.phase === 'disconnected') setStats(INITIAL_STATS)
-  }, [connection.phase])
+  }, [applyConnection])
 
   // -- actions --------------------------------------------------------------
 
@@ -154,27 +132,27 @@ export function VpnProvider({ children }: { children: ReactNode }) {
       if (inFlight.current) return
       inFlight.current = true
       try {
-        setConnection(await api.connect(serverId ?? null))
+        applyConnection(await api.connect(serverId ?? null))
       } catch (error) {
         surface(error)
       } finally {
         inFlight.current = false
       }
     },
-    [surface],
+    [applyConnection, surface],
   )
 
   const disconnect = useCallback(async () => {
     if (inFlight.current) return
     inFlight.current = true
     try {
-      setConnection(await api.disconnect())
+      applyConnection(await api.disconnect())
     } catch (error) {
       surface(error)
     } finally {
       inFlight.current = false
     }
-  }, [surface])
+  }, [applyConnection, surface])
 
   const toggle = useCallback(async () => {
     if (isBusy(connection.phase)) return
@@ -310,10 +288,4 @@ export function VpnProvider({ children }: { children: ReactNode }) {
   )
 
   return <VpnContext value={value}>{children}</VpnContext>
-}
-
-export function useVpn(): VpnContextValue {
-  const context = use(VpnContext)
-  if (!context) throw new Error('useVpn must be used inside <VpnProvider>')
-  return context
 }

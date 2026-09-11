@@ -12,7 +12,7 @@ import { LocationCard } from './components/location-card'
 import { PowerOrb } from './components/power-orb'
 import { StatsStrip } from './components/stats-strip'
 import { StatusHeadline } from './components/status-headline'
-import { useVpn } from './vpn-provider'
+import { useVpn } from './vpn-context'
 
 export function VpnView({ onOpenFeatures }: { onOpenFeatures: () => void }) {
   const { connection, stats, settings, targetServer, toggle, ready } = useVpn()

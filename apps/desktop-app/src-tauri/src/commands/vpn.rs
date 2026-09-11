@@ -46,6 +46,10 @@ pub async fn vpn_connect(
         conn.note = None;
     });
 
+    // Zero before the tunnel starts: the health watcher writes latency almost
+    // immediately, and resetting afterwards would wipe the first reading.
+    state.metrics.reset();
+
     let (events_tx, events_rx) = mpsc::unbounded_channel();
     let tunnel = match Tunnel::start(
         TunnelConfig {
@@ -100,7 +104,6 @@ pub async fn vpn_connect(
     }
 
     state.install(tunnel, guard);
-    state.metrics.reset();
     spawn_health_forwarder(app, events_rx);
 
     Ok(state.update_connection(|conn| {

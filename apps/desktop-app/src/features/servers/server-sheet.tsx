@@ -25,7 +25,7 @@ import { formatLatency, latencyQuality } from '@/lib/format'
 import { staggerChild, staggerParent } from '@/lib/motion'
 import type { ServerSummary } from '@/lib/types'
 import { RegionChip } from '@/features/vpn/components/region-chip'
-import { useVpn } from '@/features/vpn/vpn-provider'
+import { useVpn } from '@/features/vpn/vpn-context'
 
 import { ServerImportField } from './server-import-field'
 

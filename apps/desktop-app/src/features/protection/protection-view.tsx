@@ -11,7 +11,7 @@ import { motion } from 'motion/react'
 import { SettingGroup, SettingRow } from '@/components/setting-row'
 import { staggerParent } from '@/lib/motion'
 import { isActive } from '@/lib/types'
-import { useVpn } from '@/features/vpn/vpn-provider'
+import { useVpn } from '@/features/vpn/vpn-context'
 
 import { ViewShell } from '@/components/view-shell'
 

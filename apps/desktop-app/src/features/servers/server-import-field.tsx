@@ -12,7 +12,7 @@ import { Link01Icon, PlusSignIcon } from '@hugeicons/core-free-icons'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { useVpn } from '@/features/vpn/vpn-provider'
+import { useVpn } from '@/features/vpn/vpn-context'
 
 export function ServerImportField({ onAdded }: { onAdded?: () => void }) {
   const { importServer } = useVpn()

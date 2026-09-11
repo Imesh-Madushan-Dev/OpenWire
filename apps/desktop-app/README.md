@@ -1,78 +1,135 @@
-# React + TypeScript + Vite
+# Maizy VPN — desktop client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Tauri 2 + React 19 + Rust. A local proxy that wraps outbound traffic in TLS with
+a camouflaged SNI, so deep packet inspection sees a connection to a whitelisted
+service rather than to your VPS.
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
-
-Note: This will impact Vite dev & build performances.
-You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## How traffic actually flows
 
 ```
+app  ──SOCKS5/HTTP──▶  127.0.0.1:10808  ──VLESS over TLS──▶  VPS  ──▶  internet
+                       (Rust, loopback)   ClientHello SNI =
+                                          teams.microsoft.com
+```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+1. **Inbound** (`core/tunnel/inbound.rs`) — one loopback listener speaks both
+   SOCKS5 and HTTP proxy, chosen by sniffing the first byte. Windows apps mostly
+   use the HTTP proxy; everything else prefers SOCKS5.
+2. **Routing** (`core/tunnel/mod.rs`) — LAN and loopback destinations bypass the
+   tunnel when *Bypass local network* is on; everything else goes out masked.
+3. **Outbound** (`core/tunnel/vless.rs`) — TCP connects to the VPS, but the TLS
+   ClientHello carries the camouflage hostname. The real destination is inside
+   the encrypted VLESS payload.
+4. **System proxy** (`core/sysproxy/windows.rs`) — per-user WinINET registry
+   values, captured before they are touched and restored on disconnect, on exit,
+   and on panic.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Running it
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+bun install
+bun run tauri:dev      # from apps/desktop-app
+bun run tauri:build    # installer
+```
+
+Rust tests (protocol framing, relay, LAN routing, registry round-trip):
+
+```bash
+cd src-tauri && cargo test
+```
+
+## Adding a server
+
+The bundled catalog ships with **no credentials** — remote nodes show as *Setup
+required* until you add your own. Paste a `vless://` share link in **Settings →
+Your servers** or in the location picker:
 
 ```
+vless://<uuid>@<vps-host>:443?encryption=none&security=tls&sni=teams.microsoft.com&type=tcp#Tokyo
+```
+
+| Parameter  | Meaning                                                         |
+| ---------- | --------------------------------------------------------------- |
+| `<uuid>`   | Your access key from the server config                           |
+| `<vps-host>` | Where the TCP connection really goes                          |
+| `sni`      | Name shown to the network — the camouflage                       |
+| `security` | Must be `tls`                                                    |
+
+Links are written to `%APPDATA%/com.maizy.vpn/servers.json` on this machine
+only. They are never committed, bundled, or sent anywhere — and the UI never
+receives the key back from the backend, only the host.
+
+**`Direct (diagnostic)`** is a bundled node with no remote at all: the proxy
+dials destinations itself. Use it to confirm the listener, system proxy, and
+throughput counters work before blaming a server. It does **not** mask traffic,
+and the UI says so while it is in use.
+
+### Server side
+
+Any VLESS + TLS server works (Xray, V2Ray). Minimum inbound:
+
+```json
+{
+  "protocol": "vless",
+  "port": 443,
+  "settings": {
+    "clients": [{ "id": "<uuid>" }],
+    "decryption": "none"
+  },
+  "streamSettings": {
+    "network": "tcp",
+    "security": "tls",
+    "tlsSettings": { "certificates": [{ "certificateFile": "...", "keyFile": "..." }] }
+  }
+}
+```
+
+Certificate validation is **on** by default, so the endpoint must present a
+certificate valid for the `sni` you use. `allowInsecure=1` in the link turns it
+off — only do that when you control both ends and understand that an on-path
+attacker could then impersonate the exit.
+
+## Safety properties
+
+- The listener binds `127.0.0.1` only and rejects non-loopback peers, so it can
+  never become an open relay for your network.
+- System proxy changes are snapshotted and restored by an RAII guard — quitting,
+  crashing, or disconnecting all put your settings back.
+- **Kill switch** fails closed: while the server is unreachable the proxy refuses
+  connections rather than letting traffic out unmasked.
+- The webview has no filesystem, shell, or HTTP capability (see
+  `capabilities/default.json`), and runs under a restrictive CSP.
+- Errors cross the IPC boundary as `{ code, message }` with human-written text;
+  raw IO and TLS strings stay in the log.
+
+## Layout
+
+```
+src/
+  lib/                    ipc, shared types, formatting, motion tokens
+  components/             shell chrome (title bar, rail, notices, setting rows)
+  features/
+    vpn/                  dashboard, power orb, live stats
+    servers/              location picker, vless:// import
+    protection/           kill switch, LAN bypass, routing, startup
+    settings/             port, servers, diagnostics
+
+src-tauri/src/
+  commands/               the IPC surface (vpn, servers, settings)
+  core/
+    tunnel/               inbound proxy, VLESS outbound, relay, health watch
+    sysproxy/             per-platform OS proxy control
+    catalog · models · metrics · probe · store
+  state.rs                the one owner of mutable state
+  error.rs · tray.rs · lib.rs
+```
+
+## Not built yet
+
+- **TUN/Wintun capture.** Routing is system-proxy based, which covers apps that
+  honour the OS proxy. A virtual adapter would catch the rest.
+- **Remote catalog + accounts.** `DOCS/desktop-app.md` describes a Next.js and
+  Supabase control plane; the client is deliberately standalone for now, and
+  `servers.json` is the source of truth.
+- **macOS / Linux system proxy.** The tunnel runs everywhere; automatic OS
+  routing is Windows-only, and the UI says so and shows the manual address.
