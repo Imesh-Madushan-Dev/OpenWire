@@ -36,7 +36,7 @@ interface ServerSheetProps {
 
 const DOT_TONE = {
   good: 'bg-primary',
-  fair: 'bg-[color:var(--warning)]',
+  fair: 'bg-warning',
   poor: 'bg-destructive',
   unknown: 'bg-muted-foreground/40',
 } as const
@@ -72,7 +72,7 @@ export function ServerSheet({ open, onOpenChange }: ServerSheetProps) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="mx-auto max-h-[78vh] gap-0 rounded-t-3xl border-white/10 p-0 sm:max-w-none"
+        className="mx-auto max-h-[78vh] gap-0 rounded-t-3xl rounded-b-xl border-white/10 p-0 sm:max-w-none"
       >
         <SheetHeader className="gap-3 px-5 pt-5 pb-3">
           <div className="flex items-start justify-between gap-4">
@@ -192,7 +192,7 @@ function ServerRow({ server, selected, active, onSelect, onRemove }: ServerRowPr
                   icon={Crown02Icon}
                   size={12}
                   strokeWidth={2}
-                  className="shrink-0 text-[color:var(--warning)]"
+                  className="shrink-0 text-warning"
                   aria-label="Premium"
                 />
               )}

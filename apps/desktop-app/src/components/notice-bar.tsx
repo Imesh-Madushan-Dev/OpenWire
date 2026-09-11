@@ -22,7 +22,7 @@ const AUTO_DISMISS_MS = 6000
 
 const TONE = {
   info: 'border-white/10 text-foreground',
-  warning: 'border-[color:var(--warning)]/35 text-[color:var(--warning)]',
+  warning: 'border-warning/35 text-warning',
   error: 'border-destructive/40 text-destructive',
 } as const
 

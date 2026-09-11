@@ -20,7 +20,7 @@ const TONE: Record<Phase, string> = {
   disconnected: 'text-muted-foreground',
   connecting: 'text-foreground',
   connected: 'text-foreground',
-  reconnecting: 'text-[color:var(--warning)]',
+  reconnecting: 'text-warning',
   disconnecting: 'text-muted-foreground',
 }
 

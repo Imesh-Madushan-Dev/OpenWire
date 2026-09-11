@@ -18,7 +18,7 @@ interface LocationCardProps {
 
 const DOT_TONE = {
   good: 'bg-primary',
-  fair: 'bg-[color:var(--warning)]',
+  fair: 'bg-warning',
   poor: 'bg-destructive',
   unknown: 'bg-muted-foreground/50',
 } as const

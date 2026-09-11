@@ -61,7 +61,7 @@ export function SettingRow({
         )}
       </div>
 
-      {hint && <p className="pl-12 text-xs text-[color:var(--warning)]">{hint}</p>}
+      {hint && <p className="pl-12 text-xs text-warning">{hint}</p>}
     </motion.div>
   )
 }

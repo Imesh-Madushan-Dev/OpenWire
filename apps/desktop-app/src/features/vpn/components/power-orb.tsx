@@ -44,8 +44,8 @@ const TREATMENT: Record<
     label: 'Disconnect',
   },
   reconnecting: {
-    ring: 'border-[color:var(--warning)]/70',
-    icon: 'text-[color:var(--warning)]',
+    ring: 'border-warning/70',
+    icon: 'text-warning',
     glow: 0.45,
     label: 'Reconnecting',
   },

@@ -66,7 +66,7 @@ export function VpnView({ onOpenFeatures }: { onOpenFeatures: () => void }) {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 6 }}
-            className="relative mx-auto mb-3 max-w-md px-8 text-center text-xs text-[color:var(--warning)]"
+            className="relative mx-auto mb-3 max-w-md px-8 text-center text-xs text-warning"
             role="status"
           >
             {connection.note}

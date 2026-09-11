@@ -19,7 +19,7 @@ import type { StatsSnapshot } from '@/lib/types'
 
 const QUALITY_TONE = {
   good: 'text-primary',
-  fair: 'text-[color:var(--warning)]',
+  fair: 'text-warning',
   poor: 'text-destructive',
   unknown: 'text-muted-foreground',
 } as const
