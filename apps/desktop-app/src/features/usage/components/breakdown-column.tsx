@@ -53,7 +53,16 @@ export function BreakdownColumn({ title, icon, entries, emptyHint }: BreakdownCo
               layout
               className="flex min-w-0 flex-col gap-1.5"
             >
-              <div className="flex min-w-0 items-baseline gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                {/* Decorative: the name right beside it already says which app. */}
+                {entry.icon && (
+                  <img
+                    src={entry.icon}
+                    alt=""
+                    aria-hidden
+                    className="size-4 shrink-0 rounded-[3px]"
+                  />
+                )}
                 <span className="truncate text-xs font-medium" title={entry.key}>
                   {entry.key}
                 </span>

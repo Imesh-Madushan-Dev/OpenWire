@@ -136,6 +136,10 @@ pub enum Phase {
     Connected,
     Reconnecting,
     Disconnecting,
+    /// Routing locally with no remote, purely so traffic can be metered and
+    /// attributed. Deliberately distinct from `Connected`: nothing is masked,
+    /// and calling it protection would be a lie the user acts on.
+    Monitoring,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -205,6 +209,9 @@ pub struct Settings {
     pub launch_minimized: bool,
     /// Keep LAN + loopback destinations off the tunnel.
     pub lan_bypass: bool,
+    /// Keep routing through the local proxy while no VPN is connected, so the
+    /// usage breakdown can name apps and hosts. Needs `system_proxy`.
+    pub monitor_when_idle: bool,
     pub preferred_server: Option<String>,
 }
 
@@ -217,6 +224,7 @@ impl Default for Settings {
             auto_connect: false,
             launch_minimized: false,
             lan_bypass: true,
+            monitor_when_idle: false,
             preferred_server: None,
         }
     }
@@ -232,6 +240,7 @@ pub struct SettingsPatch {
     pub auto_connect: Option<bool>,
     pub launch_minimized: Option<bool>,
     pub lan_bypass: Option<bool>,
+    pub monitor_when_idle: Option<bool>,
     /// Double option: distinguishes "absent" from "explicit null", so the
     /// preferred server can actually be cleared.
     #[serde(default, deserialize_with = "double_option")]
@@ -264,6 +273,9 @@ impl Settings {
         }
         if let Some(v) = patch.lan_bypass {
             self.lan_bypass = v;
+        }
+        if let Some(v) = patch.monitor_when_idle {
+            self.monitor_when_idle = v;
         }
         if let Some(v) = patch.preferred_server {
             self.preferred_server = v;

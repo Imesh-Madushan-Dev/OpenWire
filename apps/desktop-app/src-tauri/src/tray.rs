@@ -62,7 +62,8 @@ pub fn sync(app: &AppHandle, phase: Phase, server: Option<&str>) {
     };
 
     let label = match phase {
-        Phase::Disconnected => "Connect",
+        // Monitoring is not a connection, so the action stays "Connect".
+        Phase::Disconnected | Phase::Monitoring => "Connect",
         Phase::Connecting => "Connecting...",
         Phase::Connected | Phase::Reconnecting => "Disconnect",
         Phase::Disconnecting => "Disconnecting...",
@@ -79,6 +80,7 @@ pub fn sync(app: &AppHandle, phase: Phase, server: Option<&str>) {
         (Phase::Reconnecting, _) => "Maizy VPN - reconnecting".to_string(),
         (Phase::Connecting, _) => "Maizy VPN - connecting".to_string(),
         (Phase::Disconnecting, _) => "Maizy VPN - disconnecting".to_string(),
+        (Phase::Monitoring, _) => "Maizy VPN - measuring usage only".to_string(),
         (Phase::Disconnected, _) => "Maizy VPN - disconnected".to_string(),
     };
     if let Some(tray) = app.tray_by_id("main") {

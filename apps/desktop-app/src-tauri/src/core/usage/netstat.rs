@@ -172,3 +172,55 @@ mod tests {
         assert_eq!(local_day(midnight + 86_399), local_day(midnight));
     }
 }
+
+#[cfg(all(test, windows))]
+mod diagnostics {
+    /// Prints every interface `GetIfTable2` reports, so the set being summed can
+    /// be compared against `Get-NetAdapterStatistics`.
+    /// Run with: cargo test diagnose_interfaces -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn diagnose_interfaces() {
+        use windows_sys::Win32::NetworkManagement::IpHelper::{
+            FreeMibTable, GetIfTable2, MIB_IF_ROW2, MIB_IF_TABLE2,
+        };
+
+        let mut table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
+        assert_eq!(unsafe { GetIfTable2(&mut table) }, 0, "GetIfTable2 failed");
+
+        unsafe {
+            let count = (*table).NumEntries as usize;
+            let rows = std::slice::from_raw_parts(
+                std::ptr::addr_of!((*table).Table).cast::<MIB_IF_ROW2>(),
+                count,
+            );
+            println!("\n{count} interfaces reported\n");
+            println!(
+                "{:<46} {:>4} {:>3} {:>4} {:>16}",
+                "alias", "oper", "hw", "filt", "in_octets"
+            );
+            for row in rows {
+                let alias_len = row
+                    .Alias
+                    .iter()
+                    .position(|c| *c == 0)
+                    .unwrap_or(row.Alias.len());
+                let alias = String::from_utf16_lossy(&row.Alias[..alias_len]);
+                // Bit 0 = HardwareInterface, bit 1 = FilterInterface.
+                let flags = row.InterfaceAndOperStatusFlags._bitfield;
+                if row.InOctets == 0 && row.OutOctets == 0 {
+                    continue;
+                }
+                println!(
+                    "{:<46} {:>4} {:>3} {:>4} {:>16}",
+                    alias,
+                    row.OperStatus,
+                    flags & 0x01,
+                    (flags >> 1) & 0x01,
+                    row.InOctets
+                );
+            }
+            FreeMibTable(table.cast());
+        }
+    }
+}

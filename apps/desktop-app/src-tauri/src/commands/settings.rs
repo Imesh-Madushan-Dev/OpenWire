@@ -1,8 +1,8 @@
 //! Settings commands.
 
-use tauri::State;
+use tauri::{AppHandle, State};
 
-use crate::core::models::{Settings, SettingsPatch};
+use crate::core::models::{ConnectionState, Settings, SettingsPatch};
 use crate::core::sysproxy::{self, Recovery};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
@@ -14,6 +14,7 @@ pub async fn settings_get(state: State<'_, AppState>) -> AppResult<Settings> {
 
 #[tauri::command]
 pub async fn settings_update(
+    app: AppHandle,
     state: State<'_, AppState>,
     patch: SettingsPatch,
 ) -> AppResult<Settings> {
@@ -31,6 +32,21 @@ pub async fn settings_update(
             || saved.kill_switch != previous.kill_switch)
     {
         state.notify("info", "Reconnect to apply the new connection settings.");
+    }
+
+    // Monitor mode is the one toggle that takes effect immediately, because it
+    // only ever starts or stops a route that no VPN session is using.
+    if saved.monitor_when_idle != previous.monitor_when_idle {
+        if saved.monitor_when_idle {
+            if !state.is_tunnel_up() {
+                if let Err(err) = super::vpn::start_monitor(app, state.inner()).await {
+                    state.notify("warning", err.user_message());
+                }
+            }
+        } else if state.is_monitoring() {
+            state.teardown();
+            state.update_connection(|conn| *conn = ConnectionState::default());
+        }
     }
 
     Ok(saved)
@@ -54,6 +70,11 @@ pub fn platform_info() -> serde_json::Value {
 /// would have fixed it.
 #[tauri::command]
 pub async fn network_restore(state: State<'_, AppState>) -> AppResult<String> {
+    if state.is_monitoring() {
+        return Err(AppError::Invalid(
+            "Turn off monitor mode first - it is using the proxy right now.".to_string(),
+        ));
+    }
     if state.is_tunnel_up() {
         return Err(AppError::Invalid(
             "Disconnect first - the proxy is in use right now.".to_string(),

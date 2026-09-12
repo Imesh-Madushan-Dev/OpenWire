@@ -12,7 +12,13 @@ import {
 import { AnimatePresence, motion } from 'motion/react'
 
 import { Segmented } from '@/components/segmented'
-import { NativeSelect } from '@/components/ui/native-select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { formatSpeed } from '@/lib/format'
 import { staggerParent, swapVariants } from '@/lib/motion'
 import type { UsageRange } from '@/lib/types'
@@ -96,18 +102,24 @@ function GraphTab() {
     <div className="flex h-full flex-col gap-3 px-8 pb-6">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <NativeSelect
-            value={String(scale)}
-            onChange={(event) => setScale(Number(event.target.value))}
-            aria-label="Graph scale"
-            className="h-8 w-auto text-xs"
+          {/* `items` lets the trigger show the label rather than the raw
+              byte-rate value the graph needs. */}
+          <Select
+            items={SCALE_OPTIONS}
+            value={scale}
+            onValueChange={(value) => setScale(value ?? 0)}
           >
-            {SCALE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </NativeSelect>
+            <SelectTrigger size="sm" aria-label="Graph scale" className="text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SCALE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           {/* Pausing only makes sense where points are still arriving. */}
           {live && (
@@ -177,9 +189,14 @@ function UsageTab() {
   const [range, setRange] = useState<UsageRange>('day')
   const summary = useSummary(range)
 
-  const attributionHint = summary.attributionSupported
-    ? 'Recorded while the VPN is connected.'
-    : 'Per-app names need Windows.'
+  // An empty column has two very different causes, and "Recorded while the VPN
+  // is connected" reads as a fault rather than as the reason when the real
+  // answer is simply that nothing was tunnelled yet.
+  const attributionHint = !summary.attributionSupported
+    ? 'Per-app names need Windows.'
+    : summary.tunnelUp + summary.tunnelDown === 0
+      ? 'No traffic went through Maizy in this period. Connect, or turn on "Measure usage while disconnected" in Features.'
+      : 'Recorded while the VPN is connected.'
 
   return (
     <div className="h-full overflow-y-auto px-8 pb-8">

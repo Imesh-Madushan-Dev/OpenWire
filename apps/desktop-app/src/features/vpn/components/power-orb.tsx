@@ -55,6 +55,14 @@ const TREATMENT: Record<
     glow: 0.2,
     label: 'Disconnecting',
   },
+  // Reads as off, because it is off - only the dimmer ring hints that
+  // something is still running.
+  monitoring: {
+    ring: 'border-white/12',
+    icon: 'text-muted-foreground',
+    glow: 0.12,
+    label: 'Connect',
+  },
 }
 
 export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {

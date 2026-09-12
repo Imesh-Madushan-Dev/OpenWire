@@ -5,8 +5,11 @@
 //! then resolve the PID to an executable name. No kernel driver, no elevation -
 //! which is why this works at all without the privileges GlassWire needs.
 
+use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
+
+use super::icon;
 
 pub const UNKNOWN_APP: &str = "Unknown app";
 
@@ -20,7 +23,13 @@ struct Inner {
     /// (local port, pid) pairs from the last table read.
     table: Vec<(u16, u32)>,
     read_at: Option<Instant>,
-    names: std::collections::HashMap<u32, String>,
+    names: HashMap<u32, String>,
+    /// Executable name -> full path, so an icon can be extracted later without
+    /// the process still being alive.
+    paths: HashMap<String, String>,
+    /// Extracted icons, `None` for an exe we already failed on - the summary is
+    /// polled every ten seconds and must not retry the shell each time.
+    icons: HashMap<String, Option<String>>,
 }
 
 /// A table older than this is refreshed before reporting a miss; a connection
@@ -39,7 +48,9 @@ impl ProcessResolver {
             inner: Mutex::new(Inner {
                 table: Vec::new(),
                 read_at: None,
-                names: std::collections::HashMap::new(),
+                names: HashMap::new(),
+                paths: HashMap::new(),
+                icons: HashMap::new(),
             }),
         }
     }
@@ -69,13 +80,47 @@ impl ProcessResolver {
             return Some(name.clone());
         }
 
-        let name = process_name(pid)?;
+        let (name, path) = process_image(pid)?;
         inner.names.insert(pid, name.clone());
+        inner.paths.insert(name.clone(), path);
         // PIDs are recycled, so this cache must not grow forever.
         if inner.names.len() > 512 {
             inner.names.clear();
         }
         Some(name)
+    }
+
+    /// PNG data URL for an app's icon, or `None` when its path is unknown or
+    /// carries no icon.
+    pub fn icon_for_app(&self, app: &str) -> Option<String> {
+        let mut inner = self.inner.lock().ok()?;
+
+        if let Some(cached) = inner.icons.get(app) {
+            return cached.clone();
+        }
+
+        let path = inner.paths.get(app)?.clone();
+        let extracted = icon::data_url(&path);
+        inner.icons.insert(app.to_string(), extracted.clone());
+        extracted
+    }
+
+    /// The name -> path pairs learned so far, for persisting alongside history.
+    pub fn known_paths(&self) -> HashMap<String, String> {
+        self.inner
+            .lock()
+            .map(|inner| inner.paths.clone())
+            .unwrap_or_default()
+    }
+
+    /// Restores paths from a previous run so icons appear before the app in
+    /// question has opened a connection in this one.
+    pub fn seed_paths(&self, paths: HashMap<String, String>) {
+        if let Ok(mut inner) = self.inner.lock() {
+            for (name, path) in paths {
+                inner.paths.entry(name).or_insert(path);
+            }
+        }
     }
 }
 
@@ -152,8 +197,9 @@ fn read_tcp_table() -> Option<Vec<(u16, u32)>> {
     )
 }
 
+/// `(executable name, full path)` for a pid.
 #[cfg(windows)]
-fn process_name(pid: u32) -> Option<String> {
+fn process_image(pid: u32) -> Option<(String, String)> {
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::System::Threading::{
         OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
@@ -178,15 +224,16 @@ fn process_name(pid: u32) -> Option<String> {
     }
 
     let full = String::from_utf16_lossy(&buffer[..len as usize]);
-    // Just the file name: the full path is noise in a usage list, and hiding it
-    // avoids putting user directory names on screen.
-    Some(
-        full.rsplit(['\\', '/'])
-            .next()
-            .filter(|name| !name.is_empty())
-            .unwrap_or(&full)
-            .to_string(),
-    )
+    // Only the file name is ever shown: the full path is noise in a usage list,
+    // and hiding it keeps user directory names off screen. The path is still
+    // kept, because extracting the icon needs it.
+    let name = full
+        .rsplit(['\\', '/'])
+        .next()
+        .filter(|name| !name.is_empty())
+        .unwrap_or(&full)
+        .to_string();
+    Some((name, full))
 }
 
 #[cfg(not(windows))]
@@ -197,7 +244,7 @@ fn read_tcp_table() -> Option<Vec<(u16, u32)>> {
 }
 
 #[cfg(not(windows))]
-fn process_name(_pid: u32) -> Option<String> {
+fn process_image(_pid: u32) -> Option<(String, String)> {
     None
 }
 
@@ -230,5 +277,30 @@ mod tests {
             .expect("the owning process should be found");
 
         assert!(name.ends_with(".exe"), "expected an executable name, got {name}");
+    }
+
+    /// The resolver must remember where an app lives, since the icon is read
+    /// from the file long after the connection closed.
+    #[cfg(windows)]
+    #[test]
+    fn resolving_an_app_records_a_path_an_icon_can_be_read_from() {
+        use std::net::{TcpListener, TcpStream};
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+        let client = TcpStream::connect(listener.local_addr().expect("addr")).expect("connect");
+        let _accepted = listener.accept().expect("accept");
+
+        let resolver = ProcessResolver::new();
+        let name = resolver
+            .app_for_port(client.local_addr().expect("local addr").port())
+            .expect("owning process");
+
+        let path = resolver.known_paths().get(&name).cloned().expect("a path");
+        assert!(path.ends_with(&name), "{path} should end with {name}");
+        // Whether *this* binary carries an icon is incidental - the test runner
+        // has none. What matters is that the lookup runs off the stored path
+        // and caches its answer; `icon::tests` covers real extraction.
+        assert_eq!(resolver.icon_for_app(&name), resolver.icon_for_app(&name));
+        assert_eq!(resolver.icon_for_app("never-seen.exe"), None);
     }
 }

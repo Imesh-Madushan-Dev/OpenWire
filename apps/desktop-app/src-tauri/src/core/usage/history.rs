@@ -138,9 +138,15 @@ pub struct History {
     /// Keyed by local day number (days since the Unix epoch in local time).
     days: BTreeMap<i64, DayBreakdown>,
 
-    #[serde(skip)]
+    /// Executable path per app name, so an icon can still be shown for an app
+    /// that only appears in history from a previous run.
+    app_paths: HashMap<String, String>,
+
+    /// The buckets still being filled. Persisted: skipping them threw away up
+    /// to a minute of the 24-hour tier and up to an hour of the week/month
+    /// tiers on every restart, which made those graphs look empty after a
+    /// relaunch.
     minute_acc: Option<Sample>,
-    #[serde(skip)]
     hour_acc: Option<Sample>,
 }
 
@@ -180,12 +186,25 @@ impl History {
         day.down += down;
     }
 
+    pub fn app_paths(&self) -> &HashMap<String, String> {
+        &self.app_paths
+    }
+
+    pub fn set_app_paths(&mut self, paths: HashMap<String, String>) {
+        self.app_paths = paths;
+    }
+
     /// Drops anything past the retention window.
     pub fn prune(&mut self, today: i64) {
         let cutoff = today - DAYS_KEPT as i64 + 1;
         self.days.retain(|day, _| *day >= cutoff);
         trim(&mut self.minutes, MINUTES_KEPT);
         trim(&mut self.hours, HOURS_KEPT);
+
+        // Paths are only worth keeping for apps a retained day still names.
+        let days = &self.days;
+        self.app_paths
+            .retain(|app, _| days.values().any(|day| day.apps.contains_key(app)));
     }
 
     /// Timeline for a range, including the bucket still being filled so the
@@ -387,6 +406,51 @@ mod tests {
         let counted: u64 = day.hosts.values().map(Pair::total).sum();
         assert_eq!(counted, day.tunnel_down);
         assert!(day.hosts.contains_key("host0"), "largest entry survives");
+    }
+
+    /// The regression this guards: the open minute and hour buckets used to be
+    /// `#[serde(skip)]`, so every relaunch silently dropped up to an hour of
+    /// the rolled-up tiers and the week graph came back near-empty.
+    #[test]
+    fn an_open_bucket_survives_a_save_and_reload() {
+        let mut history = History::default();
+        for second in 0..90 {
+            history.push(sample(second, 1_000));
+        }
+        history.record_breakdown(7, "edge.exe", "a.example", "HTTPS", 1, 9);
+        history.set_app_paths(HashMap::from([(
+            "edge.exe".to_string(),
+            r"C:\edge.exe".to_string(),
+        )]));
+
+        let before = history.timeline(Range::Week);
+        let json = serde_json::to_string(&history).expect("serialize");
+        let after: History = serde_json::from_str(&json).expect("deserialize");
+
+        assert_eq!(after.timeline(Range::Week), before, "open hour bucket lost");
+        assert_eq!(after.timeline(Range::Day), history.timeline(Range::Day));
+        assert_eq!(after.summary(Range::Day, 7).apps.len(), 1);
+        assert_eq!(
+            after.app_paths().get("edge.exe").map(String::as_str),
+            Some(r"C:\edge.exe"),
+            "icon paths must survive a restart too"
+        );
+    }
+
+    #[test]
+    fn pruning_forgets_paths_for_apps_no_retained_day_names() {
+        let mut history = History::default();
+        let today = 20_000;
+        history.record_breakdown(today, "kept.exe", "h", "HTTPS", 1, 1);
+        history.record_breakdown(today - 200, "gone.exe", "h", "HTTPS", 1, 1);
+        history.set_app_paths(HashMap::from([
+            ("kept.exe".to_string(), r"C:\kept.exe".to_string()),
+            ("gone.exe".to_string(), r"C:\gone.exe".to_string()),
+        ]));
+
+        history.prune(today);
+        assert!(history.app_paths().contains_key("kept.exe"));
+        assert!(!history.app_paths().contains_key("gone.exe"));
     }
 
     #[test]

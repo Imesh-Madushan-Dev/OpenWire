@@ -9,6 +9,8 @@ export type Phase =
   | 'connected'
   | 'reconnecting'
   | 'disconnecting'
+  /** Routing locally so usage can be attributed, with nothing masked. */
+  | 'monitoring'
 
 export type Tier = 'free' | 'premium'
 
@@ -60,6 +62,7 @@ export interface Settings {
   autoConnect: boolean
   launchMinimized: boolean
   lanBypass: boolean
+  monitorWhenIdle: boolean
   preferredServer: string | null
 }
 
@@ -109,6 +112,17 @@ export function isBusy(phase: Phase): boolean {
   return phase === 'connecting' || phase === 'disconnecting'
 }
 
+/**
+ * True whenever the local proxy holds the OS routing - protected or not.
+ *
+ * Distinct from `isActive` on purpose: monitor mode owns the system proxy
+ * without protecting anything, so "is the user safe" and "is the proxy in use"
+ * are different questions and the wrong one silently breaks the other.
+ */
+export function isRouting(phase: Phase): boolean {
+  return isActive(phase) || phase === 'monitoring'
+}
+
 // ---------------------------------------------------------------------------
 // Network usage — mirrors `src-tauri/src/core/usage/`
 // ---------------------------------------------------------------------------
@@ -132,6 +146,9 @@ export interface UsageEntry {
   up: number
   down: number
   total: number
+  /** PNG data URL of the app's icon. Apps column only, and only when the
+   *  executable could be located and read. */
+  icon?: string
 }
 
 export interface UsageSummary {

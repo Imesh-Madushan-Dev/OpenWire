@@ -6,6 +6,7 @@
 //! and their packets.
 
 pub mod history;
+pub mod icon;
 pub mod netstat;
 pub mod process;
 
@@ -166,13 +167,16 @@ impl UsageTracker {
             .flatten()
             .unwrap_or_default();
 
+        let resolver = ProcessResolver::new();
+        resolver.seed_paths(history.app_paths().clone());
+
         Self {
             live: Mutex::new(HashMap::new()),
             drained: Mutex::new(Vec::new()),
             next_id: AtomicU64::new(1),
             history: Mutex::new(history),
             interfaces: Mutex::new(InterfaceCounters::new()),
-            resolver: ProcessResolver::new(),
+            resolver,
         }
     }
 
@@ -293,11 +297,19 @@ impl UsageTracker {
             total_down: merged.down,
             tunnel_up: merged.tunnel_up,
             tunnel_down: merged.tunnel_down,
-            apps: to_entries(&merged.apps),
+            apps: self.with_icons(to_entries(&merged.apps)),
             hosts: to_entries(&merged.hosts),
             kinds: to_entries(&merged.kinds),
             attribution_supported: cfg!(windows),
         }
+    }
+
+    /// Attaches each app's executable icon to its row.
+    fn with_icons(&self, mut entries: Vec<UsageEntry>) -> Vec<UsageEntry> {
+        for entry in &mut entries {
+            entry.icon = self.resolver.icon_for_app(&entry.key);
+        }
+        entries
     }
 
     /// Trims to the retention window and writes to disk.
@@ -305,6 +317,7 @@ impl UsageTracker {
         let Ok(mut history) = self.history.lock() else {
             return Ok(());
         };
+        history.set_app_paths(self.resolver.known_paths());
         history.prune(netstat::local_day(unix_seconds()));
         store::write_json(path, &*history)
     }
@@ -318,6 +331,7 @@ fn to_entries(map: &HashMap<String, Pair>) -> Vec<UsageEntry> {
             up: pair.up,
             down: pair.down,
             total: pair.total(),
+            icon: None,
         })
         .collect()
 }
@@ -333,6 +347,10 @@ pub struct UsageEntry {
     pub up: u64,
     pub down: u64,
     pub total: u64,
+    /// PNG data URL of the app's executable icon. Only ever set on the apps
+    /// column, and only where the exe could be located and read.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -10,7 +10,7 @@ import { motion } from 'motion/react'
 
 import { Button } from '@/components/ui/button'
 import { staggerChild } from '@/lib/motion'
-import { isActive } from '@/lib/types'
+import { isRouting } from '@/lib/types'
 import { useVpn } from '@/features/vpn/vpn-context'
 
 interface ActionCardProps {
@@ -44,7 +44,7 @@ export function ActionCard({ onAddServer, onOpenFeatures }: ActionCardProps) {
 
     // Connected without the OS proxy: the address is the only way in, so
     // surface it rather than leaving the user to guess.
-    if (isActive(connection.phase) && !connection.systemProxy && connection.listenAddr) {
+    if (isRouting(connection.phase) && !connection.systemProxy && connection.listenAddr) {
       return {
         icon: Wifi01Icon,
         title: `Proxy at ${connection.listenAddr}`,

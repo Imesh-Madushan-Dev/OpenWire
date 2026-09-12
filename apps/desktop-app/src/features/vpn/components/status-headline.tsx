@@ -14,6 +14,7 @@ const HEADLINE: Record<Phase, string> = {
   connected: 'You are protected',
   reconnecting: 'Connection interrupted',
   disconnecting: 'Closing the tunnel',
+  monitoring: 'VPN is off, measuring usage',
 }
 
 const TONE: Record<Phase, string> = {
@@ -22,11 +23,16 @@ const TONE: Record<Phase, string> = {
   connected: 'text-foreground',
   reconnecting: 'text-warning',
   disconnecting: 'text-muted-foreground',
+  // Not protected, so it must not borrow the protected colour.
+  monitoring: 'text-muted-foreground',
 }
 
 export function StatusHeadline({ connection }: { connection: ConnectionState }) {
   const { phase, serverName, exitHost, countryCode } = connection
-  const showLocation = phase !== 'disconnected' && Boolean(serverName)
+  // Monitor mode has no exit location worth showing - traffic leaves from
+  // this device, which is what "VPN is off" already says.
+  const showLocation =
+    phase !== 'disconnected' && phase !== 'monitoring' && Boolean(serverName)
 
   return (
     <div className="flex flex-col items-center gap-2 text-center">
@@ -79,7 +85,9 @@ export function StatusHeadline({ connection }: { connection: ConnectionState }) 
               exit="exit"
               className="text-sm text-muted-foreground"
             >
-              Your traffic is exposed to your network
+              {phase === 'monitoring'
+                ? 'Your traffic is exposed, but Maizy can see where it goes'
+                : 'Your traffic is exposed to your network'}
             </motion.p>
           )}
         </AnimatePresence>

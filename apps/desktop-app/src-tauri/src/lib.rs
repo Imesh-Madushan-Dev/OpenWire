@@ -71,9 +71,7 @@ pub fn run() {
                 }
             }
 
-            if settings.auto_connect {
-                spawn_auto_connect(handle);
-            }
+            spawn_startup_route(handle, settings.auto_connect, settings.monitor_when_idle);
 
             Ok(())
         })
@@ -169,16 +167,35 @@ fn spawn_initial_probe(app: AppHandle) {
     });
 }
 
-fn spawn_auto_connect(app: AppHandle) {
-    tauri::async_runtime::spawn(async move {
-        // Let the initial probe land so "optimal" picks a measured node.
-        tokio::time::sleep(Duration::from_secs(2)).await;
+/// Auto-connects if asked, and otherwise falls back to monitor mode so the
+/// usage breakdown has something to attribute from launch.
+fn spawn_startup_route(app: AppHandle, auto_connect: bool, monitor_when_idle: bool) {
+    if !auto_connect && !monitor_when_idle {
+        return;
+    }
 
-        let state = app.state::<AppState>();
-        if let Err(err) = commands::vpn::vpn_connect(app.clone(), state, None).await {
-            log::warn!("auto-connect failed: {err}");
+    tauri::async_runtime::spawn(async move {
+        if auto_connect {
+            // Let the initial probe land so "optimal" picks a measured node.
+            tokio::time::sleep(Duration::from_secs(2)).await;
+
             let state = app.state::<AppState>();
-            state.notify("error", err.user_message());
+            match commands::vpn::vpn_connect(app.clone(), state, None).await {
+                Ok(_) => return,
+                Err(err) => {
+                    log::warn!("auto-connect failed: {err}");
+                    app.state::<AppState>().notify("error", err.user_message());
+                }
+            }
+        }
+
+        if monitor_when_idle {
+            let state = app.state::<AppState>();
+            // Not reaching the user: monitor mode is a convenience, and its
+            // reasons for not starting are not something to interrupt over.
+            if let Err(err) = commands::vpn::start_monitor(app.clone(), state.inner()).await {
+                log::info!("monitor mode not started: {err}");
+            }
         }
     });
 }

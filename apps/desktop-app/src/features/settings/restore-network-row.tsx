@@ -12,15 +12,16 @@ import { RefreshIcon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { SettingRow } from '@/components/setting-row'
 import { api, VpnError } from '@/lib/ipc'
-import { isActive } from '@/lib/types'
+import { isRouting } from '@/lib/types'
 import { useVpn } from '@/features/vpn/vpn-context'
 
 export function RestoreNetworkRow() {
   const { connection, notify } = useVpn()
   const [working, setWorking] = useState(false)
 
-  // Repairing while the tunnel is up would cut the proxy out from under it.
-  const connected = isActive(connection.phase)
+  // Repairing while the tunnel is up would cut the proxy out from under it -
+  // monitor mode included, since it holds the same proxy.
+  const connected = isRouting(connection.phase)
 
   const restore = async () => {
     setWorking(true)

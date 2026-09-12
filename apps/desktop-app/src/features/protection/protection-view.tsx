@@ -1,6 +1,7 @@
 /** Protection features: the switches that change how traffic is handled. */
 
 import {
+  ChartHistogramIcon,
   Rocket01Icon,
   Route01Icon,
   Shield01Icon,
@@ -67,6 +68,22 @@ export function ProtectionView() {
               proxyUnsupported
                 ? `Automatic routing isn't available on ${platform?.platform ?? 'this platform'} yet - point apps at the proxy address shown on the dashboard.`
                 : restartHint
+            }
+          />
+        </SettingGroup>
+
+        <SettingGroup title="Usage tracking">
+          <SettingRow
+            icon={ChartHistogramIcon}
+            title="Measure usage while disconnected"
+            description="Keep routing through Maizy when no VPN is connected, so the Network view can still name which apps and hosts used your bandwidth. Your traffic is not masked - it goes straight out, exactly as it would without Maizy."
+            checked={settings.monitorWhenIdle && settings.systemProxy && !proxyUnsupported}
+            onChange={(next) => void updateSettings({ monitorWhenIdle: next })}
+            disabled={proxyUnsupported || !settings.systemProxy}
+            hint={
+              proxyUnsupported || !settings.systemProxy
+                ? 'Needs "Route all apps" above, which is how traffic reaches Maizy to be counted.'
+                : 'Only apps that follow the Windows proxy are counted; the total on the ring always covers everything.'
             }
           />
         </SettingGroup>

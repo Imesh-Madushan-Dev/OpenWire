@@ -14,7 +14,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::core::catalog;
 use crate::core::metrics::Metrics;
 use crate::core::models::{
-    ConnectionState, ServerNode, ServerSummary, Settings, StatsSnapshot,
+    ConnectionState, Phase, ServerNode, ServerSummary, Settings, StatsSnapshot,
 };
 use crate::core::store;
 use crate::core::sysproxy::{self, ProxyGuard, Recovery};
@@ -247,6 +247,13 @@ impl AppState {
 
     pub fn is_tunnel_up(&self) -> bool {
         self.tunnel.lock().expect("tunnel lock").is_some()
+    }
+
+    /// True while the route up is monitor mode rather than a VPN session. The
+    /// tunnel is up in both cases, so callers that mean "protected" must ask
+    /// this too.
+    pub fn is_monitoring(&self) -> bool {
+        matches!(self.connection().phase, Phase::Monitoring)
     }
 
     /// Tears down in the safe order: restore the OS proxy first, then stop the
