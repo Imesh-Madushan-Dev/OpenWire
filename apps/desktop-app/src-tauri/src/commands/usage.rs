@@ -1,7 +1,7 @@
 //! Network usage queries.
 
 use serde::Serialize;
-use tauri::State;
+use tauri::{Manager, State};
 
 use crate::core::usage::history::{Range, Sample};
 use crate::core::usage::UsageSummary;
@@ -41,6 +41,32 @@ pub async fn usage_summary_between(
     to_ts: i64,
 ) -> AppResult<UsageSummary> {
     Ok(state.usage.summary_between(from_ts, to_ts))
+}
+
+/// Device-wide per-app usage for a period: every app on the machine, not only
+/// what passed through the tunnel.
+///
+/// Read from Windows' own per-app accounting, which takes seconds, so it runs
+/// on a blocking worker and the UI fetches it separately from the summary
+/// rather than waiting on it.
+#[tauri::command]
+pub async fn usage_device_apps(
+    app: tauri::AppHandle,
+    from_ts: i64,
+    to_ts: i64,
+) -> AppResult<Vec<crate::core::usage::UsageEntry>> {
+    let handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        handle
+            .try_state::<AppState>()
+            .map(|state| state.usage.device_apps(from_ts, to_ts))
+            .unwrap_or_default()
+    })
+    .await
+    .map_err(|err| {
+        log::warn!("device usage query panicked: {err}");
+        crate::error::AppError::Config("could not read per-app usage".to_string())
+    })
 }
 
 /// The period the store actually holds, so the UI can offer months that have

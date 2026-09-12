@@ -12,6 +12,7 @@ import { api, onUsageSample } from '@/lib/ipc'
 import {
   EMPTY_SUMMARY,
   type UsageRange,
+  type UsageEntry,
   type UsageSample,
   type UsageSpan,
   type UsageSummary,
@@ -128,4 +129,48 @@ export function useUsageSpan(): UsageSpan | null {
   }, [])
 
   return span
+}
+
+/**
+ * Device-wide per-app usage for a resolved span.
+ *
+ * Kept apart from `useSummary` because it is a different animal: Windows takes
+ * several seconds to answer, so this loads once per period and is never polled.
+ * The span comes from the summary the backend actually returned, so both
+ * columns describe the same days.
+ */
+export function useDeviceApps(fromTs: number, toTs: number) {
+  // The loaded span is stored alongside its rows, so "still loading" is derived
+  // from a mismatch rather than from a flag set inside the effect.
+  const [loaded, setLoaded] = useState<{ key: string; entries: UsageEntry[] }>({
+    key: '',
+    entries: [],
+  })
+
+  const key = `${fromTs}:${toTs}`
+
+  useEffect(() => {
+    if (fromTs <= 0 || toTs <= 0) return
+
+    let cancelled = false
+    void api
+      .usageDeviceApps(fromTs, toTs)
+      .then((entries) => {
+        if (!cancelled) setLoaded({ key, entries })
+      })
+      .catch(() => {
+        // Falls back to the relay-attributed column, which is always there.
+        if (!cancelled) setLoaded({ key, entries: [] })
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [key, fromTs, toTs])
+
+  const ready = loaded.key === key
+  return {
+    entries: ready ? loaded.entries : [],
+    loading: !ready && fromTs > 0 && toTs > 0,
+  }
 }

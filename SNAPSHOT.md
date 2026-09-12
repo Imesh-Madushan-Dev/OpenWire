@@ -47,6 +47,7 @@ reserved for protection state, never decoration.
 | System proxy engage/restore + **crash recovery** | opt-in registry round-trip tests |
 | Per-app attribution (PID → exe name) | test resolves a live loopback socket |
 | Monitor mode: attribution with no VPN connected | bundled-node guard test; shares the relay path |
+| Device-wide per-app usage via WinRT/SRUM | live test against the real table: 91 apps, 18 GB/30d |
 | Usage history tiers + day buckets | unit tests incl. retention and capping |
 | System-wide throughput counters | **over-counts — see §3** |
 | Tray, custom window chrome, 5 views | ran the built binary |
@@ -245,27 +246,48 @@ has twice hit `os error 112` mid-build. `cargo clean` reclaims it; a rebuild is
 ~4 min. Consider pointing `CARGO_TARGET_DIR` at a roomier drive — **not changed**,
 since it affects the whole environment.
 
-### 5.6 Attribution has exactly one source: the relay
+### 5.6 Attribution has two sources, and they answer different questions
 
-Nothing names an app or host unless the bytes passed through our listener.
-Windows exposes no per-process byte counters to an unelevated process -
-`GetExtendedTcpTable` gives PID and remote address but no counters,
-`GetPerTcpConnectionEStats` needs Administrator, `GetProcessIoCounters` mixes
-disk with network, and `GetIfTable2` is per-adapter only. So the ring (adapter
-totals) and the three columns (relayed traffic) answer different questions and
-cannot be reconciled by arithmetic.
+**Apps: Windows' own accounting (`core/usage/srum.rs`).** Windows already
+records per-app network bytes for Settings -> Network -> Data usage, and
+`GetAttributedNetworkUsageAsync` hands it to an unpackaged desktop app with no
+elevation. That is device-wide per-app attribution for free - 91 apps and 18 GB
+over 30 days on the development box. It carries **no destinations**: bytes per
+app, nothing about hosts or ports.
 
-**Monitor mode** is the unelevated answer: `monitorWhenIdle` keeps the
-`maizy-direct` route up while no VPN is connected, so the system proxy still
-points at us and the same per-connection accounting runs with the outbound hop
-missing. `Phase::Monitoring` exists to keep that visibly distinct from
-`Connected` - the orb stays off and the headline says the VPN is off, because
-nothing is masked. `isRouting()` on the TS side is the "does the proxy belong
-to us" question that `isActive()` must not be used for, or the
+Two shapes of attribution id come back: an NT device path
+(`\device\harddiskvolume9\...\msedge.exe`), mapped to a DOS path via
+`QueryDosDeviceW` so the icon extractor can open it, and a package family name
+(`5319275A.WhatsAppDesktop_cv1g1gvanyjgm`), trimmed to a readable leaf. An empty
+id is real: it is the kernel and the shared service hosts, shown as
+`System and services`.
+
+It is **slow**. A machine keeps a `ConnectionProfile` per network it has ever
+joined - 42 here - and each is its own round-trip. Starting them all before
+awaiting any takes a 30-day query from ~15s to ~7s, and no further. So it is
+fetched per period, cached by day span, and run on a blocking worker. Never poll
+it, and never put it on the 1 Hz sampler.
+
+**Hosts and traffic type: the relay only.** Nothing names a host unless the
+bytes passed through our listener. Windows exposes no per-process byte counters
+to an unelevated process - `GetExtendedTcpTable` gives PID and remote address
+but no counters, `GetPerTcpConnectionEStats` needs Administrator,
+`GetProcessIoCounters` mixes disk with network, and `GetIfTable2` is per-adapter
+only. An ETW kernel trace would give both halves at once, but needs
+Administrator or *Performance Log Users*.
+
+**Monitor mode** widens what the relay sees, for the columns SRUM cannot fill:
+`monitorWhenIdle` keeps the `maizy-direct` route up while no VPN is connected,
+so the system proxy still points at us and the same per-connection accounting
+runs with the outbound hop missing. `Phase::Monitoring` exists to keep that
+visibly distinct from `Connected` - the orb stays off and the headline says the
+VPN is off, because nothing is masked. `isRouting()` on the TS side is the "does
+the proxy belong to us" question that `isActive()` must not be used for, or the
 restore-network button will fight a live monitor session.
 
-Do not resolve a "columns are empty" report by making the ring feed them. The
-honest empty state is the feature.
+Do not resolve an "empty columns" report by making the ring feed them, and do
+not try to reconcile Apps against Hosts: they are measured by different systems
+over the same days, and only Apps is device-wide.
 
 ### 5.7 Tooling
 
@@ -289,7 +311,7 @@ honest empty state is the feature.
 | TUN / Wintun capture | Routing is system-proxy based. A virtual adapter would catch apps that ignore the OS proxy. |
 | Remote catalog, accounts, tiers | `DOCS/desktop-app.md` describes a Next.js + Supabase control plane. Explicitly deferred; `servers.json` is the source of truth. Premium is a badge with nothing behind it. |
 | macOS / Linux system proxy | Tunnel runs everywhere; automatic OS routing is Windows-only. UI says so and shows the manual address. |
-| Per-app names for traffic that never reaches the proxy | Needs a WFP driver or an ETW kernel trace, and ETW needs Administrator or *Performance Log Users*. Monitor mode (below) covers proxy-aware apps unelevated instead; apps that ignore the OS proxy still count on the ring only. |
+| Host names for traffic that never reaches the proxy | Windows records which app used the network but not where it connected, so hosts and traffic type need a WFP driver or an ETW kernel trace (Administrator). Per-app totals do NOT need either - see 5.6. |
 | uTLS fingerprint mimicry (`fp=chrome`) | Parsed, not applied. rustls has its own JA3. Matters only against handshake-fingerprinting DPI, not SNI filtering. |
 | Host geolocation | Needs a GeoIP DB, which is not shipped. |
 | REALITY / XTLS / WebSocket / gRPC | Rejected at import with a reason, rather than failing later with a cryptic handshake error. |

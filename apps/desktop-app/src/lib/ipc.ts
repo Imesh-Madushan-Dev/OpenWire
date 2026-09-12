@@ -12,6 +12,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
 import type {
   ConnectionState,
+  UsageEntry,
   Notice,
   PlatformInfo,
   ServerSummary,
@@ -82,6 +83,9 @@ export const api = {
   usageSummaryBetween: (fromTs: number, toTs: number) =>
     call<UsageSummary>('usage_summary_between', { fromTs, toTs }),
   usageSpan: () => call<UsageSpan>('usage_span'),
+  /** Device-wide per-app usage. Slow (seconds) - never poll this. */
+  usageDeviceApps: (fromTs: number, toTs: number) =>
+    call<UsageEntry[]>('usage_device_apps', { fromTs, toTs }),
 
   settings: () => call<Settings>('settings_get'),
   updateSettings: (patch: SettingsPatch) => call<Settings>('settings_update', { patch }),

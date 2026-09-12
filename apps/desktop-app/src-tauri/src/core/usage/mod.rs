@@ -24,6 +24,7 @@ use crate::core::store;
 use crate::error::AppResult;
 
 use history::{rank, DayBreakdown, History, Pair, Range, Sample};
+use srum::AppBytes;
 use netstat::InterfaceCounters;
 use process::ProcessResolver;
 
@@ -153,6 +154,9 @@ struct LiveConn {
 
 pub struct UsageTracker {
     live: Mutex<HashMap<u64, LiveConn>>,
+    /// Device-wide per-app figures, keyed by the day span they cover. Windows
+    /// takes seconds to answer, so an answer is kept until the day rolls over.
+    device_apps: Mutex<HashMap<(i64, i64), Vec<AppBytes>>>,
     /// Residual bytes from connections that closed between samples.
     drained: Mutex<Vec<(UsageKey, u64, u64)>>,
     next_id: AtomicU64,
@@ -173,6 +177,7 @@ impl UsageTracker {
 
         Self {
             live: Mutex::new(HashMap::new()),
+            device_apps: Mutex::new(HashMap::new()),
             drained: Mutex::new(Vec::new()),
             next_id: AtomicU64::new(1),
             history: Mutex::new(history),
@@ -339,6 +344,68 @@ impl UsageTracker {
             kinds: to_entries(&merged.kinds),
             attribution_supported: cfg!(windows),
         }
+    }
+
+    /// Device-wide per-app usage for a period, from the OS's own accounting.
+    ///
+    /// Blocking and slow - seconds - so callers must keep it off the UI thread.
+    /// The result is cached per day span: a past period cannot change, and the
+    /// current one is refreshed only when asked for again after a new query.
+    pub fn device_apps(&self, from_ts: i64, to_ts: i64) -> Vec<UsageEntry> {
+        let key = (
+            netstat::local_day(from_ts.min(to_ts)),
+            netstat::local_day(to_ts.max(from_ts)),
+        );
+
+        if let Some(cached) = self
+            .device_apps
+            .lock()
+            .ok()
+            .and_then(|cache| cache.get(&key).cloned())
+        {
+            return self.to_device_entries(cached);
+        }
+
+        // Queried on the span the caller asked for, but keyed by whole days, so
+        // a period's figures are fetched once however often the UI asks.
+        let Some(rows) = srum::per_app(from_ts.min(to_ts), to_ts.max(from_ts)) else {
+            return Vec::new();
+        };
+
+        if let Ok(mut cache) = self.device_apps.lock() {
+            // One entry per span the user visits; a handful at most, and the
+            // whole thing is dropped when the app closes.
+            if cache.len() > 24 {
+                cache.clear();
+            }
+            cache.insert(key, rows.clone());
+        }
+
+        self.to_device_entries(rows)
+    }
+
+    fn to_device_entries(&self, rows: Vec<AppBytes>) -> Vec<UsageEntry> {
+        // The paths come from the OS, so the icon cache can be primed with
+        // apps that never touched the tunnel.
+        self.resolver.seed_paths(
+            rows.iter()
+                .filter_map(|row| row.path.clone().map(|path| (row.name.clone(), path)))
+                .collect(),
+        );
+
+        let entries = rows
+            .into_iter()
+            .take(TOP_N)
+            .map(|row| UsageEntry {
+                key: row.name,
+                up: row.up,
+                down: row.down,
+                total: row.up + row.down,
+                icon: None,
+            })
+            .collect();
+
+        self.with_icons(entries)
     }
 
     /// Attaches each app's executable icon to its row.

@@ -18,9 +18,20 @@ interface BreakdownColumnProps {
   entries: UsageEntry[]
   /** Shown in place of the list when there is nothing to rank. */
   emptyHint: string
+  /** Shown instead of the empty hint while the figures are still arriving. */
+  loading?: boolean
+  /** One line under the heading, saying what this column covers. */
+  note?: string
 }
 
-export function BreakdownColumn({ title, icon, entries, emptyHint }: BreakdownColumnProps) {
+export function BreakdownColumn({
+  title,
+  icon,
+  entries,
+  emptyHint,
+  loading = false,
+  note,
+}: BreakdownColumnProps) {
   // Scale bars against the leader, not the column total, so the shape of the
   // ranking stays readable when one entry dominates.
   const leader = entries[0]?.total ?? 0
@@ -35,9 +46,13 @@ export function BreakdownColumn({ title, icon, entries, emptyHint }: BreakdownCo
         {title}
       </h3>
 
+      {note && (
+        <p className="-mt-1.5 text-[11px] leading-snug text-muted-foreground/70">{note}</p>
+      )}
+
       {entries.length === 0 ? (
         <p className="py-6 text-center text-xs leading-relaxed text-muted-foreground">
-          {emptyHint}
+          {loading ? 'Reading Windows usage history\u2026' : emptyHint}
         </p>
       ) : (
         <motion.ol

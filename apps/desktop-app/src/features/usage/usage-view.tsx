@@ -30,7 +30,7 @@ import {
   toDateInput,
   type Period,
 } from './periods'
-import { useSummary, useUsageSpan } from './use-usage'
+import { useDeviceApps, useSummary, useUsageSpan } from './use-usage'
 
 const DAY = 86_400
 
@@ -114,6 +114,16 @@ export function UsageView() {
   }, [mode, activeMonth, customFrom, customTo])
 
   const summary = useSummary(period)
+
+  // Device-wide per-app figures for exactly the days the summary covers, read
+  // from Windows' own accounting rather than from the relay.
+  const device = useDeviceApps(summary.fromTs, summary.toTs)
+
+  // The relay only ever sees proxy-aware apps, so it is the fallback, not the
+  // source: Windows' table covers everything, including apps that ignore the
+  // system proxy entirely.
+  const apps = device.entries.length > 0 ? device.entries : summary.apps
+  const appsAreDeviceWide = device.entries.length > 0
 
   // An empty column has two very different causes, and "Recorded while the VPN
   // is connected" reads as a fault rather than as the reason when the real
@@ -224,28 +234,33 @@ export function UsageView() {
               <BreakdownColumn
                 title="Apps"
                 icon={ComputerIcon}
-                entries={summary.apps}
+                entries={apps}
+                loading={device.loading}
+                note={appsAreDeviceWide ? 'Every app on this device' : undefined}
                 emptyHint={attributionHint}
               />
               <BreakdownColumn
                 title="Hosts"
                 icon={GlobalIcon}
                 entries={summary.hosts}
+                note="Through Maizy only"
                 emptyHint={attributionHint}
               />
               <BreakdownColumn
                 title="Traffic type"
                 icon={Route01Icon}
                 entries={summary.kinds}
+                note="Through Maizy only"
                 emptyHint={attributionHint}
               />
             </div>
           </div>
 
           <p className="px-1 text-xs leading-relaxed text-muted-foreground">
-            The ring covers all network activity on this device. The three columns cover only
-            traffic that went through Maizy, which is the only traffic it can attribute without
-            a kernel driver. History is kept for {span?.retentionDays ?? 90} days.
+            {appsAreDeviceWide
+              ? "Apps comes from Windows' own per-app accounting, so it covers everything on this device. Hosts and traffic type can only be read from traffic that went through Maizy, because Windows records which app used the network but not where it connected."
+              : 'The ring covers all network activity on this device. The three columns cover only traffic that went through Maizy, which is the only traffic it can attribute without a kernel driver.'}{' '}
+            History is kept for {span?.retentionDays ?? 90} days.
           </p>
         </motion.div>
       </div>

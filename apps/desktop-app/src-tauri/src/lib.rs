@@ -55,6 +55,7 @@ pub fn run() {
             commands::usage::usage_summary,
             commands::usage::usage_summary_between,
             commands::usage::usage_span,
+            commands::usage::usage_device_apps,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
