@@ -8,9 +8,17 @@
 
 import { useCallback } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Cancel01Icon, Mail01Icon, MinusSignIcon, SquareIcon } from '@hugeicons/core-free-icons'
+import {
+  Cancel01Icon,
+  Key01Icon,
+  Mail01Icon,
+  MinusSignIcon,
+  SquareIcon,
+} from '@hugeicons/core-free-icons'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { cn } from 'cn'
+
+import { useLicense } from '@/features/license/license-context'
 
 const FEEDBACK_MESSAGE =
   'Found a bug or want a feature? Open an issue in the Maizy repository - include the version from Settings.'
@@ -20,6 +28,8 @@ export function TitleBar({ onFeedback }: { onFeedback: (message: string) => void
   const toggleMaximize = useCallback(() => void getCurrentWindow().toggleMaximize(), [])
   // Intercepted in Rust: hides the window, leaves the tunnel running.
   const hide = useCallback(() => void getCurrentWindow().close(), [])
+  // Null on the activation screen, which renders this bar before any license exists.
+  const license = useLicense()
 
   return (
     <header
@@ -33,6 +43,8 @@ export function TitleBar({ onFeedback }: { onFeedback: (message: string) => void
       >
         maizy
       </span>
+
+      {license && <DaysLeft days={license.daysLeft} expiresAt={license.expiresAt} />}
 
       <button
         type="button"
@@ -53,6 +65,29 @@ export function TitleBar({ onFeedback }: { onFeedback: (message: string) => void
         <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={2.2} />
       </WindowButton>
     </header>
+  )
+}
+
+/** Days left on the license. Turns amber in the final week, when renewing matters. */
+function DaysLeft({ days, expiresAt }: { days: number; expiresAt: number }) {
+  const soon = days <= 7
+  const until = new Date(expiresAt * 1000).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+
+  return (
+    <span
+      title={`License expires ${until}`}
+      className={cn(
+        'mr-1 flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium tabular-nums',
+        soon ? 'bg-warning/15 text-warning' : 'text-muted-foreground',
+      )}
+    >
+      <HugeiconsIcon icon={Key01Icon} size={13} strokeWidth={2} />
+      {days === 1 ? '1 day left' : `${days} days left`}
+    </span>
   )
 }
 
