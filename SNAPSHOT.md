@@ -55,8 +55,8 @@ reserved for protection state, never decoration.
 ### Test counts
 
 ```
-cargo test                 →  39 passed, 0 failed, 5 ignored
-cargo test -- --ignored    →   5 passed   (4 registry + 1 diagnostic)
+cargo test                 →  56 passed, 0 failed, 6 ignored
+cargo test -- --ignored    →   6         (4 registry + interface dump + SRUM report)
 bun run build              →  clean
 bunx eslint <own files>    →  clean
 ```
@@ -138,7 +138,7 @@ apps/desktop-app/
     components/     title-bar · nav-rail · segmented · notice-bar · setting-row · view-shell
     features/
       vpn/          dashboard, power orb, live stats, provider + context
-      servers/      location sheet, vless:// import
+      servers/      location side sheet, vless:// import
       usage/        network-view (throughput graph) + usage-view (totals ring,
                     ranked breakdown) - two nav pages, one data layer
       protection/   kill switch, LAN bypass, routing, startup
@@ -327,14 +327,20 @@ bun run tauri:dev        # NOTE: strands the system proxy on each reload — see
 bun run tauri:build
 
 cd src-tauri
-cargo test               # 39, safe
-cargo test -- --ignored  # 5, touches the real registry
+cargo test               # 56, safe
+cargo test -- --ignored  # 6, touches the real registry and reads SRUM
 ```
 
 **Adding a server** — paste a `vless://` share link in Settings → Your servers,
 or the location sheet. Only `security=tls` over `type=tcp` is supported.
 
-**`Direct (diagnostic)`** is a bundled node with no remote: the proxy dials
-destinations itself. Good for proving the listener, system proxy and counters
-work before blaming a server. It does **not** mask traffic and the UI says so.
-The current `preferredServer` is set to it.
+**Nothing ships pre-added.** The catalog starts empty; every server comes from
+a pasted share link. Earlier builds seeded six placeholder locations with empty
+credentials - `catalog::strip_unusable` removes any unconfigured node on load,
+and a `preferredServer` pointing at something no longer present is cleared, so
+existing installs lose the dead rows without losing a server the user added.
+
+**`Direct (diagnostic)`** (`catalog::DIRECT_NODE`) is a node with no remote:
+the proxy dials destinations itself. It is **not** in the user's catalog and
+never appears in the server list - it exists only to back monitor mode, which
+resolves it by id. It does not mask traffic.

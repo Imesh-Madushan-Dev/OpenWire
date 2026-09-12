@@ -6,9 +6,17 @@
  * with motion disabled or colour vision differences.
  */
 
+import { useEffect, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { PowerIcon } from '@hugeicons/core-free-icons'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import {
+  animate,
+  AnimatePresence,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+} from 'motion/react'
 import { cn } from 'cn'
 
 import { spring, transition } from '@/lib/motion'
@@ -19,6 +27,23 @@ interface PowerOrbProps {
   onToggle: () => void
   disabled?: boolean
 }
+
+/** Geometry of the progress ring, in the SVG's own 100x100 units. */
+const RADIUS = 49
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS
+
+/**
+ * Where the connecting animation creeps to on its own.
+ *
+ * Short of 100 on purpose: the handshake takes as long as it takes, and a ring
+ * sitting at 100% while still negotiating would be telling the user it had
+ * finished. The last stretch is drawn only once the tunnel is actually up.
+ */
+const CREEP_TARGET = 92
+const CREEP_SECONDS = 9
+
+/** How long 100% stays on screen before the orb returns to its icon. */
+const HOLD_MS = 900
 
 /** Per-phase visual treatment, kept in one table rather than spread through JSX. */
 const TREATMENT: Record<
@@ -71,12 +96,62 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
   const busy = isBusy(phase)
   const inert = disabled || busy
 
+  const progress = useMotionValue(0)
+  const percent = useTransform(progress, (value) => `${Math.round(value)}%`)
+  const dashOffset = useTransform(
+    progress,
+    (value) => CIRCUMFERENCE * (1 - Math.min(100, value) / 100),
+  )
+
+  // On screen from the moment the user commits until a beat after 100%, so the
+  // count is never left frozen mid-climb by a phase that moved on. Adjusted
+  // while rendering, on the phase change itself - React's pattern for state
+  // that follows a prop - rather than one effect-driven render later.
+  const [counting, setCounting] = useState(false)
+  const [seenPhase, setSeenPhase] = useState(phase)
+  if (phase !== seenPhase) {
+    setSeenPhase(phase)
+    if (phase === 'connecting') setCounting(true)
+    // A failure back to disconnected, or a disconnect, drops the readout rather
+    // than leaving a stale number over the icon. `connected` keeps it for the
+    // hold below. A session already up at launch never saw `connecting`, so
+    // it never shows a count nobody asked for.
+    else if (phase !== 'connected') setCounting(false)
+  }
+
+  useEffect(() => {
+    if (phase === 'connecting') {
+      progress.set(0)
+      const controls = animate(progress, CREEP_TARGET, {
+        duration: reduceMotion ? 0 : CREEP_SECONDS,
+        ease: 'easeOut',
+      })
+      return () => controls.stop()
+    }
+
+    if (phase === 'connected') {
+      const controls = animate(progress, 100, {
+        duration: reduceMotion ? 0 : 0.35,
+        ease: 'easeOut',
+      })
+      const timer = window.setTimeout(() => setCounting(false), HOLD_MS)
+      return () => {
+        controls.stop()
+        window.clearTimeout(timer)
+      }
+    }
+
+    // Any other phase: the readout is already dropped during render above, so
+    // only the ring's value needs resetting for the next attempt.
+    progress.set(0)
+  }, [phase, progress, reduceMotion])
+
   return (
     <div className="relative grid place-items-center">
       {/* Ambient halo. Sits behind everything and never intercepts the pointer. */}
       <motion.div
         aria-hidden
-        className="pointer-events-none absolute size-[340px] rounded-full blur-3xl"
+        className="pointer-events-none absolute size-85 rounded-full blur-3xl"
         style={{
           background:
             'radial-gradient(circle, color-mix(in oklab, var(--primary) 55%, transparent), transparent 65%)',
@@ -92,13 +167,13 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
         }
       />
 
-      {/* Expanding pulse, only while a session is live. */}
+      {/* Expanding pulse, only once the connect readout has cleared. */}
       <AnimatePresence>
-        {phase === 'connected' && !reduceMotion && (
+        {phase === 'connected' && !counting && !reduceMotion && (
           <motion.div
             aria-hidden
             key="pulse"
-            className="pointer-events-none absolute size-[196px] rounded-full border border-primary/40"
+            className="pointer-events-none absolute size-49 rounded-full border border-primary/40"
             initial={{ opacity: 0, scale: 1 }}
             animate={{ opacity: [0.5, 0], scale: [1, 1.45] }}
             exit={{ opacity: 0 }}
@@ -115,7 +190,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
         aria-busy={busy}
         aria-pressed={phase === 'connected'}
         className={cn(
-          'group relative grid size-[196px] place-items-center rounded-full border-2',
+          'group relative grid size-49 place-items-center rounded-full border-2',
           'bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.06),rgba(0,0,0,0.35))]',
           'outline-none transition-colors duration-300',
           'focus-visible:ring-4 focus-visible:ring-primary/40',
@@ -135,9 +210,37 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
           )}
         />
 
-        {/* Indeterminate arc while the tunnel is coming up or down. */}
+        {/* Determinate ring, drawn from the same value the number reads. */}
         <AnimatePresence>
-          {busy && (
+          {counting && (
+            <motion.svg
+              key="progress"
+              aria-hidden
+              viewBox="0 0 100 100"
+              className="absolute inset-0 size-full -rotate-90"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={transition.fast}
+            >
+              <motion.circle
+                cx="50"
+                cy="50"
+                r={RADIUS}
+                fill="none"
+                stroke="var(--primary)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeDasharray={CIRCUMFERENCE}
+                style={{ strokeDashoffset: dashOffset }}
+              />
+            </motion.svg>
+          )}
+        </AnimatePresence>
+
+        {/* Indeterminate sweep while tearing down: there is no progress to show. */}
+        <AnimatePresence>
+          {phase === 'disconnecting' && (
             <motion.svg
               key="arc"
               aria-hidden
@@ -154,7 +257,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
               <circle
                 cx="50"
                 cy="50"
-                r="49"
+                r={RADIUS}
                 fill="none"
                 stroke="var(--primary)"
                 strokeWidth="2"
@@ -166,12 +269,37 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
           )}
         </AnimatePresence>
 
-        <HugeiconsIcon
-          icon={PowerIcon}
-          size={56}
-          strokeWidth={1.6}
-          className={cn('transition-colors duration-300', treatment.icon)}
-        />
+        {/* The count replaces the icon rather than crowding it. */}
+        <AnimatePresence mode="wait" initial={false}>
+          {counting ? (
+            <motion.span
+              key="percent"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.05 }}
+              transition={transition.fast}
+              className="numeric text-4xl font-semibold tabular-nums text-primary"
+            >
+              <motion.span>{percent}</motion.span>
+            </motion.span>
+          ) : (
+            <motion.span
+              key="icon"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={transition.fast}
+              className="grid place-items-center"
+            >
+              <HugeiconsIcon
+                icon={PowerIcon}
+                size={56}
+                strokeWidth={1.6}
+                className={cn('transition-colors duration-300', treatment.icon)}
+              />
+            </motion.span>
+          )}
+        </AnimatePresence>
       </motion.button>
     </div>
   )

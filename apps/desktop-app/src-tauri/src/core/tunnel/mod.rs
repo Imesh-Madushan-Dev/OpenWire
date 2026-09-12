@@ -481,10 +481,7 @@ mod tests {
             TunnelConfig {
                 // Port 0 lets the OS pick, so the test never collides.
                 listen_port: 0,
-                node: crate::core::catalog::default_nodes()
-                    .into_iter()
-                    .find(|n| n.id == "maizy-direct")
-                    .unwrap(),
+                node: crate::core::catalog::direct_node().unwrap(),
                 lan_bypass: false,
                 kill_switch: false,
             },
@@ -543,10 +540,15 @@ mod tests {
         let metrics = Arc::new(Metrics::new());
         let usage = Arc::new(UsageTracker::load(std::path::Path::new("no-such-usage.json")));
         let (tx, _rx) = mpsc::unbounded_channel();
-        let node = crate::core::catalog::default_nodes()
-            .into_iter()
-            .find(|n| n.id == "sg-01")
-            .unwrap();
+        // Built rather than looked up: nothing ships pre-added any more, so
+        // the unconfigured case has to be constructed to be tested.
+        let mut node = crate::core::catalog::parse_vless_uri(
+            "vless://placeholder@203.0.113.10:443?security=tls&sni=zoom.us&type=tcp#Placeholder",
+        )
+        .unwrap();
+        if let crate::core::models::Outbound::Vless(vless) = &mut node.outbound {
+            vless.uuid.clear();
+        }
 
         let result = Tunnel::start(
             TunnelConfig {

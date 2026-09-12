@@ -67,16 +67,26 @@ impl AppState {
             settings = Settings::default();
         }
 
-        // First launch seeds the user's own catalog from the bundled defaults;
-        // from then on the file on disk is the source of truth.
-        let nodes: Vec<ServerNode> = match store::read_json(&catalog_path)? {
-            Some(nodes) => nodes,
-            None => {
-                let defaults = catalog::default_nodes();
-                store::write_json(&catalog_path, &defaults)?;
-                defaults
-            }
-        };
+        // Nothing ships pre-added: the catalog starts empty and only grows
+        // from links the user pastes in.
+        let mut nodes: Vec<ServerNode> = store::read_json(&catalog_path)?.unwrap_or_default();
+
+        let dropped = catalog::strip_unusable(&mut nodes);
+        if dropped > 0 {
+            log::info!("removed {dropped} placeholder server(s) that could never be configured");
+            store::write_json(&catalog_path, &nodes)?;
+        }
+
+        // A preference pointing at something no longer in the catalog would
+        // make every connect fail with a confusing "not found".
+        if settings
+            .preferred_server
+            .as_deref()
+            .is_some_and(|id| !nodes.iter().any(|node| node.id == id))
+        {
+            settings.preferred_server = None;
+            store::write_json(&settings_path, &settings)?;
+        }
 
         Ok(Self {
             app: app.clone(),

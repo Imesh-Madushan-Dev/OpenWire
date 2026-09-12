@@ -1,4 +1,4 @@
-/** Location picker. Opens from the bottom, over the dashboard. */
+/** Location picker. Slides in from the right, over the dashboard. */
 
 import { useMemo, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -70,10 +70,7 @@ export function ServerSheet({ open, onOpenChange }: ServerSheetProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="bottom"
-        className="mx-auto max-h-[78vh] gap-0 rounded-t-3xl rounded-b-xl border-white/10 p-0 sm:max-w-none"
-      >
+      <SheetContent side="right" className="w-full gap-0 border-white/10 p-0 sm:max-w-md">
         <SheetHeader className="gap-3 px-5 pt-5 pb-3">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -143,7 +140,11 @@ export function ServerSheet({ open, onOpenChange }: ServerSheetProps) {
 
           {results.length === 0 && (
             <li className="px-3 py-10 text-center text-sm text-muted-foreground">
-              No locations match "{query}".
+              {/* An empty catalog is the normal first-run state now that nothing
+                  ships pre-added, and must not read as a failed search. */}
+              {servers.length === 0
+                ? 'No servers yet. Paste a vless:// share link below to add one.'
+                : `No locations match "${query}".`}
             </li>
           )}
         </motion.ul>

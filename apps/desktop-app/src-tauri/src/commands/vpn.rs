@@ -82,9 +82,7 @@ pub async fn start_monitor(app: AppHandle, state: &AppState) -> AppResult<Connec
 }
 
 fn monitor_node() -> Option<ServerNode> {
-    crate::core::catalog::default_nodes()
-        .into_iter()
-        .find(|node| node.id == MONITOR_NODE_ID)
+    crate::core::catalog::direct_node()
 }
 
 /// Starts the listener for `node` and points the OS at it.

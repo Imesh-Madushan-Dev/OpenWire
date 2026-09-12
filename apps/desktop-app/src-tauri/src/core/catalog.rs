@@ -7,95 +7,47 @@
 use crate::core::models::{Outbound, ServerNode, VlessConfig};
 use crate::error::{AppError, AppResult};
 
-/// Seeded into the user's catalog on first launch.
+/// The local route monitor mode and the diagnostic option run through.
 ///
-/// `maizy-direct` is a diagnostic node: it proves the local proxy and system
-/// routing work without needing any remote infrastructure.
-pub const DEFAULT_CATALOG: &str = r#"[
-  {
-    "id": "maizy-direct",
-    "name": "Direct (diagnostic)",
-    "country": "Local",
-    "countryCode": "xx",
-    "city": "This device",
-    "host": "127.0.0.1",
-    "port": 0,
-    "tier": "free",
-    "outbound": { "kind": "direct" },
-    "load": 0,
-    "tags": ["diagnostic", "unmasked"]
-  },
-  {
-    "id": "sg-01",
-    "name": "Singapore",
-    "country": "Singapore",
-    "countryCode": "sg",
-    "city": "Singapore",
-    "host": "",
-    "port": 443,
-    "tier": "free",
-    "outbound": { "kind": "vless", "uuid": "", "sni": "teams.microsoft.com" },
-    "load": 38,
-    "tags": ["low-latency"]
-  },
-  {
-    "id": "de-01",
-    "name": "Frankfurt",
-    "country": "Germany",
-    "countryCode": "de",
-    "city": "Frankfurt",
-    "host": "",
-    "port": 443,
-    "tier": "free",
-    "outbound": { "kind": "vless", "uuid": "", "sni": "zoom.us" },
-    "load": 52,
-    "tags": ["streaming"]
-  },
-  {
-    "id": "us-01",
-    "name": "New York",
-    "country": "United States",
-    "countryCode": "us",
-    "city": "New York",
-    "host": "",
-    "port": 443,
-    "tier": "premium",
-    "outbound": { "kind": "vless", "uuid": "", "sni": "teams.microsoft.com" },
-    "load": 61,
-    "tags": ["streaming", "dedicated"]
-  },
-  {
-    "id": "jp-01",
-    "name": "Tokyo",
-    "country": "Japan",
-    "countryCode": "jp",
-    "city": "Tokyo",
-    "host": "",
-    "port": 443,
-    "tier": "premium",
-    "outbound": { "kind": "vless", "uuid": "", "sni": "meet.google.com" },
-    "load": 24,
-    "tags": ["gaming", "dedicated"]
-  },
-  {
-    "id": "uk-01",
-    "name": "London",
-    "country": "United Kingdom",
-    "countryCode": "gb",
-    "city": "London",
-    "host": "",
-    "port": 443,
-    "tier": "premium",
-    "outbound": { "kind": "vless", "uuid": "", "sni": "zoom.us" },
-    "load": 45,
-    "tags": ["streaming"]
-  }
-]"#;
+/// Not a server: there is no remote, the proxy dials destinations itself. It is
+/// deliberately NOT seeded into the user's catalog - nothing ships pre-added,
+/// and this is resolved by id when something needs it.
+pub const DIRECT_NODE: &str = r#"{
+  "id": "maizy-direct",
+  "name": "Direct (diagnostic)",
+  "country": "Local",
+  "countryCode": "xx",
+  "city": "This device",
+  "host": "127.0.0.1",
+  "port": 0,
+  "tier": "free",
+  "outbound": { "kind": "direct" },
+  "load": 0,
+  "tags": ["diagnostic", "unmasked"]
+}"#;
 
+/// The local route, or `None` if this file was mis-edited.
+pub fn direct_node() -> Option<ServerNode> {
+    serde_json::from_str(DIRECT_NODE).ok()
+}
+
+/// Drops entries a user never added and cannot use.
+///
+/// Earlier builds seeded six placeholder locations with empty credentials. They
+/// are already on disk for existing installs, where they show as "Setup
+/// required" rows that can never be set up - there is no key to add, because
+/// there was never a server behind them. An unconfigured node is meaningless
+/// now that nothing ships pre-added, so this clears them out on load.
+pub fn strip_unusable(nodes: &mut Vec<ServerNode>) -> usize {
+    let before = nodes.len();
+    nodes.retain(ServerNode::is_configured);
+    before - nodes.len()
+}
+
+/// What a fresh install starts with: nothing. Servers are added by hand, from
+/// a `vless://` share link the user pastes in.
 pub fn default_nodes() -> Vec<ServerNode> {
-    // A parse failure here is a build-time authoring bug, not a runtime concern,
-    // and the test below pins it.
-    serde_json::from_str(DEFAULT_CATALOG).unwrap_or_default()
+    Vec::new()
 }
 
 /// Picks the best node for "Optimal location": configured, lowest load, and
@@ -266,13 +218,40 @@ fn short_hash(input: &str) -> String {
 mod tests {
     use super::*;
 
+    const LINK: &str = "vless://2b4f8c1e-0000-4000-8000-abcdefabcdef@203.0.113.10:443?security=tls&sni=zoom.us&type=tcp#Edge";
+
+    /// A node as a user would add it: from a share link, fully configured.
+    fn imported() -> ServerNode {
+        parse_vless_uri(LINK).expect("fixture link should parse")
+    }
+
+    /// The shape earlier builds seeded: a location with no credentials behind it.
+    fn placeholder(id: &str) -> ServerNode {
+        let mut node = imported();
+        node.id = id.to_string();
+        if let Outbound::Vless(vless) = &mut node.outbound {
+            vless.uuid.clear();
+        }
+        node
+    }
+
     #[test]
-    fn bundled_catalog_parses() {
-        let nodes = default_nodes();
-        assert_eq!(nodes.len(), 6, "default catalog failed to parse");
-        // The diagnostic node is the only one usable before setup.
-        assert!(nodes[0].is_configured());
-        assert!(!nodes[1].is_configured());
+    fn nothing_ships_pre_added_but_the_direct_route_still_parses() {
+        assert!(default_nodes().is_empty(), "no server may be seeded on first launch");
+
+        // Monitor mode resolves this by id, so it has to survive the removal.
+        let direct = direct_node().expect("the direct route must parse");
+        assert!(direct.is_configured());
+        assert!(matches!(direct.outbound, Outbound::Direct));
+    }
+
+    #[test]
+    fn placeholder_servers_from_older_builds_are_stripped_on_load() {
+        let mut nodes = vec![placeholder("sg-01"), imported(), placeholder("uk-01")];
+
+        assert_eq!(strip_unusable(&mut nodes), 2);
+        assert_eq!(nodes.len(), 1, "the user's own server must survive");
+        assert!(nodes.iter().all(ServerNode::is_configured));
     }
 
     #[test]
@@ -353,14 +332,13 @@ mod tests {
 
     #[test]
     fn optimal_skips_unconfigured_and_direct() {
-        let mut nodes = default_nodes();
-        // Nothing is configured except the direct node, which is excluded.
+        let mut nodes = vec![direct_node().unwrap(), placeholder("sg-01")];
+        // The only usable node is the unmasked direct route, which never counts.
         assert!(optimal(&nodes, |_| None).is_none());
 
-        if let Outbound::Vless(v) = &mut nodes[2].outbound {
-            v.uuid = "key".to_string();
-        }
-        nodes[2].host = "example.net".to_string();
+        let mut usable = imported();
+        usable.id = "de-01".to_string();
+        nodes.push(usable);
         assert_eq!(optimal(&nodes, |_| None).map(|n| n.id.as_str()), Some("de-01"));
     }
 }
