@@ -70,11 +70,7 @@ pub fn build_tls(config: &VlessConfig, endpoint_host: &str) -> AppResult<Arc<Cli
 
     // ALPN is part of the disguise: it should match what the impersonated
     // service would offer.
-    tls.alpn_protocols = config
-        .alpn
-        .iter()
-        .map(|p| p.as_bytes().to_vec())
-        .collect();
+    tls.alpn_protocols = config.alpn.iter().map(|p| p.as_bytes().to_vec()).collect();
 
     Ok(Arc::new(tls))
 }
@@ -88,12 +84,14 @@ pub async fn dial(
     target_host: &str,
     target_port: u16,
 ) -> AppResult<tokio_rustls::client::TlsStream<TcpStream>> {
-    let uuid = Uuid::parse_str(&config.uuid)
-        .map_err(|_| AppError::Invalid("The access key for this server is not a valid UUID.".into()))?;
+    let uuid = Uuid::parse_str(&config.uuid).map_err(|_| {
+        AppError::Invalid("The access key for this server is not a valid UUID.".into())
+    })?;
 
     // The SNI we present, not the host we dial. Never collapse these two.
-    let sni = ServerName::try_from(config.sni.clone())
-        .map_err(|_| AppError::Invalid("The masking domain for this server is not valid.".into()))?;
+    let sni = ServerName::try_from(config.sni.clone()).map_err(|_| {
+        AppError::Invalid("The masking domain for this server is not valid.".into())
+    })?;
 
     let tcp = timeout(DIAL_TIMEOUT, TcpStream::connect((node_host, node_port)))
         .await

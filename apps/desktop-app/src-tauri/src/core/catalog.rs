@@ -52,7 +52,10 @@ pub fn default_nodes() -> Vec<ServerNode> {
 
 /// Picks the best node for "Optimal location": configured, lowest load, and
 /// never the unmasked diagnostic node.
-pub fn optimal<'a>(nodes: &'a [ServerNode], latency: impl Fn(&str) -> Option<u32>) -> Option<&'a ServerNode> {
+pub fn optimal<'a>(
+    nodes: &'a [ServerNode],
+    latency: impl Fn(&str) -> Option<u32>,
+) -> Option<&'a ServerNode> {
     nodes
         .iter()
         .filter(|n| n.is_configured() && !matches!(n.outbound, Outbound::Direct))
@@ -69,7 +72,8 @@ pub fn optimal<'a>(nodes: &'a [ServerNode], latency: impl Fn(&str) -> Option<u32
 /// This is the share-link format every VLESS server emits, so it is the path a
 /// user actually has to hand when adding their own node.
 pub fn parse_vless_uri(uri: &str) -> AppResult<ServerNode> {
-    let invalid = |msg: &str| AppError::Invalid(format!("That link isn't a valid server link: {msg}"));
+    let invalid =
+        |msg: &str| AppError::Invalid(format!("That link isn't a valid server link: {msg}"));
 
     let rest = uri
         .trim()
@@ -237,7 +241,10 @@ mod tests {
 
     #[test]
     fn nothing_ships_pre_added_but_the_direct_route_still_parses() {
-        assert!(default_nodes().is_empty(), "no server may be seeded on first launch");
+        assert!(
+            default_nodes().is_empty(),
+            "no server may be seeded on first launch"
+        );
 
         // Monitor mode resolves this by id, so it has to survive the removal.
         let direct = direct_node().expect("the direct route must parse");
@@ -339,6 +346,9 @@ mod tests {
         let mut usable = imported();
         usable.id = "de-01".to_string();
         nodes.push(usable);
-        assert_eq!(optimal(&nodes, |_| None).map(|n| n.id.as_str()), Some("de-01"));
+        assert_eq!(
+            optimal(&nodes, |_| None).map(|n| n.id.as_str()),
+            Some("de-01")
+        );
     }
 }

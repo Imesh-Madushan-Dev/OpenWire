@@ -18,7 +18,10 @@ pub fn read_json<T: DeserializeOwned>(path: &Path) -> AppResult<Option<T>> {
             Err(err) => {
                 // A corrupt or hand-broken file must not brick the app. Park it
                 // and carry on with defaults.
-                log::warn!("{} is not valid JSON ({err}); quarantining it", path.display());
+                log::warn!(
+                    "{} is not valid JSON ({err}); quarantining it",
+                    path.display()
+                );
                 let _ = fs::rename(path, path.with_extension("json.bak"));
                 Ok(None)
             }
@@ -38,7 +41,8 @@ pub fn write_json<T: Serialize>(path: &Path, value: &T) -> AppResult<()> {
         .map_err(|e| AppError::Config(format!("serialize {}: {e}", path.display())))?;
 
     let tmp: PathBuf = path.with_extension("json.tmp");
-    fs::write(&tmp, &body).map_err(|e| AppError::Config(format!("write {}: {e}", tmp.display())))?;
+    fs::write(&tmp, &body)
+        .map_err(|e| AppError::Config(format!("write {}: {e}", tmp.display())))?;
     fs::rename(&tmp, path).map_err(|e| {
         let _ = fs::remove_file(&tmp);
         AppError::Config(format!("commit {}: {e}", path.display()))

@@ -59,9 +59,7 @@ impl ProcessResolver {
     pub fn app_for_port(&self, local_port: u16) -> Option<String> {
         let mut inner = self.inner.lock().ok()?;
 
-        let fresh = inner
-            .read_at
-            .is_some_and(|at| at.elapsed() < STALE_AFTER);
+        let fresh = inner.read_at.is_some_and(|at| at.elapsed() < STALE_AFTER);
 
         let mut pid = lookup(&inner.table, local_port);
 
@@ -276,7 +274,10 @@ mod tests {
             .app_for_port(port)
             .expect("the owning process should be found");
 
-        assert!(name.ends_with(".exe"), "expected an executable name, got {name}");
+        assert!(
+            name.ends_with(".exe"),
+            "expected an executable name, got {name}"
+        );
     }
 
     /// The resolver must remember where an app lives, since the icon is read

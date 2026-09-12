@@ -85,11 +85,7 @@ impl DayBreakdown {
 
         let mut entries: Vec<(String, Pair)> = map.drain().collect();
         // Largest first, so the tail we fold away is genuinely the small stuff.
-        entries.sort_unstable_by(|a, b| {
-            b.1.total()
-                .cmp(&a.1.total())
-                .then_with(|| a.0.cmp(&b.0))
-        });
+        entries.sort_unstable_by(|a, b| b.1.total().cmp(&a.1.total()).then_with(|| a.0.cmp(&b.0)));
 
         let mut other = Pair::default();
         for (_, pair) in entries.split_off(cap.saturating_sub(1)) {
@@ -154,8 +150,20 @@ impl History {
     /// Records one second of throughput.
     pub fn push(&mut self, sample: Sample) {
         push_capped(&mut self.seconds, sample, SECONDS_KEPT);
-        roll(&mut self.minute_acc, &mut self.minutes, sample, 60, MINUTES_KEPT);
-        roll(&mut self.hour_acc, &mut self.hours, sample, 3600, HOURS_KEPT);
+        roll(
+            &mut self.minute_acc,
+            &mut self.minutes,
+            sample,
+            60,
+            MINUTES_KEPT,
+        );
+        roll(
+            &mut self.hour_acc,
+            &mut self.hours,
+            sample,
+            3600,
+            HOURS_KEPT,
+        );
     }
 
     /// Attributes a slice of tunnel traffic to a day bucket.
@@ -308,8 +316,7 @@ fn roll(
 
 /// Ranked view of one breakdown map, largest first, with `Other` forced last.
 pub fn rank(map: &HashMap<String, Pair>, limit: usize) -> Vec<(String, Pair)> {
-    let mut entries: Vec<(String, Pair)> =
-        map.iter().map(|(k, v)| (k.clone(), *v)).collect();
+    let mut entries: Vec<(String, Pair)> = map.iter().map(|(k, v)| (k.clone(), *v)).collect();
 
     entries.sort_unstable_by(|a, b| {
         let a_other = a.0 == OTHER_KEY;

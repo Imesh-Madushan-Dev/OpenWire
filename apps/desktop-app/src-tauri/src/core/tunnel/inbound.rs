@@ -51,11 +51,7 @@ pub async fn negotiate(stream: &mut TcpStream) -> AppResult<Request> {
 }
 
 /// Acknowledges the client once the upstream leg is up (or has failed).
-pub async fn send_reply(
-    stream: &mut TcpStream,
-    protocol: Protocol,
-    ok: bool,
-) -> AppResult<()> {
+pub async fn send_reply(stream: &mut TcpStream, protocol: Protocol, ok: bool) -> AppResult<()> {
     let bytes: &[u8] = match (protocol, ok) {
         // BND.ADDR/BND.PORT are zeroed: clients ignore them for CONNECT.
         (Protocol::Socks5, true) => &[0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0],
@@ -357,7 +353,10 @@ mod tests {
         assert_eq!(req.port, 80);
 
         let forwarded = String::from_utf8(req.prefix).unwrap();
-        assert!(forwarded.starts_with("GET /news HTTP/1.1\r\n"), "{forwarded}");
+        assert!(
+            forwarded.starts_with("GET /news HTTP/1.1\r\n"),
+            "{forwarded}"
+        );
         assert!(forwarded.contains("Host: neverssl.com"));
         assert!(
             !forwarded.to_ascii_lowercase().contains("proxy-connection"),

@@ -66,9 +66,11 @@ fn read_interfaces() -> HashMap<u64, (u64, u64)> {
     let mut out = HashMap::new();
     unsafe {
         let count = (*table).NumEntries as usize;
-        let rows = std::slice::from_raw_parts(std::ptr::addr_of!((*table).Table).cast::<
-            windows_sys::Win32::NetworkManagement::IpHelper::MIB_IF_ROW2,
-        >(), count);
+        let rows = std::slice::from_raw_parts(
+            std::ptr::addr_of!((*table).Table)
+                .cast::<windows_sys::Win32::NetworkManagement::IpHelper::MIB_IF_ROW2>(),
+            count,
+        );
 
         for row in rows {
             if row.Type == IF_TYPE_SOFTWARE_LOOPBACK || row.OperStatus != IfOperStatusUp {

@@ -5,7 +5,6 @@ import {
   ChartLineData01Icon,
   GlobalIcon,
   PieChart01Icon,
-  PuzzleIcon,
   Settings02Icon,
 } from '@hugeicons/core-free-icons'
 import { motion } from 'motion/react'
@@ -13,7 +12,7 @@ import { cn } from 'cn'
 
 import { spring } from '@/lib/motion'
 
-export type ViewId = 'vpn' | 'network' | 'usage' | 'protection' | 'settings'
+export type ViewId = 'vpn' | 'network' | 'usage' | 'settings'
 
 interface NavItem {
   id: ViewId
@@ -25,7 +24,6 @@ const PRIMARY: NavItem[] = [
   { id: 'vpn', label: 'VPN', icon: GlobalIcon },
   { id: 'network', label: 'Network', icon: ChartLineData01Icon },
   { id: 'usage', label: 'Usage', icon: PieChart01Icon },
-  { id: 'protection', label: 'Features', icon: PuzzleIcon },
 ]
 
 const SECONDARY: NavItem[] = [{ id: 'settings', label: 'Settings', icon: Settings02Icon }]

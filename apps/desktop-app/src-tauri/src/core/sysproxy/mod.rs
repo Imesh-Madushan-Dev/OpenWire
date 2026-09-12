@@ -183,7 +183,10 @@ mod tests {
         let _ = fs::remove_file(&backup);
 
         let guard = ProxyGuard::engage(65001, false, &backup).expect("engage");
-        assert!(backup.exists(), "engage must leave a recoverable trail on disk");
+        assert!(
+            backup.exists(),
+            "engage must leave a recoverable trail on disk"
+        );
         assert!(imp::points_at_loopback(), "the OS should now point at us");
 
         // Exactly what a taskkill does: the guard never gets to run its Drop.

@@ -24,9 +24,9 @@ use crate::core::store;
 use crate::error::AppResult;
 
 use history::{rank, DayBreakdown, History, Pair, Range, Sample};
-use srum::AppBytes;
 use netstat::InterfaceCounters;
 use process::ProcessResolver;
+use srum::AppBytes;
 
 /// How many entries each ranked column returns.
 const TOP_N: usize = 12;
@@ -167,10 +167,7 @@ pub struct UsageTracker {
 
 impl UsageTracker {
     pub fn load(path: &Path) -> Self {
-        let history: History = store::read_json(path)
-            .ok()
-            .flatten()
-            .unwrap_or_default();
+        let history: History = store::read_json(path).ok().flatten().unwrap_or_default();
 
         let resolver = ProcessResolver::new();
         resolver.seed_paths(history.app_paths().clone());

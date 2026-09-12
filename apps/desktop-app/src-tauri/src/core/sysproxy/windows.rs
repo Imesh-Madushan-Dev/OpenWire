@@ -13,8 +13,7 @@ use crate::error::{AppError, AppResult};
 
 pub const IS_SUPPORTED: bool = true;
 
-const INTERNET_SETTINGS: &str =
-    r"Software\Microsoft\Windows\CurrentVersion\Internet Settings";
+const INTERNET_SETTINGS: &str = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings";
 
 const INTERNET_OPTION_SETTINGS_CHANGED: u32 = 39;
 const INTERNET_OPTION_REFRESH: u32 = 37;

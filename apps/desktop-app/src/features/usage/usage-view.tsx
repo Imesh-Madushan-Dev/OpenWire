@@ -131,7 +131,7 @@ export function UsageView() {
   const attributionHint = !summary.attributionSupported
     ? 'Per-app names need Windows.'
     : summary.tunnelUp + summary.tunnelDown === 0
-      ? 'No traffic went through Maizy in this period. Connect, or turn on "Measure usage while disconnected" in Features.'
+      ? 'No traffic went through Maizy in this period. Connect, or turn on "Measure usage while disconnected" in Settings.'
       : 'Recorded while the VPN is connected.'
 
   // The dates the backend actually covered, which is not always what was asked

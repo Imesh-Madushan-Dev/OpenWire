@@ -60,10 +60,8 @@ pub async fn servers_remove(state: State<'_, AppState>, id: String) -> AppResult
 /// The node behind "Optimal location".
 #[tauri::command]
 pub async fn servers_optimal(state: State<'_, AppState>) -> AppResult<Option<ServerSummary>> {
-    Ok(state
-        .optimal_node()
-        .map(|node| {
-            let latency = state.latency_of(&node.id);
-            ServerSummary::from_node(&node, latency)
-        }))
+    Ok(state.optimal_node().map(|node| {
+        let latency = state.latency_of(&node.id);
+        ServerSummary::from_node(&node, latency)
+    }))
 }

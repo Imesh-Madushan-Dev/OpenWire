@@ -27,6 +27,7 @@ pub fn run() {
     }
 
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_log::Builder::default()
                 .level(if cfg!(debug_assertions) {

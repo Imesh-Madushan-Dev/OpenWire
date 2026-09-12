@@ -73,9 +73,8 @@ pub async fn start_monitor(app: AppHandle, state: &AppState) -> AppResult<Connec
     // need their copy of it - it carries no credentials and no remote. Falling
     // back to the bundled definition keeps the feature working after a removal.
     let node = state.node(MONITOR_NODE_ID).or_else(|_| {
-        monitor_node().ok_or_else(|| {
-            AppError::Invalid("Monitor mode has no local route to use.".to_string())
-        })
+        monitor_node()
+            .ok_or_else(|| AppError::Invalid("Monitor mode has no local route to use.".to_string()))
     })?;
 
     bring_up(app, state, node, true).await

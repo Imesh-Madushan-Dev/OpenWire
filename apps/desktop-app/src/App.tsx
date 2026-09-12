@@ -8,7 +8,6 @@ import { NoticeBar } from '@/components/notice-bar'
 import { TitleBar } from '@/components/title-bar'
 import { viewVariants } from '@/lib/motion'
 import { isActive } from '@/lib/types'
-import { ProtectionView } from '@/features/protection/protection-view'
 import { SettingsView } from '@/features/settings/settings-view'
 import { NetworkView } from '@/features/usage/network-view'
 import { UsageView } from '@/features/usage/usage-view'
@@ -46,10 +45,9 @@ function Shell() {
               exit="exit"
               className="absolute inset-0"
             >
-              {view === 'vpn' && <VpnView onOpenFeatures={() => setView('protection')} />}
+              {view === 'vpn' && <VpnView onOpenFeatures={() => setView('settings')} />}
               {view === 'network' && <NetworkView />}
               {view === 'usage' && <UsageView />}
-              {view === 'protection' && <ProtectionView />}
               {view === 'settings' && <SettingsView />}
             </motion.div>
           </AnimatePresence>

@@ -475,7 +475,9 @@ mod tests {
         });
 
         let metrics = Arc::new(Metrics::new());
-        let usage = Arc::new(UsageTracker::load(std::path::Path::new("no-such-usage.json")));
+        let usage = Arc::new(UsageTracker::load(std::path::Path::new(
+            "no-such-usage.json",
+        )));
         let (tx, _rx) = mpsc::unbounded_channel();
         let tunnel = Tunnel::start(
             TunnelConfig {
@@ -538,7 +540,9 @@ mod tests {
     #[tokio::test]
     async fn unconfigured_node_is_refused_before_binding() {
         let metrics = Arc::new(Metrics::new());
-        let usage = Arc::new(UsageTracker::load(std::path::Path::new("no-such-usage.json")));
+        let usage = Arc::new(UsageTracker::load(std::path::Path::new(
+            "no-such-usage.json",
+        )));
         let (tx, _rx) = mpsc::unbounded_channel();
         // Built rather than looked up: nothing ships pre-added any more, so
         // the unconfigured case has to be constructed to be tested.
