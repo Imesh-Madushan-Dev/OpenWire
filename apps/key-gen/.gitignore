@@ -1,0 +1,3 @@
+# The signing key. Anyone holding private.pem can issue license keys.
+keys/
+node_modules/

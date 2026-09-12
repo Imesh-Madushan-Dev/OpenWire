@@ -1,4 +1,5 @@
 pub mod catalog;
+pub mod license;
 pub mod metrics;
 pub mod models;
 pub mod probe;

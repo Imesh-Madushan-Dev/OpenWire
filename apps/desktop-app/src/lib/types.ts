@@ -186,3 +186,23 @@ export const EMPTY_SUMMARY: UsageSummary = {
   kinds: [],
   attributionSupported: true,
 }
+
+// ---------------------------------------------------------------------------
+// License - mirrors `src-tauri/src/core/license/mod.rs`
+// ---------------------------------------------------------------------------
+
+export type LicenseStatus =
+  | { state: 'unlicensed'; machineId: string }
+  | {
+      state: 'active'
+      machineId: string
+      name: string
+      /** Unix seconds. */
+      issuedAt: number
+      expiresAt: number
+      daysLeft: number
+    }
+  | { state: 'expired'; machineId: string; name: string; expiresAt: number }
+  /** A stored key that no longer checks out; `reason` is written for a person. */
+  | { state: 'invalid'; machineId: string; reason: string }
+  | { state: 'unsupported' }

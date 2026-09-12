@@ -71,6 +71,7 @@ dependencies = [
  "base64 0.22.1",
  "log",
  "png 0.18.1",
+ "ring",
  "rustls",
  "rustls-pki-types",
  "serde",

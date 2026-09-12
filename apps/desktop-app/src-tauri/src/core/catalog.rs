@@ -44,12 +44,6 @@ pub fn strip_unusable(nodes: &mut Vec<ServerNode>) -> usize {
     before - nodes.len()
 }
 
-/// What a fresh install starts with: nothing. Servers are added by hand, from
-/// a `vless://` share link the user pastes in.
-pub fn default_nodes() -> Vec<ServerNode> {
-    Vec::new()
-}
-
 /// Picks the best node for "Optimal location": configured, lowest load, and
 /// never the unmasked diagnostic node.
 pub fn optimal<'a>(
@@ -240,13 +234,8 @@ mod tests {
     }
 
     #[test]
-    fn nothing_ships_pre_added_but_the_direct_route_still_parses() {
-        assert!(
-            default_nodes().is_empty(),
-            "no server may be seeded on first launch"
-        );
-
-        // Monitor mode resolves this by id, so it has to survive the removal.
+    fn the_direct_route_parses_and_needs_no_credentials() {
+        // Monitor mode resolves this by id; it is no longer in any catalog.
         let direct = direct_node().expect("the direct route must parse");
         assert!(direct.is_configured());
         assert!(matches!(direct.outbound, Outbound::Direct));

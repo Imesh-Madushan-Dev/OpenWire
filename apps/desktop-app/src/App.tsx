@@ -8,6 +8,7 @@ import { NoticeBar } from '@/components/notice-bar'
 import { TitleBar } from '@/components/title-bar'
 import { viewVariants } from '@/lib/motion'
 import { isActive } from '@/lib/types'
+import { LicenseGate } from '@/features/license/license-gate'
 import { SettingsView } from '@/features/settings/settings-view'
 import { NetworkView } from '@/features/usage/network-view'
 import { UsageView } from '@/features/usage/usage-view'
@@ -17,9 +18,13 @@ import { VpnView } from '@/features/vpn/vpn-view'
 
 export default function App() {
   return (
-    <VpnProvider>
-      <Shell />
-    </VpnProvider>
+    // Nothing VPN-related mounts until the license is active: the gate owns the
+    // window until then, and the backend refuses to start a tunnel regardless.
+    <LicenseGate>
+      <VpnProvider>
+        <Shell />
+      </VpnProvider>
+    </LicenseGate>
   )
 }
 
