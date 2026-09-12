@@ -74,6 +74,14 @@ export interface PlatformInfo {
   version: string
 }
 
+/** The period the store holds, for bounding the date pickers. */
+export interface UsageSpan {
+  /** Midday of the first and last recorded day; `null` when nothing is stored. */
+  firstTs: number | null
+  lastTs: number | null
+  retentionDays: number
+}
+
 export interface Notice {
   level: 'info' | 'warning' | 'error'
   message: string
@@ -152,7 +160,9 @@ export interface UsageEntry {
 }
 
 export interface UsageSummary {
-  range: UsageRange
+  /** Midday of the first and last local day these figures cover. */
+  fromTs: number
+  toTs: number
   totalUp: number
   totalDown: number
   tunnelUp: number
@@ -165,7 +175,8 @@ export interface UsageSummary {
 }
 
 export const EMPTY_SUMMARY: UsageSummary = {
-  range: 'day',
+  fromTs: 0,
+  toTs: 0,
   totalUp: 0,
   totalDown: 0,
   tunnelUp: 0,

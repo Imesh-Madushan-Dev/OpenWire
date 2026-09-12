@@ -2,8 +2,9 @@
 
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import {
-  Analytics01Icon,
+  ChartLineData01Icon,
   GlobalIcon,
+  PieChart01Icon,
   PuzzleIcon,
   Settings02Icon,
 } from '@hugeicons/core-free-icons'
@@ -12,7 +13,7 @@ import { cn } from 'cn'
 
 import { spring } from '@/lib/motion'
 
-export type ViewId = 'vpn' | 'usage' | 'protection' | 'settings'
+export type ViewId = 'vpn' | 'network' | 'usage' | 'protection' | 'settings'
 
 interface NavItem {
   id: ViewId
@@ -22,7 +23,8 @@ interface NavItem {
 
 const PRIMARY: NavItem[] = [
   { id: 'vpn', label: 'VPN', icon: GlobalIcon },
-  { id: 'usage', label: 'Network', icon: Analytics01Icon },
+  { id: 'network', label: 'Network', icon: ChartLineData01Icon },
+  { id: 'usage', label: 'Usage', icon: PieChart01Icon },
   { id: 'protection', label: 'Features', icon: PuzzleIcon },
 ]
 

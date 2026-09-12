@@ -1,17 +1,14 @@
-/** Network usage: a live throughput graph and a ranked breakdown. */
+/** Usage: totals for a period and the ranked breakdown behind them. */
 
-import { useState } from 'react'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { useMemo, useState } from 'react'
 import {
   ComputerIcon,
   GlobalIcon,
-  PauseIcon,
-  PlayIcon,
   Route01Icon,
 } from '@hugeicons/core-free-icons'
-import { AnimatePresence, motion } from 'motion/react'
+import { motion } from 'motion/react'
 
-import { Segmented } from '@/components/segmented'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -19,235 +16,267 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { formatSpeed } from '@/lib/format'
-import { staggerParent, swapVariants } from '@/lib/motion'
-import type { UsageRange } from '@/lib/types'
+import { staggerParent } from '@/lib/motion'
 
 import { BreakdownColumn } from './components/breakdown-column'
-import { ThroughputChart } from './components/throughput-chart'
 import { UsageDonut } from './components/usage-donut'
-import { BUCKET_SECONDS, SCALE_OPTIONS } from './tiers'
-import { useSummary, useTimeline } from './use-usage'
+import {
+  currentMonth,
+  fromDateInput,
+  monthPeriods,
+  periodKey,
+  ROLLING,
+  spanLabel,
+  toDateInput,
+  type Period,
+} from './periods'
+import { useSummary, useUsageSpan } from './use-usage'
 
-type Tab = 'graph' | 'usage'
+const DAY = 86_400
 
-const TABS = [
-  { value: 'graph' as const, label: 'Graph' },
-  { value: 'usage' as const, label: 'Usage' },
-]
+/**
+ * What the right-hand picker chooses. `month` and `custom` are modes rather
+ * than periods: each hands the actual choice to its own control in the centre
+ * of the header, so one dropdown never has to hold both presets and a calendar.
+ */
+type Mode = 'today' | 'week' | 'rolling30' | 'month' | 'custom'
 
-const GRAPH_RANGES = [
-  { value: 'fiveMinutes' as const, label: '5 min' },
-  { value: 'threeHours' as const, label: '3 hours' },
-  { value: 'day' as const, label: '24 hours' },
-  { value: 'week' as const, label: 'Week' },
-  { value: 'month' as const, label: 'Month' },
-]
+const MODE_LABELS: Record<Mode, string> = {
+  today: 'Today',
+  week: 'Last 7 days',
+  rolling30: 'Last 30 days',
+  month: 'Month',
+  custom: 'Custom range',
+}
 
-const USAGE_RANGES = [
-  { value: 'day' as const, label: 'Today' },
-  { value: 'week' as const, label: '7 days' },
-  { value: 'month' as const, label: '30 days' },
-]
+const MODE_ORDER: Mode[] = ['today', 'week', 'rolling30', 'month', 'custom']
+
+const ROLLING_FOR: Record<'today' | 'week' | 'rolling30', Period> = {
+  today: ROLLING[0],
+  week: ROLLING[1],
+  rolling30: ROLLING[2],
+}
 
 export function UsageView() {
-  const [tab, setTab] = useState<Tab>('graph')
+  const span = useUsageSpan()
+  // Opens on the current month, the way GlassWire does.
+  const [mode, setMode] = useState<Mode>('month')
+  const [month, setMonth] = useState<string | null>(null)
 
-  return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <header className="flex shrink-0 items-center justify-between gap-4 px-8 pt-1 pb-4">
-        <div>
-          <h1 className="font-heading text-xl font-semibold">Network</h1>
-          <p className="text-xs text-muted-foreground">
-            Live throughput and where your bandwidth went.
-          </p>
-        </div>
-        <Segmented
-          options={TABS}
-          value={tab}
-          onChange={setTab}
-          layoutId="usage-tab"
-          aria-label="Usage view"
-        />
-      </header>
+  // Read once per mount rather than per render: the date pickers only need it
+  // for their bounds and their initial value.
+  // ponytail: a session left open past midnight keeps yesterday's `max`. The
+  // backend clamps anyway; revisit if anyone actually trips over it.
+  const [today] = useState(() => Math.floor(Date.now() / 1000))
 
-      <div className="relative min-h-0 flex-1">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={tab}
-            variants={swapVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            className="absolute inset-0"
-          >
-            {tab === 'graph' ? <GraphTab /> : <UsageTab />}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-    </div>
+  // Defaults to the last week, so opening Custom shows real figures rather
+  // than an empty panel waiting on two inputs.
+  const [customFrom, setCustomFrom] = useState(() => toDateInput(today - 6 * DAY))
+  const [customTo, setCustomTo] = useState(() => toDateInput(today))
+
+  // The current month is always present, so Month mode works before any
+  // history exists and lands on this month by default.
+  const months = useMemo(
+    () => (span ? monthPeriods(span) : [currentMonth()]),
+    [span],
   )
-}
 
-function GraphTab() {
-  const [range, setRange] = useState<UsageRange>('fiveMinutes')
-  const [scale, setScale] = useState(0)
-  const [paused, setPaused] = useState(false)
+  // Key -> label, so the trigger reads "September 2026" rather than the
+  // `span:...:...` value its items are addressed by.
+  const monthLabels = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const entry of months) map[periodKey(entry)] = entry.label
+    return map
+  }, [months])
 
-  const points = useTimeline(range, paused)
-  const latest = points.at(-1)
-  const live = range === 'fiveMinutes'
+  // `months` is newest-first with the current month at its head, so the
+  // fallback is this month without having to search for it.
+  const activeMonth = months.find((entry) => periodKey(entry) === month) ?? months[0]
 
-  return (
-    <div className="flex h-full flex-col gap-3 px-8 pb-6">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {/* `items` lets the trigger show the label rather than the raw
-              byte-rate value the graph needs. */}
-          <Select
-            items={SCALE_OPTIONS}
-            value={scale}
-            onValueChange={(value) => setScale(value ?? 0)}
-          >
-            <SelectTrigger size="sm" aria-label="Graph scale" className="text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SCALE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+  const period = useMemo<Period>(() => {
+    if (mode === 'month') return activeMonth
 
-          {/* Pausing only makes sense where points are still arriving. */}
-          {live && (
-            <button
-              type="button"
-              onClick={() => setPaused((value) => !value)}
-              aria-label={paused ? 'Resume' : 'Pause'}
-              aria-pressed={paused}
-              className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-white/8 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
-            >
-              <HugeiconsIcon
-                icon={paused ? PlayIcon : PauseIcon}
-                size={14}
-                strokeWidth={2}
-              />
-            </button>
-          )}
-        </div>
+    if (mode === 'custom') {
+      const fromTs = fromDateInput(customFrom)
+      const toTs = fromDateInput(customTo)
+      // An incomplete pair falls back to today rather than querying a nonsense
+      // window; an inverted one is simply read in the order it makes sense.
+      if (fromTs === null || toTs === null) return ROLLING[0]
+      return {
+        kind: 'span',
+        fromTs: Math.min(fromTs, toTs),
+        toTs: Math.max(fromTs, toTs),
+        label: MODE_LABELS.custom,
+      }
+    }
 
-        <Segmented
-          options={GRAPH_RANGES}
-          value={range}
-          onChange={setRange}
-          layoutId="usage-range"
-          size="sm"
-          aria-label="Time range"
-        />
-      </div>
+    return ROLLING_FOR[mode]
+  }, [mode, activeMonth, customFrom, customTo])
 
-      <div className="panel relative min-h-0 flex-1 rounded-2xl p-3">
-        {/* Current rate, read straight off the newest bucket. */}
-        <div className="pointer-events-none absolute top-4 left-4 z-10 flex gap-4">
-          <Reading
-            color="var(--chart-down)"
-            label="Down"
-            value={latest ? latest.down / BUCKET_SECONDS[range] : 0}
-          />
-          <Reading
-            color="var(--chart-up)"
-            label="Up"
-            value={latest ? latest.up / BUCKET_SECONDS[range] : 0}
-          />
-          {paused && (
-            <span className="self-center rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold text-warning">
-              Paused
-            </span>
-          )}
-        </div>
-
-        <ThroughputChart points={points} range={range} scale={scale} />
-      </div>
-    </div>
-  )
-}
-
-function Reading({ color, label, value }: { color: string; label: string; value: number }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: color }} />
-      <span className="text-[10px] text-muted-foreground">{label}</span>
-      <span className="numeric text-[11px] font-semibold">{formatSpeed(value)}</span>
-    </div>
-  )
-}
-
-function UsageTab() {
-  const [range, setRange] = useState<UsageRange>('day')
-  const summary = useSummary(range)
+  const summary = useSummary(period)
 
   // An empty column has two very different causes, and "Recorded while the VPN
   // is connected" reads as a fault rather than as the reason when the real
-  // answer is simply that nothing was tunnelled yet.
+  // answer is simply that nothing was tunnelled in this period.
   const attributionHint = !summary.attributionSupported
     ? 'Per-app names need Windows.'
     : summary.tunnelUp + summary.tunnelDown === 0
       ? 'No traffic went through Maizy in this period. Connect, or turn on "Measure usage while disconnected" in Features.'
       : 'Recorded while the VPN is connected.'
 
+  // The dates the backend actually covered, which is not always what was asked
+  // for: a range reaching past retention comes back trimmed.
+  const covered = summary.fromTs > 0 ? spanLabel(summary.fromTs, summary.toTs) : null
+
+  const earliest = span?.firstTs ? toDateInput(span.firstTs) : undefined
+  const latest = toDateInput(today)
+
   return (
-    <div className="h-full overflow-y-auto px-8 pb-8">
-      <motion.div
-        variants={staggerParent}
-        initial="initial"
-        animate="animate"
-        className="flex flex-col gap-4"
-      >
-        <div className="flex shrink-0 justify-end">
-          <Segmented
-            options={USAGE_RANGES}
-            value={range}
-            onChange={setRange}
-            layoutId="summary-range"
-            size="sm"
-            aria-label="Usage period"
-          />
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* Three zones: the centre one stays centred on the page regardless of
+          how wide the title or the right-hand picker are. */}
+      <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 px-8 pt-1 pb-4">
+        <div className="min-w-0">
+          <h1 className="font-heading text-xl font-semibold">Usage</h1>
+          <p className="truncate text-xs text-muted-foreground">
+            {covered ?? 'Where your bandwidth went.'}
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_1fr]">
-          <UsageDonut summary={summary} />
+        <div className="flex items-center justify-center gap-1.5">
+          {mode === 'month' && (
+            <Select
+              items={monthLabels}
+              value={periodKey(activeMonth)}
+              onValueChange={(value) => setMonth(value)}
+            >
+              <SelectTrigger
+                size="sm"
+                aria-label="Month"
+                className="min-w-40 justify-center text-xs"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {months.map((entry) => (
+                  <SelectItem key={periodKey(entry)} value={periodKey(entry)}>
+                    {entry.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
-          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-3">
-            <BreakdownColumn
-              title="Apps"
-              icon={ComputerIcon}
-              entries={summary.apps}
-              emptyHint={attributionHint}
-            />
-            <BreakdownColumn
-              title="Hosts"
-              icon={GlobalIcon}
-              entries={summary.hosts}
-              emptyHint={attributionHint}
-            />
-            <BreakdownColumn
-              title="Traffic type"
-              icon={Route01Icon}
-              entries={summary.kinds}
-              emptyHint={attributionHint}
-            />
+          {mode === 'custom' && (
+            <>
+              <DateField
+                label="From"
+                value={customFrom}
+                min={earliest}
+                max={latest}
+                onChange={setCustomFrom}
+              />
+              <span aria-hidden className="text-xs text-muted-foreground">
+                &ndash;
+              </span>
+              <DateField
+                label="To"
+                value={customTo}
+                min={earliest}
+                max={latest}
+                onChange={setCustomTo}
+              />
+            </>
+          )}
+        </div>
+
+        <div className="flex justify-end">
+          <Select
+            items={MODE_LABELS}
+            value={mode}
+            onValueChange={(value) => setMode((value as Mode | null) ?? 'today')}
+          >
+            <SelectTrigger size="sm" aria-label="Usage period" className="min-w-30 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MODE_ORDER.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {MODE_LABELS[value]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-8">
+        <motion.div
+          variants={staggerParent}
+          initial="initial"
+          animate="animate"
+          className="flex flex-col gap-4"
+        >
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_1fr]">
+            <UsageDonut summary={summary} />
+
+            <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-3">
+              <BreakdownColumn
+                title="Apps"
+                icon={ComputerIcon}
+                entries={summary.apps}
+                emptyHint={attributionHint}
+              />
+              <BreakdownColumn
+                title="Hosts"
+                icon={GlobalIcon}
+                entries={summary.hosts}
+                emptyHint={attributionHint}
+              />
+              <BreakdownColumn
+                title="Traffic type"
+                icon={Route01Icon}
+                entries={summary.kinds}
+                emptyHint={attributionHint}
+              />
+            </div>
           </div>
-        </div>
 
-        <p className="px-1 text-xs leading-relaxed text-muted-foreground">
-          The ring covers all network activity on this device. The three columns cover only
-          traffic that went through Maizy, which is the only traffic it can attribute without
-          a kernel driver.
-        </p>
-      </motion.div>
+          <p className="px-1 text-xs leading-relaxed text-muted-foreground">
+            The ring covers all network activity on this device. The three columns cover only
+            traffic that went through Maizy, which is the only traffic it can attribute without
+            a kernel driver. History is kept for {span?.retentionDays ?? 90} days.
+          </p>
+        </motion.div>
+      </div>
     </div>
+  )
+}
+
+function DateField({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string
+  value: string
+  min?: string
+  max: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <Input
+      type="date"
+      aria-label={label}
+      value={value}
+      min={min}
+      max={max}
+      onChange={(event) => onChange(event.target.value)}
+      // `color-scheme` is what makes the native picker and its calendar icon
+      // render dark; without it Chromium paints a white widget on the panel.
+      className="h-8 w-33 px-2.5 text-xs scheme-dark"
+    />
   )
 }

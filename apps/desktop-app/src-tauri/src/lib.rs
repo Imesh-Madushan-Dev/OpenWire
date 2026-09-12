@@ -53,6 +53,8 @@ pub fn run() {
             commands::settings::network_restore,
             commands::usage::usage_timeline,
             commands::usage::usage_summary,
+            commands::usage::usage_summary_between,
+            commands::usage::usage_span,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

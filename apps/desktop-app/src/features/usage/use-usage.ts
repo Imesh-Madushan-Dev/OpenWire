@@ -13,8 +13,11 @@ import {
   EMPTY_SUMMARY,
   type UsageRange,
   type UsageSample,
+  type UsageSpan,
   type UsageSummary,
 } from '@/lib/types'
+
+import { periodKey, type Period } from './periods'
 
 /** Matches `SECONDS_KEPT` in the backend's history tiers. */
 const LIVE_POINTS = 300
@@ -68,15 +71,22 @@ export function useTimeline(range: UsageRange, paused: boolean) {
   return points
 }
 
-export function useSummary(range: UsageRange) {
+export function useSummary(period: Period) {
   const [summary, setSummary] = useState<UsageSummary>(EMPTY_SUMMARY)
+
+  // Keyed on the period's identity rather than the object, so a re-render that
+  // rebuilds an equal period does not refetch.
+  const key = periodKey(period)
 
   useEffect(() => {
     let cancelled = false
 
     const load = async () => {
       try {
-        const next = await api.usageSummary(range)
+        const next =
+          period.kind === 'rolling'
+            ? await api.usageSummary(period.range)
+            : await api.usageSummaryBetween(period.fromTs, period.toTs)
         if (!cancelled) setSummary(next)
       } catch {
         // Same reasoning as the timeline: stale numbers beat empty ones.
@@ -84,12 +94,38 @@ export function useSummary(range: UsageRange) {
     }
 
     void load()
-    const timer = window.setInterval(load, SUMMARY_REFETCH_MS)
+
+    // A closed period in the past cannot change; only one ending today does.
+    const live = period.kind === 'rolling' || period.toTs >= Date.now() / 1000 - 86_400
+    const timer = live ? window.setInterval(load, SUMMARY_REFETCH_MS) : undefined
     return () => {
       cancelled = true
-      window.clearInterval(timer)
+      if (timer) window.clearInterval(timer)
     }
-  }, [range])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
 
   return summary
+}
+
+/** The stored period, for building the month list and bounding the pickers. */
+export function useUsageSpan(): UsageSpan | null {
+  const [span, setSpan] = useState<UsageSpan | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void api
+      .usageSpan()
+      .then((next) => {
+        if (!cancelled) setSpan(next)
+      })
+      .catch(() => {
+        // No span means no month entries - the rolling presets still work.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  return span
 }

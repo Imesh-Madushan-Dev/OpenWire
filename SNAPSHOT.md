@@ -49,7 +49,7 @@ reserved for protection state, never decoration.
 | Monitor mode: attribution with no VPN connected | bundled-node guard test; shares the relay path |
 | Usage history tiers + day buckets | unit tests incl. retention and capping |
 | System-wide throughput counters | **over-counts — see §3** |
-| Tray, custom window chrome, 4 views | ran the built binary |
+| Tray, custom window chrome, 5 views | ran the built binary |
 
 ### Test counts
 
@@ -138,7 +138,8 @@ apps/desktop-app/
     features/
       vpn/          dashboard, power orb, live stats, provider + context
       servers/      location sheet, vless:// import
-      usage/        throughput graph, totals ring, ranked breakdown
+      usage/        network-view (throughput graph) + usage-view (totals ring,
+                    ranked breakdown) - two nav pages, one data layer
       protection/   kill switch, LAN bypass, routing, startup
       settings/     port, servers, diagnostics, restore-network
 

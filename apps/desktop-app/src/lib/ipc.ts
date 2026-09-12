@@ -20,6 +20,7 @@ import type {
   StatsSnapshot,
   UsageRange,
   UsageSample,
+  UsageSpan,
   UsageSummary,
 } from './types'
 
@@ -78,6 +79,9 @@ export const api = {
 
   usageTimeline: (range: UsageRange) => call<UsageSample[]>('usage_timeline', { range }),
   usageSummary: (range: UsageRange) => call<UsageSummary>('usage_summary', { range }),
+  usageSummaryBetween: (fromTs: number, toTs: number) =>
+    call<UsageSummary>('usage_summary_between', { fromTs, toTs }),
+  usageSpan: () => call<UsageSpan>('usage_span'),
 
   settings: () => call<Settings>('settings_get'),
   updateSettings: (patch: SettingsPatch) => call<Settings>('settings_update', { patch }),

@@ -99,6 +99,16 @@ pub fn local_day(unix_seconds: i64) -> i64 {
     (unix_seconds + local_offset_secs()).div_euclid(86_400)
 }
 
+/// Midday, in unix seconds, of a given local day.
+///
+/// The inverse of `local_day`, aimed at noon rather than midnight so that a
+/// DST shift between then and now cannot land the answer on the wrong day.
+/// Used to hand day buckets to the UI as timestamps, which is the only calendar
+/// vocabulary both sides share.
+pub fn day_noon_unix(local_day: i64) -> i64 {
+    local_day * 86_400 + 43_200 - local_offset_secs()
+}
+
 #[cfg(windows)]
 fn local_offset_secs() -> i64 {
     use windows_sys::Win32::System::Time::{
@@ -161,6 +171,15 @@ mod tests {
             up += o.saturating_sub(po);
         }
         assert_eq!((up, down), (0, 0));
+    }
+
+    #[test]
+    fn day_numbers_survive_a_round_trip_through_timestamps() {
+        // Whatever the host's offset, a day handed out as a timestamp must come
+        // back as the same day - otherwise a month picker would be off by one.
+        for day in [0i64, 1, 19_000, 20_708, 25_000] {
+            assert_eq!(local_day(day_noon_unix(day)), day, "day {day} shifted");
+        }
     }
 
     #[test]

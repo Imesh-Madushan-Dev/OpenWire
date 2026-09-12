@@ -9,6 +9,7 @@ pub mod history;
 pub mod icon;
 pub mod netstat;
 pub mod process;
+pub mod srum;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -22,7 +23,7 @@ use crate::core::metrics::Metrics;
 use crate::core::store;
 use crate::error::AppResult;
 
-use history::{rank, History, Pair, Range, Sample};
+use history::{rank, DayBreakdown, History, Pair, Range, Sample};
 use netstat::InterfaceCounters;
 use process::ProcessResolver;
 
@@ -291,8 +292,44 @@ impl UsageTracker {
             .map(|history| history.summary(range, today))
             .unwrap_or_default();
 
+        self.assemble(merged, today - range.days() as i64 + 1, today)
+    }
+
+    /// Summary for an arbitrary period, given any instant inside the first and
+    /// last day wanted.
+    ///
+    /// Taking timestamps rather than calendar dates keeps one definition of
+    /// "which day is this" - the same `local_day` the sampler buckets with - so
+    /// the UI never has to reimplement the host's timezone rules.
+    pub fn summary_between(&self, from_ts: i64, to_ts: i64) -> UsageSummary {
+        let (first, last) = {
+            let (a, b) = (netstat::local_day(from_ts), netstat::local_day(to_ts));
+            if a <= b {
+                (a, b)
+            } else {
+                (b, a)
+            }
+        };
+
+        let merged = self
+            .history
+            .lock()
+            .map(|history| history.summary_between(first, last))
+            .unwrap_or_default();
+
+        self.assemble(merged, first, last)
+    }
+
+    /// First and last day holding any record, as timestamps.
+    pub fn recorded_span(&self) -> Option<(i64, i64)> {
+        let (first, last) = self.history.lock().ok()?.recorded_span()?;
+        Some((netstat::day_noon_unix(first), netstat::day_noon_unix(last)))
+    }
+
+    fn assemble(&self, merged: DayBreakdown, first_day: i64, last_day: i64) -> UsageSummary {
         UsageSummary {
-            range,
+            from_ts: netstat::day_noon_unix(first_day),
+            to_ts: netstat::day_noon_unix(last_day),
             total_up: merged.up,
             total_down: merged.down,
             tunnel_up: merged.tunnel_up,
@@ -356,7 +393,10 @@ pub struct UsageEntry {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageSummary {
-    pub range: Range,
+    /// Midday of the first and last local day the figures cover. The UI labels
+    /// the period from these rather than assuming it got what it asked for.
+    pub from_ts: i64,
+    pub to_ts: i64,
     pub total_up: u64,
     pub total_down: u64,
     pub tunnel_up: u64,

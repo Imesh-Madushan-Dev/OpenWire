@@ -228,10 +228,21 @@ impl History {
 
     /// Merged breakdown across the last `range.days()` local days.
     pub fn summary(&self, range: Range, today: i64) -> DayBreakdown {
-        let first = today - range.days() as i64 + 1;
-        let mut merged = DayBreakdown::default();
+        self.summary_between(today - range.days() as i64 + 1, today)
+    }
 
-        for (_, day) in self.days.range(first..=today) {
+    /// Merged breakdown across an arbitrary inclusive span of local days.
+    ///
+    /// Days outside the retention window simply contribute nothing, so a range
+    /// reaching further back than the store goes is clamped by omission rather
+    /// than rejected.
+    pub fn summary_between(&self, first: i64, last: i64) -> DayBreakdown {
+        let mut merged = DayBreakdown::default();
+        if last < first {
+            return merged;
+        }
+
+        for (_, day) in self.days.range(first..=last) {
             merged.up += day.up;
             merged.down += day.down;
             merged.tunnel_up += day.tunnel_up;
@@ -242,6 +253,14 @@ impl History {
         }
 
         merged
+    }
+
+    /// First and last local day that hold any record, for building a picker
+    /// that only offers periods with data behind them.
+    pub fn recorded_span(&self) -> Option<(i64, i64)> {
+        let first = *self.days.keys().next()?;
+        let last = *self.days.keys().next_back()?;
+        Some((first, last))
     }
 }
 
@@ -464,5 +483,59 @@ mod tests {
         assert_eq!(ranked[0].0, "big");
         assert_eq!(ranked[1].0, "small");
         assert_eq!(ranked[2].0, OTHER_KEY);
+    }
+}
+
+#[cfg(test)]
+mod range_tests {
+    use super::*;
+
+    fn history_with_days(days: &[i64]) -> History {
+        let mut history = History::default();
+        for (index, day) in days.iter().enumerate() {
+            history.record_breakdown(*day, "app", &format!("h{index}"), "HTTPS", 1, 9);
+        }
+        history
+    }
+
+    #[test]
+    fn a_custom_span_covers_both_ends_inclusively() {
+        let history = history_with_days(&[10, 11, 12, 13]);
+
+        assert_eq!(history.summary_between(11, 12).hosts.len(), 2);
+        assert_eq!(history.summary_between(10, 13).hosts.len(), 4);
+        // A single day is a legitimate span, not an empty one.
+        assert_eq!(history.summary_between(12, 12).hosts.len(), 1);
+        assert_eq!(history.summary_between(12, 12).tunnel_down, 9);
+    }
+
+    #[test]
+    fn a_span_outside_the_stored_days_is_empty_not_an_error() {
+        let history = history_with_days(&[10, 11]);
+
+        assert_eq!(history.summary_between(50, 60).tunnel_down, 0);
+        // Reversed bounds must not panic on the BTreeMap range.
+        assert_eq!(history.summary_between(11, 10).tunnel_down, 0);
+    }
+
+    #[test]
+    fn the_rolling_presets_still_read_as_spans_ending_today() {
+        let history = history_with_days(&[100, 99, 94, 80]);
+        let today = 100;
+
+        assert_eq!(
+            history.summary(Range::Week, today).hosts.len(),
+            history.summary_between(today - 6, today).hosts.len()
+        );
+        assert_eq!(
+            history.summary(Range::Month, today).hosts.len(),
+            history.summary_between(today - 29, today).hosts.len()
+        );
+    }
+
+    #[test]
+    fn the_recorded_span_is_the_outermost_days_with_data() {
+        assert_eq!(history_with_days(&[7, 3, 9]).recorded_span(), Some((3, 9)));
+        assert_eq!(History::default().recorded_span(), None);
     }
 }

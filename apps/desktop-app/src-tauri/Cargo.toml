@@ -52,6 +52,9 @@ base64 = "0.22"
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_Networking_WinSock", "Win32_System_Threading", "Win32_System_Time", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi"] }
 winreg = "0.55"
+# Spike: WinRT per-app network usage (SRUM). Already in the tree via tauri.
+windows = { version = "0.61", features = ["Networking_Connectivity", "Foundation", "Win32_System_WinRT"] }
+windows-core = "0.61"
 
 [profile.release]
 codegen-units = 1
