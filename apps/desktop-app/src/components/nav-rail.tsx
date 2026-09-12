@@ -39,7 +39,7 @@ export function NavRail({ active, onChange, connected }: NavRailProps) {
   return (
     <nav
       aria-label="Main"
-      className="flex w-[84px] shrink-0 flex-col items-center gap-1 border-r border-white/6 bg-rail py-3"
+      className="flex w-21 shrink-0 flex-col items-center gap-1 border-r border-white/6 bg-rail py-3"
     >
       <div className="relative mb-3 grid size-9 place-items-center rounded-xl bg-primary/12">
         <span aria-hidden className="text-sm font-bold text-primary">
@@ -97,7 +97,7 @@ function RailButton({
       type="button"
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className="group relative flex w-[68px] flex-col items-center gap-1 rounded-2xl py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      className="group relative flex w-17 flex-col items-center gap-1 rounded-2xl py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
     >
       {/* One shared element slides between items instead of fading per button. */}
       {active && (

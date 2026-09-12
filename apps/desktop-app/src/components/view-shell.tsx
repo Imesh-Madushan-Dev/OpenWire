@@ -11,7 +11,7 @@ interface ViewShellProps {
 export function ViewShell({ title, description, children }: ViewShellProps) {
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex w-full max-w-[560px] flex-col gap-7 px-8 pt-4 pb-10">
+      <div className="mx-auto flex w-full max-w-140 flex-col gap-7 px-8 pt-4 pb-10">
         <header className="flex flex-col gap-1">
           <h1 className="font-heading text-xl font-semibold">{title}</h1>
           {description && (
