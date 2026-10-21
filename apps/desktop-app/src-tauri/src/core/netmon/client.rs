@@ -22,8 +22,9 @@ pub struct MonitorStatus {
     pub collecting: bool,
     /// Why it is not collecting, in words fit for the UI.
     pub error: Option<String>,
-    /// The installed service speaks a different protocol than this build and
-    /// needs reinstalling - which happens after an app update.
+    /// The installed service is older than this build - it speaks a different
+    /// protocol, or lacks something this build shows - and needs reinstalling,
+    /// which happens after an app update.
     pub outdated: bool,
 }
 
@@ -92,7 +93,7 @@ mod windows {
     use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
     use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};
 
-    use super::super::{scm, Message, PIPE_NAME, PROTOCOL};
+    use super::super::{scm, Message, PIPE_NAME, PROTOCOL, REVISION};
     use super::{Monitor, MonitorStatus};
     use crate::core::usage::UsageTracker;
 
@@ -222,10 +223,16 @@ mod windows {
             };
 
             match message {
-                Message::Hello { protocol, .. } => {
+                Message::Hello {
+                    protocol, revision, ..
+                } => {
                     if protocol != PROTOCOL {
                         report(&|status| status.outdated = true);
                         return Ended::Outdated;
+                    }
+                    // Still worth reading; the update only adds to it.
+                    if revision < REVISION {
+                        report(&|status| status.outdated = true);
                     }
                 }
                 Message::Status { collecting, error } => {

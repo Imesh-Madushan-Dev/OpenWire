@@ -45,6 +45,14 @@ pub const PIPE_NAME: &str = r"\\.\pipe\maizy-netmon";
 /// the app then asks to reinstall rather than misreading the stream.
 pub const PROTOCOL: u32 = 1;
 
+/// Bumped whenever the service starts sending something the app shows, in a
+/// shape older apps can ignore. A service with a lower revision still speaks
+/// the protocol and is read as before, but is reported as outdated - without
+/// that, what it lacks would simply never appear, with nothing to say why.
+///
+/// 1: hosts carry the country their address is in.
+pub const REVISION: u32 = 1;
+
 pub const FLAG_SERVICE: &str = "--netmon-service";
 pub const FLAG_INSTALL: &str = "--netmon-install";
 pub const FLAG_UNINSTALL: &str = "--netmon-uninstall";
@@ -59,6 +67,10 @@ pub enum Message {
     Hello {
         protocol: u32,
         version: String,
+        /// See [`REVISION`]. Absent from services that predate it, which are
+        /// revision 0.
+        #[serde(default)]
+        revision: u32,
     },
     /// Whether the trace session is up. `error` says why not, in words fit
     /// for the settings page.
@@ -151,6 +163,20 @@ mod tests {
         assert_eq!(
             status,
             r#"{"type":"status","collecting":false,"error":"x"}"#
+        );
+    }
+
+    #[test]
+    fn a_service_from_before_revisions_reads_as_revision_zero() {
+        let hello: Message =
+            serde_json::from_str(r#"{"type":"hello","protocol":1,"version":"0.1.0"}"#).unwrap();
+        assert_eq!(
+            hello,
+            Message::Hello {
+                protocol: 1,
+                version: "0.1.0".into(),
+                revision: 0,
+            }
         );
     }
 }

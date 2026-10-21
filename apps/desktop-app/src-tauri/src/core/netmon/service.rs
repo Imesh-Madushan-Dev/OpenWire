@@ -27,7 +27,7 @@ use windows_sys::Win32::System::Services::{
 use super::etw::{self, Collector};
 use super::flows::{self, Pending};
 use super::sys::{self, wide};
-use super::{Message, Row, FLAG_OWNER, PIPE_NAME, PROTOCOL, SERVICE_NAME};
+use super::{Message, Row, FLAG_OWNER, PIPE_NAME, PROTOCOL, REVISION, SERVICE_NAME};
 use crate::core::usage::unix_seconds;
 
 /// Lines buffered per client before a slow one starts skipping seconds.
@@ -401,6 +401,7 @@ async fn serve_client(
     let mut opening = vec![Message::Hello {
         protocol: PROTOCOL,
         version: env!("CARGO_PKG_VERSION").to_string(),
+        revision: REVISION,
     }];
     opening.extend(status);
     if !backlog.is_empty() {

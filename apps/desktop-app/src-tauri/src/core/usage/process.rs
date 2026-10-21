@@ -91,15 +91,20 @@ impl ProcessResolver {
     /// PNG data URL for an app's icon, or `None` when its path is unknown or
     /// carries no icon.
     pub fn icon_for_app(&self, app: &str) -> Option<String> {
-        let mut inner = self.inner.lock().ok()?;
+        let path = {
+            let inner = self.inner.lock().ok()?;
+            if let Some(cached) = inner.icons.get(app) {
+                return cached.clone();
+            }
+            inner.paths.get(app)?.clone()
+        };
 
-        if let Some(cached) = inner.icons.get(app) {
-            return cached.clone();
-        }
-
-        let path = inner.paths.get(app)?.clone();
+        // Read outside the lock: it touches the disk, and the accept path
+        // takes this lock for every new connection.
         let extracted = icon::data_url(&path);
-        inner.icons.insert(app.to_string(), extracted.clone());
+        if let Ok(mut inner) = self.inner.lock() {
+            inner.icons.insert(app.to_string(), extracted.clone());
+        }
         extracted
     }
 
@@ -112,11 +117,28 @@ impl ProcessResolver {
     }
 
     /// Restores paths from a previous run so icons appear before the app in
-    /// question has opened a connection in this one.
+    /// question has opened a connection in this one. Never replaces a path
+    /// already known: a restored or historical one is older than any seen live.
     pub fn seed_paths(&self, paths: HashMap<String, String>) {
         if let Ok(mut inner) = self.inner.lock() {
             for (name, path) in paths {
                 inner.paths.entry(name).or_insert(path);
+            }
+        }
+    }
+
+    /// Records where running apps live right now. Unlike [`Self::seed_paths`]
+    /// this replaces what was known: an update moves an app (Edge's WebView
+    /// and Store apps keep a folder per version), and the old path then names
+    /// a file that is gone.
+    pub fn learn_paths(&self, paths: HashMap<String, String>) {
+        if let Ok(mut inner) = self.inner.lock() {
+            for (name, path) in paths {
+                if inner.paths.get(&name) != Some(&path) {
+                    // Drawn from the old file, if at all.
+                    inner.icons.remove(&name);
+                    inner.paths.insert(name, path);
+                }
             }
         }
     }
@@ -249,6 +271,22 @@ fn process_image(_pid: u32) -> Option<(String, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_path_seen_live_replaces_a_restored_one_but_not_the_reverse() {
+        let path = |p: &str| HashMap::from([("app.exe".to_string(), p.to_string())]);
+        let resolver = ProcessResolver::new();
+
+        resolver.seed_paths(path(r"C:\App\1.0\app.exe"));
+        resolver.learn_paths(path(r"C:\App\2.0\app.exe"));
+        resolver.seed_paths(path(r"C:\App\1.0\app.exe"));
+
+        assert_eq!(
+            resolver.known_paths()["app.exe"],
+            r"C:\App\2.0\app.exe",
+            "the app moved when it updated; the old folder is gone"
+        );
+    }
 
     #[test]
     fn lookup_matches_the_exact_port() {

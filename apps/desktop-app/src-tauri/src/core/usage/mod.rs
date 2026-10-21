@@ -239,7 +239,7 @@ impl UsageTracker {
             })
             .collect();
         if !paths.is_empty() {
-            self.resolver.seed_paths(paths);
+            self.resolver.learn_paths(paths);
         }
 
         if let Ok(mut history) = self.history.lock() {

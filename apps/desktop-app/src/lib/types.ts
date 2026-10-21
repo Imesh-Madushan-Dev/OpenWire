@@ -323,6 +323,9 @@ export interface MonitorStatus {
   collecting: boolean
   /** Why it is not collecting, already written for a person. */
   error: string | null
-  /** Installed by an older Maizy and needs reinstalling. */
+  /**
+   * Installed by an older Maizy and needs reinstalling: it speaks another
+   * protocol, or still records but lacks something newer (host countries).
+   */
   outdated: boolean
 }

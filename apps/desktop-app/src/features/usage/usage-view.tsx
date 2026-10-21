@@ -9,6 +9,7 @@ import { motion } from 'motion/react'
 import { cn } from 'cn'
 
 import { Segmented } from '@/components/segmented'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -32,7 +33,7 @@ import {
   toDateInput,
   type Period,
 } from './periods'
-import { useMonitor, type MonitorState } from './use-monitor'
+import { useMonitor } from './use-monitor'
 import { useAppIcons, useSummary, useUsageSpan, useWindowsApps } from './use-usage'
 
 const DAY = 86_400
@@ -270,7 +271,7 @@ export function UsageView() {
           aria-label="Traffic shown"
         />
         <div className="flex items-center gap-4">
-          {scope === 'all' && <MonitorBadge state={monitor.state} />}
+          {scope === 'all' && <MonitorBadge monitor={monitor} />}
           <Legend />
         </div>
       </div>
@@ -358,16 +359,24 @@ function footnote(
   return `Every app, host and traffic type on this device${since}, recorded by detailed monitoring. Traffic Maizy carried is credited to the app that sent it.`
 }
 
-/** A quiet signal that the device view is live, or that it needs a look. */
-function MonitorBadge({ state }: { state: MonitorState }) {
+/**
+ * A quiet signal that the device view is live, or that it needs a look - with
+ * the fix right beside it. The columns stay filled while an outdated monitor
+ * keeps recording, so this is the only place on the page that says so.
+ */
+function MonitorBadge({ monitor }: { monitor: ReturnType<typeof useMonitor> }) {
+  const { state, busy } = monitor
+  const troubled = state === 'failing' || state === 'stopped' || state === 'outdated'
   const tone =
     state === 'active'
       ? { label: 'Monitoring', dot: 'bg-success', text: 'text-foreground/80' }
       : state === 'starting'
         ? { label: 'Starting', dot: 'bg-success/50', text: 'text-muted-foreground' }
-        : state === 'failing' || state === 'stopped' || state === 'outdated'
-          ? { label: 'Monitor needs attention', dot: 'bg-warning', text: 'text-warning' }
-          : null
+        : state === 'outdated'
+          ? { label: 'Monitor needs an update', dot: 'bg-warning', text: 'text-warning' }
+          : troubled
+            ? { label: 'Monitor needs attention', dot: 'bg-warning', text: 'text-warning' }
+            : null
   if (!tone) return null
 
   return (
@@ -382,6 +391,17 @@ function MonitorBadge({ state }: { state: MonitorState }) {
         <span className={cn('relative size-1.5 rounded-full', tone.dot)} />
       </span>
       {tone.label}
+      {troubled && (
+        <Button
+          variant="outline"
+          size="xs"
+          className="ml-1 h-5 px-2 text-[11px]"
+          disabled={busy}
+          onClick={() => void monitor.enable()}
+        >
+          {busy ? 'Waiting for Windows…' : state === 'outdated' ? 'Update' : 'Repair'}
+        </Button>
+      )}
     </span>
   )
 }
