@@ -12,6 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::core::catalog;
+use crate::core::lan::Lan;
 use crate::core::metrics::Metrics;
 use crate::core::models::{
     ConnectionState, Phase, ServerNode, ServerSummary, Settings, StatsSnapshot,
@@ -38,6 +39,8 @@ pub struct AppState {
     pub usage: Arc<UsageTracker>,
     /// The device-wide network monitor, if the user installed it.
     pub netmon: Arc<Monitor>,
+    /// Other devices on the local network.
+    pub lan: Arc<Lan>,
     /// Dropping either of these tears down the matching resource, so the order
     /// in `teardown` is what guarantees the OS proxy is always restored.
     tunnel: Mutex<Option<Tunnel>>,
@@ -54,6 +57,7 @@ impl AppState {
         let settings_path = config_dir.join("settings.json");
         let catalog_path = config_dir.join("servers.json");
         let usage_path = config_dir.join("usage.json");
+        let devices_path = config_dir.join("devices.json");
 
         // Before anything else: if a previous run was killed while the system
         // proxy was engaged, the machine currently has no working networking.
@@ -101,6 +105,7 @@ impl AppState {
             metrics: Arc::new(Metrics::new()),
             usage: Arc::new(UsageTracker::load(&usage_path)),
             netmon: Monitor::new(),
+            lan: Lan::load(devices_path),
             tunnel: Mutex::new(None),
             proxy: Mutex::new(None),
         })

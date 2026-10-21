@@ -78,6 +78,12 @@ pub fn run() {
             commands::netmon::netmon_status,
             commands::netmon::netmon_enable,
             commands::netmon::netmon_disable,
+            commands::devices::devices_snapshot,
+            commands::devices::devices_scan,
+            commands::devices::devices_rename,
+            commands::devices::devices_set_kind,
+            commands::devices::devices_acknowledge,
+            commands::devices::devices_forget,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -96,6 +102,7 @@ pub fn run() {
             tray::build(&handle)?;
             spawn_stats_ticker(handle.clone());
             spawn_initial_probe(handle.clone());
+            spawn_device_watch(handle.clone());
 
             if settings.launch_minimized {
                 if let Some(window) = app.get_webview_window("main") {
@@ -169,6 +176,30 @@ fn spawn_stats_ticker(app: AppHandle) {
             let mut snapshot = commands::vpn::snapshot_with_uptime(&state);
             sampler.sample(&mut snapshot, elapsed);
             state.emit_stats(&snapshot);
+        }
+    });
+}
+
+/// Sweeps the local network in the background, so the Devices list is
+/// current when opened and a newcomer is noticed - first shortly after
+/// launch, once the network has settled, then every few minutes.
+fn spawn_device_watch(app: AppHandle) {
+    const FIRST_AFTER: Duration = Duration::from_secs(20);
+    const EVERY: Duration = Duration::from_secs(5 * 60);
+
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(FIRST_AFTER).await;
+        loop {
+            let Some(state) = app.try_state::<AppState>() else {
+                break;
+            };
+            // Checked every round, so turning it off takes effect without a restart.
+            if state.settings().watch_devices && !state.lan.is_scanning() {
+                if let Err(err) = commands::devices::scan(&app).await {
+                    log::debug!("background device sweep: {err}");
+                }
+            }
+            tokio::time::sleep(EVERY).await;
         }
     });
 }

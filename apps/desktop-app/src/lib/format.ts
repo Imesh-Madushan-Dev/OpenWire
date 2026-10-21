@@ -57,3 +57,28 @@ export function regionCode(countryCode: string | null | undefined): string {
   if (!countryCode || countryCode === 'xx') return ''
   return countryCode.slice(0, 2).toUpperCase()
 }
+
+/**
+ * How long ago a Unix-seconds moment was, in the fewest words that are
+ * still exact enough: `just now`, `4 min ago`, `3 h ago`, `yesterday`,
+ * then a date.
+ */
+export function formatAgo(unixSeconds: number, nowSeconds = Date.now() / 1000): string {
+  const elapsed = Math.max(0, nowSeconds - unixSeconds)
+  if (elapsed < 60) return 'just now'
+  if (elapsed < 3600) return `${Math.floor(elapsed / 60)} min ago`
+  if (elapsed < 86_400) return `${Math.floor(elapsed / 3600)} h ago`
+  if (elapsed < 2 * 86_400) return 'yesterday'
+  return formatDay(unixSeconds)
+}
+
+/** A calendar day, with the year only when it is not this one: `Oct 12`. */
+export function formatDay(unixSeconds: number): string {
+  const date = new Date(unixSeconds * 1000)
+  const sameYear = date.getFullYear() === new Date().getFullYear()
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })
+}

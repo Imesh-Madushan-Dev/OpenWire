@@ -11,6 +11,7 @@ import {
   Delete02Icon,
   GithubIcon,
   InformationCircleIcon,
+  LaptopPhoneSyncIcon,
   Radar01Icon,
   Rocket01Icon,
   Route01Icon,
@@ -231,6 +232,13 @@ function MonitoringSection({ settings }: { settings: Settings }) {
                 : 'Only apps that follow the Windows proxy are counted; the total on the ring always covers everything.'
           }
           hintTone={proxyUnsupported || !settings.systemProxy ? 'warning' : 'muted'}
+        />
+        <SettingRow
+          icon={LaptopPhoneSyncIcon}
+          title="Watch for new devices"
+          description="Check your local network every few minutes, keep the Devices list current, and say when something new joins. Uses ARP, which every device on the network already answers."
+          checked={settings.watchDevices}
+          onChange={(next) => void updateSettings({ watchDevices: next })}
         />
       </SettingGroup>
 

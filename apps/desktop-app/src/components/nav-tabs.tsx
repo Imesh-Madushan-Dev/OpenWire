@@ -10,6 +10,7 @@ import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import {
   ChartRingIcon,
   DashboardSpeed02Icon,
+  LaptopPhoneSyncIcon,
   Settings01Icon,
   ShieldEnergyIcon,
 } from '@hugeicons/core-free-icons'
@@ -18,7 +19,7 @@ import { cn } from 'cn'
 
 import { spring } from '@/lib/motion'
 
-export type ViewId = 'vpn' | 'network' | 'usage' | 'settings'
+export type ViewId = 'vpn' | 'network' | 'usage' | 'devices' | 'settings'
 
 interface NavItem {
   id: ViewId
@@ -26,39 +27,54 @@ interface NavItem {
   icon: IconSvgElement
 }
 
-// Distinct silhouettes - shield, gauge, ring, gear - so each item reads at a
-// glance without the label.
+// Distinct silhouettes - shield, gauge, ring, screens, gear - so each item
+// reads at a glance without the label.
 const ITEMS: NavItem[] = [
   { id: 'vpn', label: 'VPN', icon: ShieldEnergyIcon },
   { id: 'network', label: 'Network', icon: DashboardSpeed02Icon },
   { id: 'usage', label: 'Usage', icon: ChartRingIcon },
+  { id: 'devices', label: 'Devices', icon: LaptopPhoneSyncIcon },
   { id: 'settings', label: 'Settings', icon: Settings01Icon },
 ]
 
 interface NavTabsProps {
   active: ViewId
   onChange: (view: ViewId) => void
+  /** Counts worth a glance from any tab, e.g. devices that just joined. */
+  badges?: Partial<Record<ViewId, number>>
   className?: string
 }
 
-export function NavTabs({ active, onChange, className }: NavTabsProps) {
+export function NavTabs({ active, onChange, badges, className }: NavTabsProps) {
   return (
     <nav aria-label="Main" className={cn('flex items-stretch', className)}>
       {ITEMS.map((item) => {
         const selected = item.id === active
+        const badge = badges?.[item.id] ?? 0
         return (
           <button
             key={item.id}
             type="button"
             onClick={() => onChange(item.id)}
             aria-current={selected ? 'page' : undefined}
+            aria-label={badge > 0 ? `${item.label}, ${badge} new` : undefined}
             className={cn(
               'group relative flex w-18 flex-col items-center justify-center gap-1 outline-none',
               'transition-colors duration-200 focus-visible:bg-tint/6',
               selected ? 'text-foreground' : 'text-muted-foreground hover:text-foreground/85',
             )}
           >
-            <HugeiconsIcon icon={item.icon} size={19} strokeWidth={selected ? 2 : 1.7} />
+            <span className="relative flex">
+              <HugeiconsIcon icon={item.icon} size={19} strokeWidth={selected ? 2 : 1.7} />
+              {badge > 0 && (
+                <span
+                  aria-hidden
+                  className="numeric absolute -top-1.5 left-3.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-primary px-1 text-[9px] leading-none font-semibold text-primary-foreground ring-2 ring-rail"
+                >
+                  {badge > 99 ? '99+' : badge}
+                </span>
+              )}
+            </span>
             <span className={cn('text-[11px] leading-none', selected ? 'font-semibold' : 'font-medium')}>
               {item.label}
             </span>

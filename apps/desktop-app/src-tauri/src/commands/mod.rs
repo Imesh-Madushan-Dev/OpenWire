@@ -1,3 +1,4 @@
+pub mod devices;
 pub mod netmon;
 pub mod servers;
 pub mod settings;

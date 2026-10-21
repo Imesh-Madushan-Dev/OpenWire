@@ -300,7 +300,15 @@ pub struct Settings {
     /// Keep routing through the local proxy while no VPN is connected, so the
     /// usage breakdown can name apps and hosts. Needs `system_proxy`.
     pub monitor_when_idle: bool,
+    /// Sweep the local network every few minutes and say when a device joins.
+    /// Defaulted on its own, so settings saved before it existed still load.
+    #[serde(default = "default_true")]
+    pub watch_devices: bool,
     pub preferred_server: Option<String>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for Settings {
@@ -313,6 +321,7 @@ impl Default for Settings {
             launch_minimized: false,
             lan_bypass: true,
             monitor_when_idle: false,
+            watch_devices: true,
             preferred_server: None,
         }
     }
@@ -329,6 +338,7 @@ pub struct SettingsPatch {
     pub launch_minimized: Option<bool>,
     pub lan_bypass: Option<bool>,
     pub monitor_when_idle: Option<bool>,
+    pub watch_devices: Option<bool>,
     /// Double option: distinguishes "absent" from "explicit null", so the
     /// preferred server can actually be cleared.
     #[serde(default, deserialize_with = "double_option")]
@@ -364,6 +374,9 @@ impl Settings {
         }
         if let Some(v) = patch.monitor_when_idle {
             self.monitor_when_idle = v;
+        }
+        if let Some(v) = patch.watch_devices {
+            self.watch_devices = v;
         }
         if let Some(v) = patch.preferred_server {
             self.preferred_server = v;

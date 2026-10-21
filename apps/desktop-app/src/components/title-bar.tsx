@@ -37,11 +37,12 @@ const STATUS: Record<Phase, { label: string; dot: string }> = {
 interface TitleBarProps {
   view: ViewId
   onNavigate: (view: ViewId) => void
+  badges?: Partial<Record<ViewId, number>>
   phase: Phase
   onFeedback: (message: string) => void
 }
 
-export function TitleBar({ view, onNavigate, phase, onFeedback }: TitleBarProps) {
+export function TitleBar({ view, onNavigate, badges, phase, onFeedback }: TitleBarProps) {
   const minimize = useCallback(() => void getCurrentWindow().minimize(), [])
   const toggleMaximize = useCallback(() => void getCurrentWindow().toggleMaximize(), [])
   // Intercepted in Rust: hides the window, leaves the tunnel running.
@@ -70,6 +71,7 @@ export function TitleBar({ view, onNavigate, phase, onFeedback }: TitleBarProps)
       <NavTabs
         active={view}
         onChange={onNavigate}
+        badges={badges}
         className="absolute inset-y-0 left-1/2 -translate-x-1/2"
       />
 

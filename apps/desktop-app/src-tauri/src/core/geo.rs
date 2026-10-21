@@ -8,7 +8,7 @@
 //! See `resources/geo/README.md` for the licence and how to update the data.
 
 use std::net::IpAddr;
-use std::sync::LazyLock;
+use std::sync::OnceLock;
 
 use maxminddb::{PathElement, Reader};
 
@@ -16,14 +16,18 @@ static DATABASE: &[u8] = include_bytes!("../../resources/geo/dbip-country-lite.m
 
 /// Opened on first use. `None` only if the embedded file is corrupt, which
 /// costs flags rather than the app.
-static READER: LazyLock<Option<Reader<&'static [u8]>>> =
-    LazyLock::new(|| match Reader::from_source(DATABASE) {
-        Ok(reader) => Some(reader),
-        Err(err) => {
-            log::warn!("geo database unreadable: {err}");
-            None
-        }
-    });
+fn reader() -> Option<&'static Reader<&'static [u8]>> {
+    static READER: OnceLock<Option<Reader<&'static [u8]>>> = OnceLock::new();
+    READER
+        .get_or_init(|| match Reader::from_source(DATABASE) {
+            Ok(reader) => Some(reader),
+            Err(err) => {
+                log::warn!("geo database unreadable: {err}");
+                None
+            }
+        })
+        .as_ref()
+}
 
 const ISO_CODE: &[PathElement<'static>] = &[PathElement::Key("country"), PathElement::Key("iso_code")];
 
@@ -35,8 +39,7 @@ pub fn country(ip: IpAddr) -> Option<&'static str> {
     if !is_public(ip) {
         return None;
     }
-    READER
-        .as_ref()?
+    reader()?
         .lookup(ip)
         .ok()?
         .decode_path::<&'static str>(ISO_CODE)

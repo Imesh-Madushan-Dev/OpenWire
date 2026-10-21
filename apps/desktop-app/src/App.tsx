@@ -9,6 +9,9 @@ import { NoticeBar } from '@/components/notice-bar'
 import { TitleBar } from '@/components/title-bar'
 import { viewVariants } from '@/lib/motion'
 import { useMaximized } from '@/lib/use-maximized'
+import { useDevices } from '@/features/devices/devices-context'
+import { DevicesProvider } from '@/features/devices/devices-provider'
+import { DevicesView } from '@/features/devices/devices-view'
 import { SettingsView } from '@/features/settings/settings-view'
 import { NetworkView } from '@/features/usage/network-view'
 import { UsageView } from '@/features/usage/usage-view'
@@ -19,7 +22,9 @@ import { VpnView } from '@/features/vpn/vpn-view'
 export default function App() {
   return (
     <VpnProvider>
-      <Shell />
+      <DevicesProvider>
+        <Shell />
+      </DevicesProvider>
     </VpnProvider>
   )
 }
@@ -28,6 +33,7 @@ function Shell() {
   const { connection, notice, notify, dismissNotice } = useVpn()
   const [view, setView] = useState<ViewId>('vpn')
   const maximized = useMaximized()
+  const { newCount } = useDevices()
 
   return (
     // The window is transparent and shadowless (tauri.conf.json), so these
@@ -43,6 +49,7 @@ function Shell() {
       <TitleBar
         view={view}
         onNavigate={setView}
+        badges={{ devices: newCount }}
         phase={connection.phase}
         onFeedback={(message) => notify({ level: 'info', message })}
       />
@@ -60,6 +67,7 @@ function Shell() {
             {view === 'vpn' && <VpnView onOpenSettings={() => setView('settings')} />}
             {view === 'network' && <NetworkView />}
             {view === 'usage' && <UsageView />}
+            {view === 'devices' && <DevicesView />}
             {view === 'settings' && <SettingsView />}
           </motion.div>
         </AnimatePresence>

@@ -12,11 +12,14 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
 import type {
   ConnectionState,
+  DeviceKind,
+  DevicesSnapshot,
   ImportReport,
   MonitorStatus,
   Notice,
   PlatformInfo,
   Ranked,
+  ScanProgress,
   ServerEdit,
   ServerSummary,
   Settings,
@@ -105,6 +108,19 @@ export const api = {
   netmonEnable: () => call<MonitorStatus>('netmon_enable'),
   netmonDisable: () => call<MonitorStatus>('netmon_disable'),
 
+  devices: () => call<DevicesSnapshot>('devices_snapshot'),
+  /** Sweeps the local network; resolves when it has finished. */
+  scanDevices: () => call<DevicesSnapshot>('devices_scan'),
+  renameDevice: (mac: string, name: string | null) =>
+    call<DevicesSnapshot>('devices_rename', { mac, name }),
+  /** `null` returns the device to the automatic guess. */
+  setDeviceKind: (mac: string, kind: DeviceKind | null) =>
+    call<DevicesSnapshot>('devices_set_kind', { mac, kind }),
+  /** `null` marks every device as seen. */
+  acknowledgeDevices: (mac: string | null) =>
+    call<DevicesSnapshot>('devices_acknowledge', { mac }),
+  forgetDevice: (mac: string) => call<DevicesSnapshot>('devices_forget', { mac }),
+
   settings: () => call<Settings>('settings_get'),
   updateSettings: (patch: SettingsPatch) => call<Settings>('settings_update', { patch }),
   platform: () => call<PlatformInfo>('platform_info'),
@@ -120,6 +136,8 @@ export const EVENTS = {
   notice: 'vpn:notice',
   usageSample: 'usage:sample',
   netmonStatus: 'netmon:status',
+  devices: 'devices:changed',
+  devicesProgress: 'devices:progress',
 } as const
 
 export function onConnectionState(handler: (state: ConnectionState) => void) {
@@ -141,6 +159,15 @@ export function onUsageSample(handler: (sample: UsageSample) => void) {
 
 export function onMonitorStatus(handler: (status: MonitorStatus) => void) {
   return listen<MonitorStatus>(EVENTS.netmonStatus, (event) => handler(event.payload))
+}
+
+export function onDevices(handler: (snapshot: DevicesSnapshot) => void) {
+  return listen<DevicesSnapshot>(EVENTS.devices, (event) => handler(event.payload))
+}
+
+/** Addresses asked so far in a sweep, whichever view started it. */
+export function onDevicesProgress(handler: (progress: ScanProgress) => void) {
+  return listen<ScanProgress>(EVENTS.devicesProgress, (event) => handler(event.payload))
 }
 
 export type { UnlistenFn }

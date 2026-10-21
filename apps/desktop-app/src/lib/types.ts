@@ -84,10 +84,80 @@ export interface Settings {
   launchMinimized: boolean
   lanBypass: boolean
   monitorWhenIdle: boolean
+  /** Sweep the local network every few minutes and say when a device joins. */
+  watchDevices: boolean
   preferredServer: string | null
 }
 
 export type SettingsPatch = Partial<Settings>
+
+// -- devices on the local network ---------------------------------------------
+
+export type DeviceKind =
+  | 'router'
+  | 'computer'
+  | 'phone'
+  | 'tablet'
+  | 'tv'
+  | 'speaker'
+  | 'console'
+  | 'printer'
+  | 'camera'
+  | 'storage'
+  | 'smartHome'
+  | 'wearable'
+  | 'network'
+  | 'unknown'
+
+export type DeviceRole = 'router' | 'thisDevice'
+
+/** How a device's own name was learnt. */
+export type NameSource = 'mdns' | 'netbios' | 'dns'
+
+export interface Device {
+  mac: string
+  ip: string
+  /** What to call it: the user's name for it, else its own. */
+  name: string | null
+  hostname: string | null
+  nameSource: NameSource | null
+  customName: string | null
+  vendor: string | null
+  /** A randomised address, so the maker cannot be known. */
+  privateAddress: boolean
+  kind: DeviceKind
+  kindIsCustom: boolean
+  role: DeviceRole | null
+  online: boolean
+  /** Unix seconds. */
+  firstSeen: number
+  lastSeen: number
+  isNew: boolean
+}
+
+export interface NetworkInfo {
+  id: string
+  /** What Windows calls the adapter, e.g. "Wi-Fi". */
+  adapter: string
+  wireless: boolean
+  subnet: string
+  address: string
+  gateway: string
+}
+
+export interface DevicesSnapshot {
+  supported: boolean
+  /** `null` with no local network to scan: offline, or only a VPN or cellular link. */
+  network: NetworkInfo | null
+  devices: Device[]
+  scanning: boolean
+  lastScan: number | null
+}
+
+export interface ScanProgress {
+  done: number
+  total: number
+}
 
 export interface PlatformInfo {
   systemProxySupported: boolean
