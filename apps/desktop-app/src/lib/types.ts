@@ -154,9 +154,25 @@ export interface UsageEntry {
   up: number
   down: number
   total: number
-  /** PNG data URL of the app's icon. Apps column only, and only when the
-   *  executable could be located and read. */
-  icon?: string
+}
+
+/** The tail past the listed entries, summed: "+41 more, 189 MB". */
+export interface UsageMore {
+  count: number
+  up: number
+  down: number
+}
+
+/** One ranked column, largest first, with `Other` always last. */
+export interface Ranked {
+  entries: UsageEntry[]
+  more: UsageMore | null
+}
+
+export interface UsageColumns {
+  apps: Ranked
+  hosts: Ranked
+  kinds: Ranked
 }
 
 export interface UsageSummary {
@@ -167,11 +183,23 @@ export interface UsageSummary {
   totalDown: number
   tunnelUp: number
   tunnelDown: number
-  apps: UsageEntry[]
-  hosts: UsageEntry[]
-  kinds: UsageEntry[]
+  /** Only what went through Maizy's proxy. */
+  maizy: UsageColumns
+  /** Everything on the device, from the network monitor with Maizy's own
+   *  figures folded in. `null` when the monitor recorded nothing here. */
+  device: UsageColumns | null
+  /** Midday of the first day in the period the monitor has figures for. */
+  monitoredFromTs: number | null
   /** False where per-app names cannot be resolved on this platform. */
   attributionSupported: boolean
+}
+
+export const EMPTY_RANKED: Ranked = { entries: [], more: null }
+
+const EMPTY_COLUMNS: UsageColumns = {
+  apps: EMPTY_RANKED,
+  hosts: EMPTY_RANKED,
+  kinds: EMPTY_RANKED,
 }
 
 export const EMPTY_SUMMARY: UsageSummary = {
@@ -181,8 +209,27 @@ export const EMPTY_SUMMARY: UsageSummary = {
   totalDown: 0,
   tunnelUp: 0,
   tunnelDown: 0,
-  apps: [],
-  hosts: [],
-  kinds: [],
+  maizy: EMPTY_COLUMNS,
+  device: null,
+  monitoredFromTs: null,
   attributionSupported: true,
+}
+
+// ---------------------------------------------------------------------------
+// Network monitor — mirrors `src-tauri/src/core/netmon/client.rs`
+// ---------------------------------------------------------------------------
+
+export interface MonitorStatus {
+  /** False off Windows, where there is nothing to install. */
+  supported: boolean
+  installed: boolean
+  running: boolean
+  /** The app is receiving the service's stream right now. */
+  connected: boolean
+  /** The service's trace session is up. */
+  collecting: boolean
+  /** Why it is not collecting, already written for a person. */
+  error: string | null
+  /** Installed by an older Maizy and needs reinstalling. */
+  outdated: boolean
 }

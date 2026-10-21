@@ -525,14 +525,14 @@ mod tests {
         assert_eq!(summary.tunnel_up, 5);
         assert_eq!(summary.tunnel_down, 5);
 
-        let app = &summary.apps[0].key;
+        let app = &summary.maizy.apps.entries[0].key;
         assert!(
             app.ends_with(".exe"),
             "expected the calling process to be named, got {app}"
         );
-        assert_eq!(summary.hosts[0].key, "127.0.0.1");
+        assert_eq!(summary.maizy.hosts.entries[0].key, "127.0.0.1");
         // The echo server is on an ephemeral port, so it classifies as Other.
-        assert_eq!(summary.kinds[0].key, "Other");
+        assert_eq!(summary.maizy.kinds.entries[0].key, "Other");
 
         tunnel.stop();
     }

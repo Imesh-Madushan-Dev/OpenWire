@@ -1,10 +1,12 @@
 //! Network usage queries.
 
+use std::collections::HashMap;
+
 use serde::Serialize;
 use tauri::{Manager, State};
 
 use crate::core::usage::history::{Range, Sample};
-use crate::core::usage::UsageSummary;
+use crate::core::usage::{Ranked, UsageSummary};
 use crate::error::AppResult;
 use crate::state::AppState;
 
@@ -48,7 +50,7 @@ pub async fn usage_device_apps(
     app: tauri::AppHandle,
     from_ts: i64,
     to_ts: i64,
-) -> AppResult<Vec<crate::core::usage::UsageEntry>> {
+) -> AppResult<Ranked> {
     let handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         handle
@@ -61,6 +63,27 @@ pub async fn usage_device_apps(
         log::warn!("device usage query panicked: {err}");
         crate::error::AppError::Config("could not read per-app usage".to_string())
     })
+}
+
+/// Executable icons for the named apps, as PNG data URLs. Apps without a
+/// known executable or icon are simply absent from the answer.
+///
+/// The first request for an app reads its executable through the shell, so it
+/// runs on a blocking worker; repeats are served from a cache.
+#[tauri::command]
+pub async fn usage_icons(
+    app: tauri::AppHandle,
+    apps: Vec<String>,
+) -> AppResult<HashMap<String, String>> {
+    let handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        handle
+            .try_state::<AppState>()
+            .map(|state| state.usage.icons(&apps))
+            .unwrap_or_default()
+    })
+    .await
+    .map_err(|err| crate::error::AppError::Internal(format!("icon worker: {err}")))
 }
 
 /// The period the store actually holds, so the UI can offer months that have

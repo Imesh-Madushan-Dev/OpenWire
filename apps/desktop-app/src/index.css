@@ -389,10 +389,23 @@
         );
     }
 
+    /* A ranking bar's one-time entrance. Transform-only, so a column of fifty
+     * bars animates without a single layout pass. */
+    .bar-grow {
+        transform-origin: left center;
+        animation: bar-grow 560ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    }
+
     /* Numeric readouts must not reflow as digits change. */
     .numeric {
         font-variant-numeric: tabular-nums;
         font-feature-settings: "tnum";
+    }
+}
+
+@keyframes bar-grow {
+    from {
+        transform: scaleX(0);
     }
 }
 

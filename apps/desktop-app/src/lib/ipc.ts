@@ -12,9 +12,10 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
 import type {
   ConnectionState,
-  UsageEntry,
+  MonitorStatus,
   Notice,
   PlatformInfo,
+  Ranked,
   ServerSummary,
   Settings,
   SettingsPatch,
@@ -83,9 +84,16 @@ export const api = {
   usageSummaryBetween: (fromTs: number, toTs: number) =>
     call<UsageSummary>('usage_summary_between', { fromTs, toTs }),
   usageSpan: () => call<UsageSpan>('usage_span'),
-  /** Device-wide per-app usage. Slow (seconds) - never poll this. */
+  /** Device-wide per-app usage from Windows. Slow (seconds) - never poll this. */
   usageDeviceApps: (fromTs: number, toTs: number) =>
-    call<UsageEntry[]>('usage_device_apps', { fromTs, toTs }),
+    call<Ranked>('usage_device_apps', { fromTs, toTs }),
+  /** Icons for app names, as data URLs; apps without one are absent. */
+  usageIcons: (apps: string[]) => call<Record<string, string>>('usage_icons', { apps }),
+
+  netmonStatus: () => call<MonitorStatus>('netmon_status'),
+  /** Shows the Windows admin prompt; resolves once it has been answered. */
+  netmonEnable: () => call<MonitorStatus>('netmon_enable'),
+  netmonDisable: () => call<MonitorStatus>('netmon_disable'),
 
   settings: () => call<Settings>('settings_get'),
   updateSettings: (patch: SettingsPatch) => call<Settings>('settings_update', { patch }),
@@ -101,6 +109,7 @@ export const EVENTS = {
   stats: 'vpn:stats',
   notice: 'vpn:notice',
   usageSample: 'usage:sample',
+  netmonStatus: 'netmon:status',
 } as const
 
 export function onConnectionState(handler: (state: ConnectionState) => void) {
@@ -118,6 +127,10 @@ export function onNotice(handler: (notice: Notice) => void) {
 /** One tick per second, emitted whether or not the tunnel is up. */
 export function onUsageSample(handler: (sample: UsageSample) => void) {
   return listen<UsageSample>(EVENTS.usageSample, (event) => handler(event.payload))
+}
+
+export function onMonitorStatus(handler: (status: MonitorStatus) => void) {
+  return listen<MonitorStatus>(EVENTS.netmonStatus, (event) => handler(event.payload))
 }
 
 export type { UnlistenFn }

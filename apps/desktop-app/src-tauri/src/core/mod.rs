@@ -1,6 +1,7 @@
 pub mod catalog;
 pub mod metrics;
 pub mod models;
+pub mod netmon;
 pub mod probe;
 pub mod store;
 pub mod sysproxy;

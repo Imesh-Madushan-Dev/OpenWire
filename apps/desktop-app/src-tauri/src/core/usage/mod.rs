@@ -11,8 +11,8 @@ pub mod netstat;
 pub mod process;
 pub mod srum;
 
-use std::collections::HashMap;
-use std::path::Path;
+use std::collections::{BTreeMap, HashMap};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -20,16 +20,18 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::Serialize;
 
 use crate::core::metrics::Metrics;
+use crate::core::netmon;
 use crate::core::store;
 use crate::error::AppResult;
 
-use history::{rank, DayBreakdown, History, Pair, Range, Sample};
+use history::{rank, Attributed, DayBreakdown, History, Pair, Range, Sample};
 use netstat::InterfaceCounters;
 use process::ProcessResolver;
 use srum::AppBytes;
 
-/// How many entries each ranked column returns.
-const TOP_N: usize = 12;
+/// How many entries each ranked column returns. The UI shows the first few
+/// and expands to the rest; anything past this is summed into `more`.
+const TOP_N: usize = 50;
 
 // ---------------------------------------------------------------------------
 // Classification
@@ -49,6 +51,13 @@ pub enum TrafficKind {
     Media,
     Realtime,
     Transfer,
+    /// HTTP/3 and other QUIC: HTTPS's ports, over UDP. Only the network
+    /// monitor sees these - the proxy is TCP-only.
+    Quic,
+    Vpn,
+    /// Devices announcing and finding each other on the local network.
+    Discovery,
+    TimeSync,
     Other,
 }
 
@@ -63,7 +72,27 @@ impl TrafficKind {
             554 | 1935 | 1755 => Self::Media,
             3478..=3481 | 5349 | 19302..=19309 => Self::Realtime,
             20 | 21 | 139 | 445 | 873 | 2049 => Self::Transfer,
+            500 | 4500 | 1194 | 1701 | 1723 | 51820 => Self::Vpn,
+            137 | 138 | 1900 | 3702 | 5355 => Self::Discovery,
+            123 => Self::TimeSync,
             _ => Self::Other,
+        }
+    }
+
+    /// Classifies one flow seen by the network monitor. The remote port names
+    /// the service in the usual case; when it is an ephemeral one, this
+    /// machine is the server and its own port is the meaningful one.
+    pub fn classify(udp: bool, remote_port: u16, local_port: u16) -> Self {
+        let by_remote = Self::from_port(remote_port);
+        let kind = if by_remote == Self::Other && remote_port >= 49152 {
+            Self::from_port(local_port)
+        } else {
+            by_remote
+        };
+
+        match kind {
+            Self::Https if udp => Self::Quic,
+            kind => kind,
         }
     }
 
@@ -77,6 +106,10 @@ impl TrafficKind {
             Self::Media => "Streaming",
             Self::Realtime => "Real-time",
             Self::Transfer => "File transfer",
+            Self::Quic => "QUIC",
+            Self::Vpn => "VPN",
+            Self::Discovery => "Local discovery",
+            Self::TimeSync => "Time sync",
             Self::Other => "Other",
         }
     }
@@ -163,11 +196,15 @@ pub struct UsageTracker {
     history: Mutex<History>,
     interfaces: Mutex<InterfaceCounters>,
     resolver: ProcessResolver,
+    /// One file per local day, beside the main store.
+    days_dir: PathBuf,
 }
 
 impl UsageTracker {
     pub fn load(path: &Path) -> Self {
-        let history: History = store::read_json(path).ok().flatten().unwrap_or_default();
+        let mut history: History = store::read_json(path).ok().flatten().unwrap_or_default();
+        let days_dir = path.with_file_name("usage-days");
+        history.adopt_days(read_days(&days_dir));
 
         let resolver = ProcessResolver::new();
         resolver.seed_paths(history.app_paths().clone());
@@ -180,6 +217,37 @@ impl UsageTracker {
             history: Mutex::new(history),
             interfaces: Mutex::new(InterfaceCounters::new()),
             resolver,
+            days_dir,
+        }
+    }
+
+    /// Records what the network monitor saw outside Maizy.
+    pub fn record_monitored(&self, rows: &[netmon::Row]) {
+        // The monitor names apps from their full image path, so icons work
+        // for apps that never touched the proxy.
+        let paths: HashMap<String, String> = rows
+            .iter()
+            .filter_map(|row| {
+                row.path
+                    .as_ref()
+                    .map(|path| (row.app.clone(), path.clone()))
+            })
+            .collect();
+        if !paths.is_empty() {
+            self.resolver.seed_paths(paths);
+        }
+
+        if let Ok(mut history) = self.history.lock() {
+            for row in rows {
+                history.record_monitored(
+                    netstat::local_day(row.t),
+                    &row.app,
+                    &row.host,
+                    &row.kind,
+                    row.up,
+                    row.down,
+                );
+            }
         }
     }
 
@@ -288,13 +356,19 @@ impl UsageTracker {
 
     pub fn summary(&self, range: Range) -> UsageSummary {
         let today = netstat::local_day(unix_seconds());
-        let merged = self
+        let first = today - range.days() as i64 + 1;
+        let (merged, monitored_from) = self
             .history
             .lock()
-            .map(|history| history.summary(range, today))
+            .map(|history| {
+                (
+                    history.summary(range, today),
+                    history.first_monitored_day(first, today),
+                )
+            })
             .unwrap_or_default();
 
-        self.assemble(merged, today - range.days() as i64 + 1, today)
+        self.assemble(merged, monitored_from, first, today)
     }
 
     /// Summary for an arbitrary period, given any instant inside the first and
@@ -313,13 +387,18 @@ impl UsageTracker {
             }
         };
 
-        let merged = self
+        let (merged, monitored_from) = self
             .history
             .lock()
-            .map(|history| history.summary_between(first, last))
+            .map(|history| {
+                (
+                    history.summary_between(first, last),
+                    history.first_monitored_day(first, last),
+                )
+            })
             .unwrap_or_default();
 
-        self.assemble(merged, first, last)
+        self.assemble(merged, monitored_from, first, last)
     }
 
     /// First and last day holding any record, as timestamps.
@@ -328,7 +407,40 @@ impl UsageTracker {
         Some((netstat::day_noon_unix(first), netstat::day_noon_unix(last)))
     }
 
-    fn assemble(&self, merged: DayBreakdown, first_day: i64, last_day: i64) -> UsageSummary {
+    fn assemble(
+        &self,
+        merged: DayBreakdown,
+        monitored_from: Option<i64>,
+        first_day: i64,
+        last_day: i64,
+    ) -> UsageSummary {
+        let relay = Attributed {
+            up: merged.tunnel_up,
+            down: merged.tunnel_down,
+            apps: merged.apps,
+            hosts: merged.hosts,
+            kinds: merged.kinds,
+        };
+
+        // The device view is both sources together. They never overlap: the
+        // monitor leaves Maizy's own process out, and that process is exactly
+        // where the relay's traffic would otherwise appear.
+        let device = (!merged.monitored.is_empty()).then(|| {
+            let mut all = merged.monitored;
+            for (target, source) in [
+                (&mut all.apps, &relay.apps),
+                (&mut all.hosts, &relay.hosts),
+                (&mut all.kinds, &relay.kinds),
+            ] {
+                for (key, pair) in source {
+                    let slot = target.entry(key.clone()).or_default();
+                    slot.up += pair.up;
+                    slot.down += pair.down;
+                }
+            }
+            Columns::from(&all)
+        });
+
         UsageSummary {
             from_ts: netstat::day_noon_unix(first_day),
             to_ts: netstat::day_noon_unix(last_day),
@@ -336,9 +448,9 @@ impl UsageTracker {
             total_down: merged.down,
             tunnel_up: merged.tunnel_up,
             tunnel_down: merged.tunnel_down,
-            apps: self.with_icons(to_entries(&merged.apps)),
-            hosts: to_entries(&merged.hosts),
-            kinds: to_entries(&merged.kinds),
+            maizy: Columns::from(&relay),
+            device,
+            monitored_from_ts: monitored_from.map(netstat::day_noon_unix),
             attribution_supported: cfg!(windows),
         }
     }
@@ -348,7 +460,7 @@ impl UsageTracker {
     /// Blocking and slow - seconds - so callers must keep it off the UI thread.
     /// The result is cached per day span: a past period cannot change, and the
     /// current one is refreshed only when asked for again after a new query.
-    pub fn device_apps(&self, from_ts: i64, to_ts: i64) -> Vec<UsageEntry> {
+    pub fn device_apps(&self, from_ts: i64, to_ts: i64) -> Ranked {
         let key = (
             netstat::local_day(from_ts.min(to_ts)),
             netstat::local_day(to_ts.max(from_ts)),
@@ -366,7 +478,7 @@ impl UsageTracker {
         // Queried on the span the caller asked for, but keyed by whole days, so
         // a period's figures are fetched once however often the UI asks.
         let Some(rows) = srum::per_app(from_ts.min(to_ts), to_ts.max(from_ts)) else {
-            return Vec::new();
+            return Ranked::default();
         };
 
         if let Ok(mut cache) = self.device_apps.lock() {
@@ -381,7 +493,7 @@ impl UsageTracker {
         self.to_device_entries(rows)
     }
 
-    fn to_device_entries(&self, rows: Vec<AppBytes>) -> Vec<UsageEntry> {
+    fn to_device_entries(&self, rows: Vec<AppBytes>) -> Ranked {
         // The paths come from the OS, so the icon cache can be primed with
         // apps that never touched the tunnel.
         self.resolver.seed_paths(
@@ -390,51 +502,98 @@ impl UsageTracker {
                 .collect(),
         );
 
-        let entries = rows
+        // Already sorted largest first by the reader.
+        let mut entries: Vec<UsageEntry> = rows
             .into_iter()
-            .take(TOP_N)
-            .map(|row| UsageEntry {
-                key: row.name,
-                up: row.up,
-                down: row.down,
-                total: row.up + row.down,
-                icon: None,
-            })
+            .map(|row| UsageEntry::new(row.name, row.up, row.down))
             .collect();
-
-        self.with_icons(entries)
+        let rest = entries.split_off(entries.len().min(TOP_N));
+        Ranked::new(entries, rest)
     }
 
-    /// Attaches each app's executable icon to its row.
-    fn with_icons(&self, mut entries: Vec<UsageEntry>) -> Vec<UsageEntry> {
-        for entry in &mut entries {
-            entry.icon = self.resolver.icon_for_app(&entry.key);
-        }
-        entries
+    /// Icons for the named apps, where the executable is known and has one.
+    ///
+    /// Asked for separately rather than embedded in every summary: the
+    /// summary is polled, and a few KB of PNG per row per poll adds up to
+    /// megabytes a minute crossing the IPC bridge for pictures that never
+    /// change.
+    pub fn icons(&self, apps: &[String]) -> HashMap<String, String> {
+        apps.iter()
+            .take(2 * TOP_N)
+            .filter_map(|app| {
+                self.resolver
+                    .icon_for_app(app)
+                    .map(|icon| (app.clone(), icon))
+            })
+            .collect()
     }
 
-    /// Trims to the retention window and writes to disk.
+    /// Trims to the retention window and writes to disk: the timeline tiers
+    /// to the main file, and only the days that changed to their own files.
     pub fn persist(&self, path: &Path) -> AppResult<()> {
-        let Ok(mut history) = self.history.lock() else {
-            return Ok(());
+        let today = netstat::local_day(unix_seconds());
+        let dirty = {
+            let Ok(mut history) = self.history.lock() else {
+                return Ok(());
+            };
+            history.set_app_paths(self.resolver.known_paths());
+            history.prune(today);
+            store::write_json(path, &*history)?;
+            history.take_dirty()
         };
-        history.set_app_paths(self.resolver.known_paths());
-        history.prune(netstat::local_day(unix_seconds()));
-        store::write_json(path, &*history)
+
+        // Written outside the lock: the sampler takes it every second.
+        let mut failed = Vec::new();
+        for (day, breakdown) in dirty {
+            let file = self.days_dir.join(format!("{day}.json"));
+            if let Err(err) = store::write_json_compact(&file, &breakdown) {
+                log::warn!("could not save usage for day {day}: {err}");
+                failed.push(day);
+            }
+        }
+        if !failed.is_empty() {
+            if let Ok(mut history) = self.history.lock() {
+                history.mark_dirty(failed);
+            }
+        }
+
+        remove_expired_days(&self.days_dir, History::retention_cutoff(today));
+        Ok(())
     }
 }
 
-fn to_entries(map: &HashMap<String, Pair>) -> Vec<UsageEntry> {
-    rank(map, TOP_N)
-        .into_iter()
-        .map(|(key, pair)| UsageEntry {
-            key,
-            up: pair.up,
-            down: pair.down,
-            total: pair.total(),
-            icon: None,
+/// Every day file in `dir`. A file that will not parse is skipped rather than
+/// failing the load - one bad day must not cost the other eighty-nine.
+fn read_days(dir: &Path) -> BTreeMap<i64, DayBreakdown> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return BTreeMap::new();
+    };
+    entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let path = entry.path();
+            let day: i64 = path.file_stem()?.to_str()?.parse().ok()?;
+            let breakdown = store::read_json::<DayBreakdown>(&path).ok().flatten()?;
+            Some((day, breakdown))
         })
         .collect()
+}
+
+fn remove_expired_days(dir: &Path, cutoff: i64) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        let expired = path
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .and_then(|stem| stem.parse::<i64>().ok())
+            .is_some_and(|day| day < cutoff);
+        if expired {
+            let _ = std::fs::remove_file(path);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -448,10 +607,72 @@ pub struct UsageEntry {
     pub up: u64,
     pub down: u64,
     pub total: u64,
-    /// PNG data URL of the app's executable icon. Only ever set on the apps
-    /// column, and only where the exe could be located and read.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub icon: Option<String>,
+}
+
+impl UsageEntry {
+    fn new(key: String, up: u64, down: u64) -> Self {
+        Self {
+            key,
+            up,
+            down,
+            total: up + down,
+        }
+    }
+}
+
+/// The tail past the listed entries, summed: "+41 more, 189 MB".
+#[derive(Debug, Clone, Copy, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct More {
+    pub count: usize,
+    pub up: u64,
+    pub down: u64,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Ranked {
+    pub entries: Vec<UsageEntry>,
+    pub more: Option<More>,
+}
+
+impl Ranked {
+    fn new(entries: Vec<UsageEntry>, rest: Vec<UsageEntry>) -> Self {
+        let more = (!rest.is_empty()).then(|| More {
+            count: rest.len(),
+            up: rest.iter().map(|entry| entry.up).sum(),
+            down: rest.iter().map(|entry| entry.down).sum(),
+        });
+        Self { entries, more }
+    }
+
+    fn from_map(map: &HashMap<String, Pair>) -> Self {
+        let mut entries: Vec<UsageEntry> = rank(map, usize::MAX)
+            .into_iter()
+            .map(|(key, pair)| UsageEntry::new(key, pair.up, pair.down))
+            .collect();
+        let rest = entries.split_off(entries.len().min(TOP_N));
+        Self::new(entries, rest)
+    }
+}
+
+/// The three ranked columns for one view of the traffic.
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Columns {
+    pub apps: Ranked,
+    pub hosts: Ranked,
+    pub kinds: Ranked,
+}
+
+impl From<&Attributed> for Columns {
+    fn from(source: &Attributed) -> Self {
+        Self {
+            apps: Ranked::from_map(&source.apps),
+            hosts: Ranked::from_map(&source.hosts),
+            kinds: Ranked::from_map(&source.kinds),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -465,9 +686,14 @@ pub struct UsageSummary {
     pub total_down: u64,
     pub tunnel_up: u64,
     pub tunnel_down: u64,
-    pub apps: Vec<UsageEntry>,
-    pub hosts: Vec<UsageEntry>,
-    pub kinds: Vec<UsageEntry>,
+    /// Only what went through Maizy's proxy.
+    pub maizy: Columns,
+    /// Everything on this device: the network monitor's figures with the
+    /// relay's folded in. `None` when the monitor recorded nothing in the
+    /// period - it was not installed, or not yet.
+    pub device: Option<Columns>,
+    /// Midday of the first day in the period the monitor has figures for.
+    pub monitored_from_ts: Option<i64>,
     /// False where per-app names cannot be resolved, so the UI can say why the
     /// Apps column is empty instead of looking broken.
     pub attribution_supported: bool,
@@ -520,10 +746,11 @@ mod tests {
         let summary = tracker.summary(Range::Day);
         assert_eq!(summary.tunnel_down, 900);
         assert_eq!(summary.tunnel_up, 100);
-        assert_eq!(summary.apps[0].key, "edge.exe");
-        assert_eq!(summary.apps[0].total, 1_000);
-        assert_eq!(summary.hosts[0].key, "example.com");
-        assert_eq!(summary.kinds[0].key, "HTTPS");
+        assert_eq!(summary.maizy.apps.entries[0].key, "edge.exe");
+        assert_eq!(summary.maizy.apps.entries[0].total, 1_000);
+        assert_eq!(summary.maizy.hosts.entries[0].key, "example.com");
+        assert_eq!(summary.maizy.kinds.entries[0].key, "HTTPS");
+        assert!(summary.device.is_none(), "no monitor, no device view");
 
         // The global metrics must stay in step with per-connection accounting.
         assert_eq!(metrics.snapshot().down_bytes, 900);
@@ -551,7 +778,91 @@ mod tests {
 
         let summary = tracker.summary(Range::Day);
         assert_eq!(summary.tunnel_down, 512, "residual bytes were dropped");
-        assert_eq!(summary.hosts[0].key, "example.net");
+        assert_eq!(summary.maizy.hosts.entries[0].key, "example.net");
+    }
+
+    #[test]
+    fn the_device_view_is_the_monitor_and_the_relay_together() {
+        let tracker = tracker();
+        let metrics = Arc::new(Metrics::new());
+        let handle = tracker.open(
+            UsageKey {
+                app: "edge.exe".to_string(),
+                host: "example.com".to_string(),
+                kind: TrafficKind::Https,
+            },
+            metrics,
+        );
+        handle.recorder.add_down(300);
+        tracker.sample();
+
+        let row = |app: &str, host: &str, down| netmon::Row {
+            t: unix_seconds(),
+            app: app.to_string(),
+            path: None,
+            host: host.to_string(),
+            kind: "HTTPS".to_string(),
+            up: 0,
+            down,
+        };
+        tracker.record_monitored(&[
+            row("edge.exe", "example.com", 200),
+            row("steam.exe", "cdn.example", 5_000),
+        ]);
+
+        let summary = tracker.summary(Range::Day);
+        let device = summary.device.expect("monitor data makes a device view");
+        assert_eq!(device.apps.entries[0].key, "steam.exe");
+        let edge = device
+            .apps
+            .entries
+            .iter()
+            .find(|e| e.key == "edge.exe")
+            .unwrap();
+        assert_eq!(edge.down, 500, "relay and monitor bytes add up for one app");
+        assert_eq!(
+            summary.maizy.apps.entries.len(),
+            1,
+            "the Maizy view is untouched"
+        );
+        assert!(summary.monitored_from_ts.is_some());
+    }
+
+    #[test]
+    fn a_long_tail_is_summed_rather_than_dropped() {
+        let map: HashMap<String, Pair> = (0..(TOP_N + 5))
+            .map(|n| {
+                (
+                    format!("h{n}"),
+                    Pair {
+                        up: 1,
+                        down: n as u64 + 1,
+                    },
+                )
+            })
+            .collect();
+        let ranked = Ranked::from_map(&map);
+
+        assert_eq!(ranked.entries.len(), TOP_N);
+        let more = ranked.more.expect("a tail");
+        assert_eq!(more.count, 5);
+        assert_eq!(more.up, 5);
+        assert_eq!(more.down, (1..=5).sum::<u64>(), "the smallest five");
+    }
+
+    #[test]
+    fn quic_and_server_ports_classify_sensibly() {
+        assert_eq!(TrafficKind::classify(true, 443, 50_000), TrafficKind::Quic);
+        assert_eq!(
+            TrafficKind::classify(false, 443, 50_000),
+            TrafficKind::Https
+        );
+        // This machine serving SSH: the client's port is ephemeral.
+        assert_eq!(TrafficKind::classify(false, 52_000, 22), TrafficKind::Ssh);
+        assert_eq!(
+            TrafficKind::classify(true, 1900, 1900),
+            TrafficKind::Discovery
+        );
     }
 
     #[test]

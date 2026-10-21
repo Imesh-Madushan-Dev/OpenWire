@@ -5,6 +5,7 @@ import {
   ComputerSettingsIcon,
   InformationCircleIcon,
   PaintBoardIcon,
+  Radar01Icon,
   Route01Icon,
   ServerStack01Icon,
   Shield01Icon,
@@ -14,6 +15,7 @@ import {
 export type SectionId =
   | 'protection'
   | 'routing'
+  | 'monitoring'
   | 'servers'
   | 'general'
   | 'appearance'
@@ -41,6 +43,12 @@ export const SECTION_GROUPS: readonly (readonly Section[])[] = [
       label: 'Routing',
       description: 'Which traffic goes through Maizy, and where apps connect.',
       icon: Route01Icon,
+    },
+    {
+      id: 'monitoring',
+      label: 'Monitoring',
+      description: 'How Maizy measures the traffic on this device.',
+      icon: Radar01Icon,
     },
     {
       id: 'servers',

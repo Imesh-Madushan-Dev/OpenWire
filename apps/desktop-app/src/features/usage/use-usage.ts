@@ -6,13 +6,14 @@
  * bucket client-side would double-count, so we never try.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import { api, onUsageSample } from '@/lib/ipc'
 import {
+  EMPTY_RANKED,
   EMPTY_SUMMARY,
+  type Ranked,
   type UsageRange,
-  type UsageEntry,
   type UsageSample,
   type UsageSpan,
   type UsageSummary,
@@ -132,45 +133,111 @@ export function useUsageSpan(): UsageSpan | null {
 }
 
 /**
- * Device-wide per-app usage for a resolved span.
+ * Windows' own per-app figures for a resolved span - the Apps column's source
+ * when the network monitor has nothing for the period.
  *
  * Kept apart from `useSummary` because it is a different animal: Windows takes
- * several seconds to answer, so this loads once per period and is never polled.
- * The span comes from the summary the backend actually returned, so both
- * columns describe the same days.
+ * several seconds to answer, so this loads once per period, is never polled,
+ * and is skipped entirely (`enabled: false`) whenever the monitor's figures
+ * are there to be shown instead.
  */
-export function useDeviceApps(fromTs: number, toTs: number) {
+export function useWindowsApps(fromTs: number, toTs: number, enabled: boolean) {
   // The loaded span is stored alongside its rows, so "still loading" is derived
   // from a mismatch rather than from a flag set inside the effect.
-  const [loaded, setLoaded] = useState<{ key: string; entries: UsageEntry[] }>({
+  const [loaded, setLoaded] = useState<{ key: string; ranked: Ranked }>({
     key: '',
-    entries: [],
+    ranked: EMPTY_RANKED,
   })
 
   const key = `${fromTs}:${toTs}`
+  const wanted = enabled && fromTs > 0 && toTs > 0
 
   useEffect(() => {
-    if (fromTs <= 0 || toTs <= 0) return
+    if (!wanted) return
 
     let cancelled = false
     void api
       .usageDeviceApps(fromTs, toTs)
-      .then((entries) => {
-        if (!cancelled) setLoaded({ key, entries })
+      .then((ranked) => {
+        if (!cancelled) setLoaded({ key, ranked })
       })
       .catch(() => {
         // Falls back to the relay-attributed column, which is always there.
-        if (!cancelled) setLoaded({ key, entries: [] })
+        if (!cancelled) setLoaded({ key, ranked: EMPTY_RANKED })
       })
 
     return () => {
       cancelled = true
     }
-  }, [key, fromTs, toTs])
+  }, [key, fromTs, toTs, wanted])
 
   const ready = loaded.key === key
   return {
-    entries: ready ? loaded.entries : [],
-    loading: !ready && fromTs > 0 && toTs > 0,
+    ranked: ready ? loaded.ranked : EMPTY_RANKED,
+    loading: wanted && !ready,
   }
+}
+
+// ---------------------------------------------------------------------------
+// App icons
+// ---------------------------------------------------------------------------
+
+/*
+ * One cache for the whole app session. Icons never change while the app runs,
+ * and the summary they decorate is re-polled every ten seconds - fetching them
+ * with it would ship the same PNGs across the bridge over and over.
+ *
+ * The cache is an immutable snapshot, replaced whenever a batch lands. A new
+ * identity is what lets memoised consumers (the React Compiler memoises every
+ * component here) notice that there is something new to draw. `null` records
+ * "asked, has none", so a missing icon is not re-requested.
+ */
+let iconSnapshot: ReadonlyMap<string, string | null> = new Map()
+const inFlight = new Set<string>()
+const listeners = new Set<() => void>()
+
+function subscribeIcons(listener: () => void) {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+function readIcons() {
+  return iconSnapshot
+}
+
+function requestIcons(keys: string[]) {
+  const missing = keys.filter((key) => !iconSnapshot.has(key) && !inFlight.has(key))
+  if (missing.length === 0) return
+
+  for (const key of missing) inFlight.add(key)
+  void api
+    .usageIcons(missing)
+    .then((found) => {
+      const next = new Map(iconSnapshot)
+      for (const key of missing) next.set(key, found[key] ?? null)
+      iconSnapshot = next
+      for (const listener of listeners) listener()
+    })
+    .catch(() => {
+      // Left uncached, so the next render asks again.
+    })
+    .finally(() => {
+      for (const key of missing) inFlight.delete(key)
+    })
+}
+
+/** Icon lookup for a set of app names, fetching whatever is not cached yet. */
+export function useAppIcons(keys: readonly string[]) {
+  const icons = useSyncExternalStore(subscribeIcons, readIcons)
+
+  // App names cannot contain a newline, so it is a safe separator - and a
+  // stable string means a re-polled summary with the same apps asks nothing.
+  const signature = keys.join('\n')
+  useEffect(() => {
+    if (signature) requestIcons(signature.split('\n'))
+  }, [signature])
+
+  return (key: string) => icons.get(key) ?? undefined
 }

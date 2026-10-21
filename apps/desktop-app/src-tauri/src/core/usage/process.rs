@@ -197,7 +197,7 @@ fn read_tcp_table() -> Option<Vec<(u16, u32)>> {
 
 /// `(executable name, full path)` for a pid.
 #[cfg(windows)]
-fn process_image(pid: u32) -> Option<(String, String)> {
+pub(crate) fn process_image(pid: u32) -> Option<(String, String)> {
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::System::Threading::{
         OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,

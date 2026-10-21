@@ -19,6 +19,8 @@ interface SettingRowProps {
   disabled?: boolean
   /** Extra copy shown under the row, e.g. why a control is unavailable. */
   hint?: string
+  /** Warnings by default; `muted` for plain status that needs no action. */
+  hintTone?: 'warning' | 'muted'
 }
 
 export function SettingRow({
@@ -30,6 +32,7 @@ export function SettingRow({
   onChange,
   disabled = false,
   hint,
+  hintTone = 'warning',
 }: SettingRowProps) {
   const id = `setting-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
 
@@ -61,7 +64,16 @@ export function SettingRow({
         )}
       </div>
 
-      {hint && <p className="pl-12 text-xs text-warning">{hint}</p>}
+      {hint && (
+        <p
+          className={cn(
+            'pl-12 text-xs',
+            hintTone === 'warning' ? 'text-warning' : 'text-muted-foreground',
+          )}
+        >
+          {hint}
+        </p>
+      )}
     </motion.div>
   )
 }

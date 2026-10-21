@@ -1,13 +1,14 @@
-/** Usage: totals for a period and the ranked breakdown behind them. */
+/**
+ * Usage: totals for a period and the ranked breakdown behind them, for the
+ * whole device or only what went through Maizy.
+ */
 
 import { useMemo, useState } from 'react'
-import {
-  ComputerIcon,
-  GlobalIcon,
-  Route01Icon,
-} from '@hugeicons/core-free-icons'
+import { ComputerIcon, GlobalIcon, Route01Icon } from '@hugeicons/core-free-icons'
 import { motion } from 'motion/react'
+import { cn } from 'cn'
 
+import { Segmented } from '@/components/segmented'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -19,7 +20,8 @@ import {
 import { staggerParent } from '@/lib/motion'
 
 import { BreakdownColumn } from './components/breakdown-column'
-import { UsageDonut } from './components/usage-donut'
+import { MonitorPrompt } from './components/monitor-prompt'
+import { UsageDonut, type UsageScope } from './components/usage-donut'
 import {
   currentMonth,
   fromDateInput,
@@ -30,9 +32,35 @@ import {
   toDateInput,
   type Period,
 } from './periods'
-import { useDeviceApps, useSummary, useUsageSpan } from './use-usage'
+import { useMonitor, type MonitorState } from './use-monitor'
+import { useAppIcons, useSummary, useUsageSpan, useWindowsApps } from './use-usage'
 
 const DAY = 86_400
+
+const SCOPES = [
+  { value: 'all' as const, label: 'All traffic' },
+  { value: 'maizy' as const, label: 'Through Maizy' },
+]
+
+/** Remembered per viewer: someone who checks only their VPN traffic should
+ *  not have to switch every visit. Storage can be blocked; the default holds. */
+const SCOPE_KEY = 'maizy.usage.scope'
+
+function readScope(): UsageScope {
+  try {
+    return localStorage.getItem(SCOPE_KEY) === 'maizy' ? 'maizy' : 'all'
+  } catch {
+    return 'all'
+  }
+}
+
+function saveScope(scope: UsageScope) {
+  try {
+    localStorage.setItem(SCOPE_KEY, scope)
+  } catch {
+    // Not remembered; the switch still works for this visit.
+  }
+}
 
 /**
  * What the right-hand picker chooses. `month` and `custom` are modes rather
@@ -114,25 +142,37 @@ export function UsageView() {
   }, [mode, activeMonth, customFrom, customTo])
 
   const summary = useSummary(period)
+  const monitor = useMonitor()
 
-  // Device-wide per-app figures for exactly the days the summary covers, read
-  // from Windows' own accounting rather than from the relay.
-  const device = useDeviceApps(summary.fromTs, summary.toTs)
+  const [scope, setScopeState] = useState<UsageScope>(readScope)
+  const setScope = (next: UsageScope) => {
+    setScopeState(next)
+    saveScope(next)
+  }
 
-  // The relay only ever sees proxy-aware apps, so it is the fallback, not the
-  // source: Windows' table covers everything, including apps that ignore the
-  // system proxy entirely.
-  const apps = device.entries.length > 0 ? device.entries : summary.apps
-  const appsAreDeviceWide = device.entries.length > 0
+  // Which figures fill the columns. The device view exists only for periods
+  // the network monitor recorded; without it, Apps falls back to Windows' own
+  // per-app history and the other two columns explain what is missing.
+  const device = summary.device
+  const columns = scope === 'maizy' ? summary.maizy : device
+  const fallback = scope === 'all' && !device
 
-  // An empty column has two very different causes, and "Recorded while the VPN
-  // is connected" reads as a fault rather than as the reason when the real
-  // answer is simply that nothing was tunnelled in this period.
-  const attributionHint = !summary.attributionSupported
-    ? 'Per-app names need Windows.'
-    : summary.tunnelUp + summary.tunnelDown === 0
-      ? 'No traffic went through Maizy in this period. Connect, or turn on "Measure usage while disconnected" in Settings.'
-      : 'Recorded while the VPN is connected.'
+  // Seconds to answer, so only asked for when it is actually what is shown.
+  const windows = useWindowsApps(summary.fromTs, summary.toTs, fallback)
+  const apps = columns?.apps ?? windows.ranked
+  const iconFor = useAppIcons(apps.entries.map((entry) => entry.key))
+
+  // An empty Maizy column has two very different causes, and "nothing was
+  // recorded" reads as a fault when the real answer is that nothing went
+  // through Maizy in this period.
+  const emptyHint =
+    scope === 'all'
+      ? 'Nothing was recorded in this period.'
+      : !summary.attributionSupported
+        ? 'Per-app names need Windows.'
+        : summary.tunnelUp + summary.tunnelDown === 0
+          ? 'No traffic went through Maizy in this period. Connect, or turn on "Measure usage while disconnected" in Settings.'
+          : 'Recorded while the VPN is connected.'
 
   // The dates the backend actually covered, which is not always what was asked
   // for: a range reaching past retention comes back trimmed.
@@ -220,51 +260,142 @@ export function UsageView() {
         </div>
       </header>
 
+      <div className="flex shrink-0 items-center justify-between gap-4 px-8 pb-3">
+        <Segmented
+          options={SCOPES}
+          value={scope}
+          onChange={setScope}
+          layoutId="usage-scope"
+          size="sm"
+          aria-label="Traffic shown"
+        />
+        <div className="flex items-center gap-4">
+          {scope === 'all' && <MonitorBadge state={monitor.state} />}
+          <Legend />
+        </div>
+      </div>
+
       <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-8">
+        {/* Keyed by scope so a switch replays the entrance and every column
+            starts collapsed again, instead of morphing one list into another. */}
         <motion.div
+          key={scope}
           variants={staggerParent}
           initial="initial"
           animate="animate"
           className="flex flex-col gap-4"
         >
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_1fr]">
-            <UsageDonut summary={summary} />
+            <UsageDonut summary={summary} scope={scope} />
 
             <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-3">
               <BreakdownColumn
                 title="Apps"
                 icon={ComputerIcon}
-                entries={apps}
-                loading={device.loading}
-                note={appsAreDeviceWide ? 'Every app on this device' : undefined}
-                emptyHint={attributionHint}
+                ranked={apps}
+                loading={fallback && windows.loading}
+                note={fallback ? "From Windows' per-app records" : undefined}
+                emptyHint={emptyHint}
+                iconFor={iconFor}
               />
-              <BreakdownColumn
-                title="Hosts"
-                icon={GlobalIcon}
-                entries={summary.hosts}
-                note="Through Maizy only"
-                emptyHint={attributionHint}
-              />
-              <BreakdownColumn
-                title="Traffic type"
-                icon={Route01Icon}
-                entries={summary.kinds}
-                note="Through Maizy only"
-                emptyHint={attributionHint}
-              />
+
+              {columns ? (
+                <>
+                  <BreakdownColumn
+                    title="Hosts"
+                    icon={GlobalIcon}
+                    ranked={columns.hosts}
+                    emptyHint={emptyHint}
+                  />
+                  <BreakdownColumn
+                    title="Traffic type"
+                    icon={Route01Icon}
+                    ranked={columns.kinds}
+                    emptyHint={emptyHint}
+                  />
+                </>
+              ) : (
+                <MonitorPrompt
+                  state={monitor.state}
+                  error={monitor.status?.error ?? null}
+                  busy={monitor.busy}
+                  onEnable={() => void monitor.enable()}
+                  className="sm:col-span-2"
+                />
+              )}
             </div>
           </div>
 
           <p className="px-1 text-xs leading-relaxed text-muted-foreground">
-            {appsAreDeviceWide
-              ? "Apps comes from Windows' own per-app accounting, so it covers everything on this device. Hosts and traffic type can only be read from traffic that went through Maizy, because Windows records which app used the network but not where it connected."
-              : 'The ring covers all network activity on this device. The three columns cover only traffic that went through Maizy, which is the only traffic it can attribute without a kernel driver.'}{' '}
-            History is kept for {span?.retentionDays ?? 90} days.
+            {footnote(scope, summary.fromTs, summary.monitoredFromTs, Boolean(device))} History
+            is kept for {span?.retentionDays ?? 90} days.
           </p>
         </motion.div>
       </div>
     </div>
+  )
+}
+
+function footnote(
+  scope: UsageScope,
+  fromTs: number,
+  monitoredFromTs: number | null,
+  hasDevice: boolean,
+): string {
+  if (scope === 'maizy') {
+    return 'Only traffic that went through Maizy: over the VPN, or routed for measuring while disconnected.'
+  }
+  if (!hasDevice) {
+    return "The ring covers all network activity on this device, and Apps comes from Windows' own per-app records. Hosts and traffic types need detailed monitoring."
+  }
+  // The period began before monitoring did, so its first days are missing.
+  const partial = monitoredFromTs !== null && monitoredFromTs > fromTs
+  const since = partial
+    ? ` since ${new Date(monitoredFromTs * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`
+    : ''
+  return `Every app, host and traffic type on this device${since}, recorded by detailed monitoring. Traffic Maizy carried is credited to the app that sent it.`
+}
+
+/** A quiet signal that the device view is live, or that it needs a look. */
+function MonitorBadge({ state }: { state: MonitorState }) {
+  const tone =
+    state === 'active'
+      ? { label: 'Monitoring', dot: 'bg-primary', text: 'text-foreground/80' }
+      : state === 'starting'
+        ? { label: 'Starting', dot: 'bg-primary/50', text: 'text-muted-foreground' }
+        : state === 'failing' || state === 'stopped' || state === 'outdated'
+          ? { label: 'Monitor needs attention', dot: 'bg-warning', text: 'text-warning' }
+          : null
+  if (!tone) return null
+
+  return (
+    <span className={cn('flex items-center gap-1.5 text-[11px] font-medium', tone.text)}>
+      <span className="relative flex size-1.5">
+        {state === 'active' && (
+          <span
+            aria-hidden
+            className="absolute inset-0 animate-ping rounded-full bg-primary opacity-60"
+          />
+        )}
+        <span className={cn('relative size-1.5 rounded-full', tone.dot)} />
+      </span>
+      {tone.label}
+    </span>
+  )
+}
+
+function Legend() {
+  return (
+    <span className="flex items-center gap-3 text-[11px] text-muted-foreground">
+      <span className="flex items-center gap-1.5">
+        <span aria-hidden className="h-1.5 w-3 rounded-full bg-chart-down" />
+        Incoming
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span aria-hidden className="h-1.5 w-3 rounded-full bg-chart-up" />
+        Outgoing
+      </span>
+    </span>
   )
 }
 

@@ -32,17 +32,27 @@ pub fn read_json<T: DeserializeOwned>(path: &Path) -> AppResult<Option<T>> {
 }
 
 pub fn write_json<T: Serialize>(path: &Path, value: &T) -> AppResult<()> {
+    let body = serde_json::to_vec_pretty(value)
+        .map_err(|e| AppError::Config(format!("serialize {}: {e}", path.display())))?;
+    write_atomic(path, &body)
+}
+
+/// As [`write_json`], without the indentation: for machine-only data written
+/// often, where pretty-printing roughly doubles every write.
+pub fn write_json_compact<T: Serialize>(path: &Path, value: &T) -> AppResult<()> {
+    let body = serde_json::to_vec(value)
+        .map_err(|e| AppError::Config(format!("serialize {}: {e}", path.display())))?;
+    write_atomic(path, &body)
+}
+
+fn write_atomic(path: &Path, body: &[u8]) -> AppResult<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
             .map_err(|e| AppError::Config(format!("create {}: {e}", parent.display())))?;
     }
 
-    let body = serde_json::to_vec_pretty(value)
-        .map_err(|e| AppError::Config(format!("serialize {}: {e}", path.display())))?;
-
     let tmp: PathBuf = path.with_extension("json.tmp");
-    fs::write(&tmp, &body)
-        .map_err(|e| AppError::Config(format!("write {}: {e}", tmp.display())))?;
+    fs::write(&tmp, body).map_err(|e| AppError::Config(format!("write {}: {e}", tmp.display())))?;
     fs::rename(&tmp, path).map_err(|e| {
         let _ = fs::remove_file(&tmp);
         AppError::Config(format!("commit {}: {e}", path.display()))

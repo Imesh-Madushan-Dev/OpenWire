@@ -16,6 +16,7 @@ use crate::core::metrics::Metrics;
 use crate::core::models::{
     ConnectionState, Phase, ServerNode, ServerSummary, Settings, StatsSnapshot,
 };
+use crate::core::netmon::client::Monitor;
 use crate::core::store;
 use crate::core::sysproxy::{self, ProxyGuard, Recovery};
 use crate::core::tunnel::Tunnel;
@@ -35,6 +36,8 @@ pub struct AppState {
     connection: RwLock<ConnectionState>,
     pub metrics: Arc<Metrics>,
     pub usage: Arc<UsageTracker>,
+    /// The device-wide network monitor, if the user installed it.
+    pub netmon: Arc<Monitor>,
     /// Dropping either of these tears down the matching resource, so the order
     /// in `teardown` is what guarantees the OS proxy is always restored.
     tunnel: Mutex<Option<Tunnel>>,
@@ -97,6 +100,7 @@ impl AppState {
             connection: RwLock::new(ConnectionState::default()),
             metrics: Arc::new(Metrics::new()),
             usage: Arc::new(UsageTracker::load(&usage_path)),
+            netmon: Monitor::new(),
             tunnel: Mutex::new(None),
             proxy: Mutex::new(None),
         })

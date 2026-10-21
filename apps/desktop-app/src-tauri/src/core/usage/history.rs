@@ -5,7 +5,7 @@
 //! only long enough for the live view, and everything older is already rolled
 //! up by the time it is asked for.
 
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
 use serde::{Deserialize, Serialize};
 
@@ -23,6 +23,10 @@ pub const DAYS_KEPT: usize = 90;
 /// store without bound.
 const MAX_APPS_PER_DAY: usize = 60;
 const MAX_HOSTS_PER_DAY: usize = 120;
+/// The network monitor sees the whole device, which reaches far more distinct
+/// hosts in a day than the proxy does, so its maps get a wider cap.
+const MAX_MONITORED_APPS_PER_DAY: usize = 120;
+const MAX_MONITORED_HOSTS_PER_DAY: usize = 250;
 pub const OTHER_KEY: &str = "Other";
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,16 +68,48 @@ impl Pair {
     }
 }
 
+/// Ranked maps for one source of attribution.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(default)]
+pub struct Attributed {
+    pub up: u64,
+    pub down: u64,
+    pub apps: HashMap<String, Pair>,
+    pub hosts: HashMap<String, Pair>,
+    pub kinds: HashMap<String, Pair>,
+}
+
+impl Attributed {
+    pub fn is_empty(&self) -> bool {
+        self.up == 0 && self.down == 0 && self.apps.is_empty()
+    }
+
+    fn merge(&mut self, other: &Attributed) {
+        self.up += other.up;
+        self.down += other.down;
+        merge_into(&mut self.apps, &other.apps);
+        merge_into(&mut self.hosts, &other.hosts);
+        merge_into(&mut self.kinds, &other.kinds);
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
 pub struct DayBreakdown {
     pub up: u64,
     pub down: u64,
     pub tunnel_up: u64,
     pub tunnel_down: u64,
+    /// What went through Maizy's proxy, attributed by the relay.
     pub apps: HashMap<String, Pair>,
     pub hosts: HashMap<String, Pair>,
     pub kinds: HashMap<String, Pair>,
+    /// Everything else on the device, attributed by the network monitor
+    /// service. Empty on days the monitor was not running. Never overlaps the
+    /// relay maps: the monitor leaves out Maizy's own process, whose traffic
+    /// the relay has already attributed to the apps behind it.
+    #[serde(skip_serializing_if = "Attributed::is_empty")]
+    pub monitored: Attributed,
 }
 
 impl DayBreakdown {
@@ -132,7 +168,19 @@ pub struct History {
     minutes: VecDeque<Sample>,
     hours: VecDeque<Sample>,
     /// Keyed by local day number (days since the Unix epoch in local time).
+    ///
+    /// Each day is stored in a file of its own rather than inline here: with
+    /// device-wide monitoring a quarter of breakdowns runs to megabytes, and
+    /// rewriting all of it every flush to change only today is wasted disk.
+    #[serde(skip)]
     days: BTreeMap<i64, DayBreakdown>,
+    /// Stores written before days had files of their own kept them inline.
+    /// Read once, moved into `days`, and never written back.
+    #[serde(rename = "days", skip_serializing)]
+    legacy_days: BTreeMap<i64, DayBreakdown>,
+    /// Days changed since the last flush.
+    #[serde(skip)]
+    dirty: BTreeSet<i64>,
 
     /// Executable path per app name, so an icon can still be shown for an app
     /// that only appears in history from a previous run.
@@ -176,6 +224,7 @@ impl History {
         up: u64,
         down: u64,
     ) {
+        self.dirty.insert(local_day);
         let day = self.days.entry(local_day).or_default();
         day.tunnel_up += up;
         day.tunnel_down += down;
@@ -187,11 +236,84 @@ impl History {
         DayBreakdown::compact(&mut day.hosts, MAX_HOSTS_PER_DAY);
     }
 
+    /// Attributes traffic the network monitor saw outside Maizy to a day.
+    pub fn record_monitored(
+        &mut self,
+        local_day: i64,
+        app: &str,
+        host: &str,
+        kind: &str,
+        up: u64,
+        down: u64,
+    ) {
+        self.dirty.insert(local_day);
+        let monitored = &mut self.days.entry(local_day).or_default().monitored;
+        monitored.up += up;
+        monitored.down += down;
+        monitored
+            .apps
+            .entry(app.to_string())
+            .or_default()
+            .add(up, down);
+        monitored
+            .hosts
+            .entry(host.to_string())
+            .or_default()
+            .add(up, down);
+        monitored
+            .kinds
+            .entry(kind.to_string())
+            .or_default()
+            .add(up, down);
+
+        DayBreakdown::compact(&mut monitored.apps, MAX_MONITORED_APPS_PER_DAY);
+        DayBreakdown::compact(&mut monitored.hosts, MAX_MONITORED_HOSTS_PER_DAY);
+    }
+
     /// Records system-wide totals against a day, whether or not they were ours.
     pub fn record_day_totals(&mut self, local_day: i64, up: u64, down: u64) {
+        self.dirty.insert(local_day);
         let day = self.days.entry(local_day).or_default();
         day.up += up;
         day.down += down;
+    }
+
+    /// Installs days read from their own files, then folds in any a pre-split
+    /// store still carried inline. Those are marked dirty so the next flush
+    /// gives them files too; a day present in both keeps its file's copy,
+    /// which is the newer one.
+    pub fn adopt_days(&mut self, loaded: BTreeMap<i64, DayBreakdown>) {
+        self.days.extend(loaded);
+        for (day, breakdown) in std::mem::take(&mut self.legacy_days) {
+            if let std::collections::btree_map::Entry::Vacant(slot) = self.days.entry(day) {
+                slot.insert(breakdown);
+                self.dirty.insert(day);
+            }
+        }
+    }
+
+    /// Copies of every day changed since the last call, for writing out. Days
+    /// already pruned are skipped - their files are deleted, not rewritten.
+    pub fn take_dirty(&mut self) -> Vec<(i64, DayBreakdown)> {
+        std::mem::take(&mut self.dirty)
+            .into_iter()
+            .filter_map(|day| {
+                self.days
+                    .get(&day)
+                    .map(|breakdown| (day, breakdown.clone()))
+            })
+            .collect()
+    }
+
+    /// Puts days back on the dirty list after a failed write, so they are
+    /// retried on the next flush instead of silently going stale on disk.
+    pub fn mark_dirty(&mut self, days: impl IntoIterator<Item = i64>) {
+        self.dirty.extend(days);
+    }
+
+    /// The first day still inside the retention window.
+    pub fn retention_cutoff(today: i64) -> i64 {
+        today - DAYS_KEPT as i64 + 1
     }
 
     pub fn app_paths(&self) -> &HashMap<String, String> {
@@ -204,15 +326,17 @@ impl History {
 
     /// Drops anything past the retention window.
     pub fn prune(&mut self, today: i64) {
-        let cutoff = today - DAYS_KEPT as i64 + 1;
+        let cutoff = Self::retention_cutoff(today);
         self.days.retain(|day, _| *day >= cutoff);
         trim(&mut self.minutes, MINUTES_KEPT);
         trim(&mut self.hours, HOURS_KEPT);
 
         // Paths are only worth keeping for apps a retained day still names.
         let days = &self.days;
-        self.app_paths
-            .retain(|app, _| days.values().any(|day| day.apps.contains_key(app)));
+        self.app_paths.retain(|app, _| {
+            days.values()
+                .any(|day| day.apps.contains_key(app) || day.monitored.apps.contains_key(app))
+        });
     }
 
     /// Timeline for a range, including the bucket still being filled so the
@@ -258,9 +382,22 @@ impl History {
             merge_into(&mut merged.apps, &day.apps);
             merge_into(&mut merged.hosts, &day.hosts);
             merge_into(&mut merged.kinds, &day.kinds);
+            merged.monitored.merge(&day.monitored);
         }
 
         merged
+    }
+
+    /// First day in a span the network monitor recorded anything, so the UI
+    /// can say where device-wide figures begin.
+    pub fn first_monitored_day(&self, first: i64, last: i64) -> Option<i64> {
+        if last < first {
+            return None;
+        }
+        self.days
+            .range(first..=last)
+            .find(|(_, day)| !day.monitored.is_empty())
+            .map(|(day, _)| *day)
     }
 
     /// First and last local day that hold any record, for building a picker
@@ -451,7 +588,9 @@ mod tests {
 
         let before = history.timeline(Range::Week);
         let json = serde_json::to_string(&history).expect("serialize");
-        let after: History = serde_json::from_str(&json).expect("deserialize");
+        let days: BTreeMap<i64, DayBreakdown> = history.take_dirty().into_iter().collect();
+        let mut after: History = serde_json::from_str(&json).expect("deserialize");
+        after.adopt_days(days);
 
         assert_eq!(after.timeline(Range::Week), before, "open hour bucket lost");
         assert_eq!(after.timeline(Range::Day), history.timeline(Range::Day));
@@ -477,6 +616,77 @@ mod tests {
         history.prune(today);
         assert!(history.app_paths().contains_key("kept.exe"));
         assert!(!history.app_paths().contains_key("gone.exe"));
+    }
+
+    #[test]
+    fn days_are_not_written_inline_any_more() {
+        let mut history = History::default();
+        history.record_breakdown(7, "edge.exe", "a.example", "HTTPS", 1, 9);
+
+        let json = serde_json::to_string(&history).expect("serialize");
+        assert!(
+            !json.contains("a.example"),
+            "days belong in their own files"
+        );
+        assert_eq!(
+            history.take_dirty().len(),
+            1,
+            "the changed day is due a write"
+        );
+        assert!(history.take_dirty().is_empty(), "and only once");
+    }
+
+    #[test]
+    fn a_store_with_inline_days_migrates_without_losing_them() {
+        // The shape every store had before days moved into their own files.
+        let legacy = r#"{"days":{"7":{"up":10,"down":90,"tunnelUp":1,"tunnelDown":9,
+            "apps":{"edge.exe":{"up":1,"down":9}},"hosts":{},"kinds":{}}}}"#;
+        let mut history: History = serde_json::from_str(legacy).expect("legacy store");
+
+        // A file already written for the same day is newer and must win.
+        let newer = DayBreakdown {
+            down: 500,
+            ..DayBreakdown::default()
+        };
+        history.adopt_days(BTreeMap::from([(8, newer)]));
+
+        assert_eq!(history.summary_between(7, 7).down, 90);
+        assert_eq!(history.summary_between(8, 8).down, 500);
+        let dirty: Vec<i64> = history
+            .take_dirty()
+            .into_iter()
+            .map(|(day, _)| day)
+            .collect();
+        assert_eq!(dirty, vec![7], "only the migrated day needs a file");
+    }
+
+    #[test]
+    fn monitored_traffic_merges_separately_from_the_relay() {
+        let mut history = History::default();
+        history.record_breakdown(5, "edge.exe", "a.example", "HTTPS", 1, 9);
+        history.record_monitored(5, "steam.exe", "cdn.example", "HTTPS", 0, 1_000);
+        history.record_monitored(6, "steam.exe", "cdn.example", "HTTPS", 0, 500);
+
+        let span = history.summary_between(5, 6);
+        assert_eq!(span.tunnel_down, 9, "relay totals are untouched");
+        assert_eq!(span.monitored.down, 1_500);
+        assert_eq!(span.monitored.apps["steam.exe"].down, 1_500);
+        assert!(!span.apps.contains_key("steam.exe"), "sources stay apart");
+        assert_eq!(history.first_monitored_day(1, 9), Some(5));
+        assert_eq!(history.first_monitored_day(7, 9), None);
+    }
+
+    #[test]
+    fn a_day_without_monitoring_stays_byte_for_byte_compact() {
+        let day = DayBreakdown {
+            down: 1,
+            ..DayBreakdown::default()
+        };
+        let json = serde_json::to_string(&day).expect("serialize");
+        assert!(
+            !json.contains("monitored"),
+            "empty monitor maps cost nothing on disk"
+        );
     }
 
     #[test]

@@ -1,4 +1,4 @@
-/** Totals ring: incoming vs outgoing, with the tunnel share called out. */
+/** Totals ring: incoming vs outgoing for the chosen scope, with the split between Maizy and direct traffic below it. */
 
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import { motion } from 'motion/react'
@@ -7,16 +7,24 @@ import { formatBytes } from '@/lib/format'
 import { staggerChild } from '@/lib/motion'
 import type { UsageSummary } from '@/lib/types'
 
-export function UsageDonut({ summary }: { summary: UsageSummary }) {
-  const total = summary.totalDown + summary.totalUp
+export type UsageScope = 'all' | 'maizy'
+
+export function UsageDonut({ summary, scope }: { summary: UsageSummary; scope: UsageScope }) {
+  const all = scope === 'all'
+  const down = all ? summary.totalDown : summary.tunnelDown
+  const up = all ? summary.totalUp : summary.tunnelUp
+  const total = down + up
+
+  const deviceTotal = summary.totalDown + summary.totalUp
   const tunnel = summary.tunnelDown + summary.tunnelUp
   // Clamped: attributed bytes are counted at the proxy and system bytes at the
   // adapter, so rounding could otherwise push this fractionally negative.
-  const direct = Math.max(0, total - tunnel)
+  const direct = Math.max(0, deviceTotal - tunnel)
+  const share = deviceTotal > 0 ? Math.min(100, (tunnel / deviceTotal) * 100) : 0
 
   const slices = [
-    { name: 'Incoming', value: summary.totalDown, color: 'var(--chart-down)' },
-    { name: 'Outgoing', value: summary.totalUp, color: 'var(--chart-up)' },
+    { name: 'Incoming', value: down, color: 'var(--chart-down)' },
+    { name: 'Outgoing', value: up, color: 'var(--chart-up)' },
   ].filter((slice) => slice.value > 0)
 
   return (
@@ -24,7 +32,7 @@ export function UsageDonut({ summary }: { summary: UsageSummary }) {
       variants={staggerChild}
       className="panel flex flex-col items-center gap-5 rounded-2xl px-5 py-6"
     >
-      <div className="relative size-[176px]">
+      <div className="relative size-44">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -35,6 +43,7 @@ export function UsageDonut({ summary }: { summary: UsageSummary }) {
               startAngle={90}
               endAngle={-270}
               paddingAngle={slices.length > 1 ? 2 : 0}
+              cornerRadius={slices.length > 1 ? 4 : 0}
               stroke="none"
               isAnimationActive={false}
             >
@@ -47,29 +56,40 @@ export function UsageDonut({ summary }: { summary: UsageSummary }) {
 
         {/* Overlaid rather than an SVG label, so it inherits app typography. */}
         <div className="pointer-events-none absolute inset-0 grid place-content-center text-center">
-          <p className="text-[10px] tracking-wide text-muted-foreground uppercase">Total</p>
+          <p className="text-[10px] tracking-wide text-muted-foreground uppercase">
+            {all ? 'Total' : 'Through Maizy'}
+          </p>
           <p className="numeric text-xl font-semibold">{formatBytes(total)}</p>
         </div>
       </div>
 
       <dl className="grid w-full grid-cols-2 gap-x-4 gap-y-3">
-        <Figure label="Incoming" value={summary.totalDown} dot="var(--chart-down)" />
-        <Figure label="Outgoing" value={summary.totalUp} dot="var(--chart-up)" />
-        <Figure label="Through Maizy" value={tunnel} dot="var(--primary)" />
-        <Figure label="Direct" value={direct} dot="var(--muted-foreground)" />
+        <Figure label="Incoming" value={formatBytes(down)} dot="var(--chart-down)" />
+        <Figure label="Outgoing" value={formatBytes(up)} dot="var(--chart-up)" />
+        {all ? (
+          <>
+            <Figure label="Through Maizy" value={formatBytes(tunnel)} dot="var(--primary)" />
+            <Figure label="Direct" value={formatBytes(direct)} dot="var(--muted-foreground)" />
+          </>
+        ) : (
+          <>
+            <Figure label="Share of all" value={`${share.toFixed(share < 10 ? 1 : 0)}%`} dot="var(--primary)" />
+            <Figure label="Direct" value={formatBytes(direct)} dot="var(--muted-foreground)" />
+          </>
+        )}
       </dl>
     </motion.div>
   )
 }
 
-function Figure({ label, value, dot }: { label: string; value: number; dot: string }) {
+function Figure({ label, value, dot }: { label: string; value: string; dot: string }) {
   return (
     <div className="flex flex-col gap-0.5">
       <dt className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
         <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: dot }} />
         {label}
       </dt>
-      <dd className="numeric text-sm font-semibold">{formatBytes(value)}</dd>
+      <dd className="numeric text-sm font-semibold">{value}</dd>
     </div>
   )
 }

@@ -45,6 +45,11 @@ pub enum AppError {
     #[error("invalid input: {0}")]
     Invalid(String),
 
+    /// The network monitor could not be installed or removed. Carries text
+    /// already written for the user, like `Invalid`.
+    #[error("network monitor: {0}")]
+    Monitor(String),
+
     #[error("internal failure: {0}")]
     Internal(String),
 }
@@ -64,6 +69,7 @@ impl AppError {
             Self::SystemProxy(_) => "SYSTEM_PROXY_FAILED",
             Self::Config(_) => "CONFIG_FAILED",
             Self::Invalid(_) => "INVALID_INPUT",
+            Self::Monitor(_) => "MONITOR_FAILED",
             Self::Internal(_) => "INTERNAL",
         }
     }
@@ -97,7 +103,7 @@ impl AppError {
                 "Couldn't update your system network settings. Try relaunching the app.".into()
             }
             Self::Config(_) => "Couldn't save your settings to disk.".into(),
-            Self::Invalid(detail) => detail.clone(),
+            Self::Invalid(detail) | Self::Monitor(detail) => detail.clone(),
             Self::Internal(_) => "Something went wrong. Please try again.".into(),
         }
     }

@@ -11,6 +11,7 @@ import {
   Delete02Icon,
   GithubIcon,
   InformationCircleIcon,
+  Radar01Icon,
   Rocket01Icon,
   Route01Icon,
   ServerIcon,
@@ -23,10 +24,12 @@ import { AnimatePresence, motion } from 'motion/react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { SettingGroup, SettingRow } from '@/components/setting-row'
 import { staggerChild, staggerParent, transition } from '@/lib/motion'
 import { isActive, type Settings } from '@/lib/types'
 import { ServerImportField } from '@/features/servers/server-import-field'
+import { monitorSummary, useMonitor } from '@/features/usage/use-monitor'
 import { useVpn } from '@/features/vpn/vpn-context'
 import { RestoreNetworkRow } from './restore-network-row'
 import { SECTIONS, type SectionId } from './sections'
@@ -97,6 +100,8 @@ function SectionBody({ id, settings }: { id: SectionId; settings: Settings }) {
       return <ProtectionSection settings={settings} />
     case 'routing':
       return <RoutingSection settings={settings} />
+    case 'monitoring':
+      return <MonitoringSection settings={settings} />
     case 'servers':
       return <ServersSection />
     case 'general':
@@ -156,23 +161,88 @@ function RoutingSection({ settings }: { settings: Settings }) {
             : restartHint
         }
       />
-      <SettingRow
-        icon={ChartHistogramIcon}
-        title="Measure usage while disconnected"
-        description="Keep routing through Maizy when no VPN is connected, so the Network view can still name which apps and hosts used your bandwidth. Your traffic is not masked - it goes straight out, exactly as it would without Maizy."
-        checked={settings.monitorWhenIdle && settings.systemProxy && !proxyUnsupported}
-        onChange={(next) => void updateSettings({ monitorWhenIdle: next })}
-        disabled={proxyUnsupported || !settings.systemProxy}
-        hint={
-          proxyUnsupported || !settings.systemProxy
-            ? 'Needs "Route all apps" above, which is how traffic reaches Maizy to be counted.'
-            : 'Only apps that follow the Windows proxy are counted; the total on the ring always covers everything.'
-        }
-      />
       {/* Keyed by the stored port: a change elsewhere remounts the field
           with the right value instead of syncing it through an effect. */}
       <PortRow key={settings.listenPort} port={settings.listenPort} />
     </SettingGroup>
+  )
+}
+
+function MonitoringSection({ settings }: { settings: Settings }) {
+  const { platform, updateSettings } = useVpn()
+  const monitor = useMonitor()
+  const { state, status, busy } = monitor
+  const proxyUnsupported = platform ? !platform.systemProxySupported : false
+  const needsRepair = state === 'failing' || state === 'stopped' || state === 'outdated'
+
+  return (
+    <>
+      <SettingGroup>
+        <SettingRow
+          icon={Radar01Icon}
+          title="Detailed traffic monitoring"
+          description="Count every app, host and traffic type on this device, not just what passes through Maizy. Installs a small background service; Windows asks for admin approval to turn it on or off."
+          disabled={state === 'unsupported'}
+          control={
+            <div className="flex shrink-0 items-center gap-2">
+              {needsRepair && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void monitor.enable()}
+                >
+                  {state === 'outdated' ? 'Update' : 'Repair'}
+                </Button>
+              )}
+              <Switch
+                aria-label="Detailed traffic monitoring"
+                checked={status?.installed ?? false}
+                disabled={busy || state === 'loading' || state === 'unsupported'}
+                onCheckedChange={(next) => void (next ? monitor.enable() : monitor.disable())}
+              />
+            </div>
+          }
+          hint={
+            busy
+              ? 'Waiting for Windows to approve the change…'
+              : monitorSummary(state, status?.error ?? null)
+          }
+          hintTone={needsRepair ? 'warning' : 'muted'}
+        />
+        <SettingRow
+          icon={ChartHistogramIcon}
+          title="Measure usage while disconnected"
+          description="Keep routing through Maizy when no VPN is connected, so it can name the hosts proxy-aware apps reach. Your traffic is not masked - it goes straight out, exactly as it would without Maizy."
+          checked={settings.monitorWhenIdle && settings.systemProxy && !proxyUnsupported}
+          onChange={(next) => void updateSettings({ monitorWhenIdle: next })}
+          disabled={proxyUnsupported || !settings.systemProxy}
+          hint={
+            proxyUnsupported || !settings.systemProxy
+              ? 'Needs "Route all apps" in Routing, which is how traffic reaches Maizy to be counted.'
+              : state === 'active'
+                ? 'Detailed monitoring already covers every app, so this is optional.'
+                : 'Only apps that follow the Windows proxy are counted; the total on the ring always covers everything.'
+          }
+          hintTone={proxyUnsupported || !settings.systemProxy ? 'warning' : 'muted'}
+        />
+      </SettingGroup>
+
+      <motion.p
+        variants={staggerChild}
+        className="flex items-start gap-2 px-1 text-xs leading-relaxed text-muted-foreground"
+      >
+        <HugeiconsIcon
+          icon={InformationCircleIcon}
+          size={14}
+          strokeWidth={1.8}
+          className="mt-0.5 shrink-0"
+        />
+        Detailed monitoring sees which app reached which host and how much it moved - never the
+        contents of your traffic - and nothing it records leaves this device. Turning it off
+        removes the service; what it already recorded stays in your history until it ages out.
+      </motion.p>
+    </>
   )
 }
 
