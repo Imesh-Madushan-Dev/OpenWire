@@ -1,62 +1,75 @@
 /**
- * Colour themes.
+ * Light, dark, or whatever the device uses.
  *
- * A theme is only a palette: `index.css` defines the same tokens under each
- * `[data-theme]`, and this module picks which one `<html>` carries. The choice
- * is a pure UI preference, so it lives in local storage rather than the Rust
- * settings - which also lets it apply before first paint, with no IPC round
- * trip and no flash of the default theme.
+ * `index.css` defines the same tokens under `[data-theme='dark']` and
+ * `[data-theme='light']`; this module picks which one `<html>` carries. The
+ * choice is a pure UI preference, so it lives in local storage rather than the
+ * Rust settings - which also lets it apply before first paint, with no IPC
+ * round trip and no flash of the wrong palette.
  */
 
-export type ThemeId = 'maizy' | 'ocean' | 'nebula' | 'graphite' | 'daylight'
+export type ThemeMode = 'system' | 'light' | 'dark'
+
+export type ResolvedTheme = Exclude<ThemeMode, 'system'>
 
 export interface ThemeOption {
-  id: ThemeId
+  id: ThemeMode
   label: string
   description: string
-  mode: 'dark' | 'light'
 }
 
 export const THEMES: readonly ThemeOption[] = [
-  { id: 'maizy', label: 'Maizy', description: 'The original green on black.', mode: 'dark' },
-  { id: 'ocean', label: 'Ocean', description: 'Sky blue on deep navy.', mode: 'dark' },
-  { id: 'nebula', label: 'Nebula', description: 'Soft violet on plum.', mode: 'dark' },
-  { id: 'graphite', label: 'Graphite', description: 'Monochrome, no hue at all.', mode: 'dark' },
-  { id: 'daylight', label: 'Daylight', description: 'Light surfaces for bright rooms.', mode: 'light' },
+  { id: 'system', label: 'System', description: 'Follow the device setting.' },
+  { id: 'light', label: 'Light', description: 'Light surfaces for bright rooms.' },
+  { id: 'dark', label: 'Dark', description: 'Easy on the eyes at night.' },
 ]
 
-export const DEFAULT_THEME: ThemeId = 'maizy'
+export const DEFAULT_THEME: ThemeMode = 'system'
 
 const STORAGE_KEY = 'maizy.theme'
 
-function isThemeId(value: unknown): value is ThemeId {
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
+
+function isThemeMode(value: unknown): value is ThemeMode {
   return THEMES.some((theme) => theme.id === value)
 }
 
-/** The saved theme, or the default when storage is empty, stale or blocked. */
-export function readTheme(): ThemeId {
+/** The saved mode, or the default when storage is empty, stale or blocked. */
+export function readTheme(): ThemeMode {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    return isThemeId(stored) ? stored : DEFAULT_THEME
+    return isThemeMode(stored) ? stored : DEFAULT_THEME
   } catch {
     return DEFAULT_THEME
   }
 }
 
-/** Paints `id` onto the document. Safe to call before React mounts. */
-export function applyTheme(id: ThemeId) {
-  const theme = THEMES.find((option) => option.id === id) ?? THEMES[0]
-  const root = document.documentElement
-  root.dataset.theme = theme.id
-  root.classList.toggle('dark', theme.mode === 'dark')
+function resolve(mode: ThemeMode): ResolvedTheme {
+  if (mode !== 'system') return mode
+  return darkQuery.matches ? 'dark' : 'light'
 }
 
-/** Applies and remembers a theme. */
-export function saveTheme(id: ThemeId) {
-  applyTheme(id)
+/** Paints `mode` onto the document. Safe to call before React mounts. */
+export function applyTheme(mode: ThemeMode) {
+  const theme = resolve(mode)
+  const root = document.documentElement
+  root.dataset.theme = theme
+  root.classList.toggle('dark', theme === 'dark')
+}
+
+/** Applies and remembers a mode. */
+export function saveTheme(mode: ThemeMode) {
+  applyTheme(mode)
   try {
-    localStorage.setItem(STORAGE_KEY, id)
+    localStorage.setItem(STORAGE_KEY, mode)
   } catch {
     // Storage unavailable: the theme still applies for this session.
   }
+}
+
+/** Repaints when the device switches theme, while the app is set to follow it. */
+export function followSystemTheme() {
+  darkQuery.addEventListener('change', () => {
+    if (readTheme() === 'system') applyTheme('system')
+  })
 }

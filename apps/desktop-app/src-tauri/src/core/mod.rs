@@ -1,4 +1,5 @@
 pub mod catalog;
+pub mod clipboard;
 pub mod metrics;
 pub mod models;
 pub mod netmon;

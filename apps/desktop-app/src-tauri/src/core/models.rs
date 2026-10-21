@@ -25,6 +25,46 @@ pub enum Outbound {
 
     /// VLESS over TLS with a camouflaged SNI.
     Vless(VlessConfig),
+
+    /// Trojan over TLS, masked the same way.
+    Trojan(TrojanConfig),
+}
+
+impl Outbound {
+    /// Wire label for the UI and the logs.
+    pub fn protocol(&self) -> &'static str {
+        match self {
+            Self::Direct => "direct",
+            Self::Vless(_) => "vless-tls",
+            Self::Trojan(_) => "trojan-tls",
+        }
+    }
+
+    /// The TLS settings, for every outbound that speaks TLS.
+    pub fn tls(&self) -> Option<TlsSettings<'_>> {
+        match self {
+            Self::Direct => None,
+            Self::Vless(config) => Some(TlsSettings {
+                sni: &config.sni,
+                alpn: &config.alpn,
+                allow_insecure: config.allow_insecure,
+            }),
+            Self::Trojan(config) => Some(TlsSettings {
+                sni: &config.sni,
+                alpn: &config.alpn,
+                allow_insecure: config.allow_insecure,
+            }),
+        }
+    }
+}
+
+/// The part of an outbound that shapes its TLS handshake - the same for every
+/// protocol carried inside it.
+#[derive(Debug, Clone, Copy)]
+pub struct TlsSettings<'a> {
+    pub sni: &'a str,
+    pub alpn: &'a [String],
+    pub allow_insecure: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -46,7 +86,21 @@ pub struct VlessConfig {
     pub allow_insecure: bool,
 }
 
-fn default_alpn() -> Vec<String> {
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrojanConfig {
+    /// The server's shared secret. Never logged, never returned to the UI.
+    #[serde(default)]
+    pub password: String,
+    #[serde(default)]
+    pub sni: String,
+    #[serde(default = "default_alpn")]
+    pub alpn: Vec<String>,
+    #[serde(default)]
+    pub allow_insecure: bool,
+}
+
+pub fn default_alpn() -> Vec<String> {
     vec!["h2".to_string(), "http/1.1".to_string()]
 }
 
@@ -79,7 +133,32 @@ impl ServerNode {
         match &self.outbound {
             Outbound::Direct => true,
             Outbound::Vless(v) => !v.uuid.is_empty() && !self.host.is_empty(),
+            Outbound::Trojan(t) => !t.password.is_empty() && !self.host.is_empty(),
         }
+    }
+}
+
+/// What a user may change about a server after adding it. Credentials are not
+/// here on purpose: they never reach the UI, so they cannot be edited there -
+/// a new key means importing the server's new link.
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerEdit {
+    pub name: Option<String>,
+    pub host: Option<String>,
+    pub port: Option<u16>,
+    pub sni: Option<String>,
+    pub allow_insecure: Option<bool>,
+}
+
+impl ServerEdit {
+    /// Whether applying this would change how the server is reached, as
+    /// opposed to only what it is called.
+    pub fn touches_connection(&self) -> bool {
+        self.host.is_some()
+            || self.port.is_some()
+            || self.sni.is_some()
+            || self.allow_insecure.is_some()
     }
 }
 
@@ -93,10 +172,15 @@ pub struct ServerSummary {
     pub country_code: String,
     pub city: String,
     pub host: String,
+    pub port: u16,
     pub tier: Tier,
     pub load: u8,
     pub tags: Vec<String>,
     pub protocol: &'static str,
+    /// The masking domain presented in the TLS handshake; empty for direct.
+    /// Not a secret - it is visible on the wire to anyone watching.
+    pub sni: String,
+    pub allow_insecure: bool,
     pub configured: bool,
     /// Last measured TCP handshake latency, if probed.
     pub latency_ms: Option<u32>,
@@ -111,13 +195,17 @@ impl ServerSummary {
             country_code: node.country_code.clone(),
             city: node.city.clone(),
             host: node.host.clone(),
+            port: node.port,
             tier: node.tier,
             load: node.load,
             tags: node.tags.clone(),
-            protocol: match node.outbound {
-                Outbound::Direct => "direct",
-                Outbound::Vless(_) => "vless-tls",
-            },
+            protocol: node.outbound.protocol(),
+            sni: node
+                .outbound
+                .tls()
+                .map(|tls| tls.sni.to_string())
+                .unwrap_or_default(),
+            allow_insecure: node.outbound.tls().is_some_and(|tls| tls.allow_insecure),
             configured: node.is_configured(),
             latency_ms,
         }

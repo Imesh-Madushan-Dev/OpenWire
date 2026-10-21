@@ -7,8 +7,10 @@ import { createContext, use } from 'react'
 
 import type {
   ConnectionState,
+  ImportReport,
   Notice,
   PlatformInfo,
+  ServerEdit,
   ServerSummary,
   Settings,
   SettingsPatch,
@@ -31,9 +33,13 @@ export interface VpnContextValue {
   toggle: () => Promise<void>
   connect: (serverId?: string | null) => Promise<void>
   disconnect: () => Promise<void>
-  chooseServer: (id: string) => Promise<void>
+  /** `null` means automatic: the fastest server at connect time. */
+  chooseServer: (id: string | null) => Promise<void>
   probeServers: () => Promise<void>
   importServer: (uri: string) => Promise<ServerSummary | null>
+  /** Imports every link in `text`, or on the clipboard when `text` is omitted. */
+  importLinks: (text?: string) => Promise<ImportReport | null>
+  updateServer: (id: string, edit: ServerEdit) => Promise<boolean>
   removeServer: (id: string) => Promise<void>
   updateSettings: (patch: SettingsPatch) => Promise<void>
   notify: (notice: Notice) => void

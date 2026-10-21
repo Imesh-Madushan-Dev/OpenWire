@@ -10,13 +10,14 @@
  * Colour is never decoration here - if something carries the signal colour,
  * it means "you are covered".
  *
- * Themes swap the palette, never the structure: every theme defines the same
+ * Light and dark swap the palette, never the structure: both define the same
  * tokens, and components only ever read tokens. `--tint` is the overlay ink -
- * white on dark themes, near-black on light ones - so `bg-tint/5` lifts a
- * surface in either direction without a per-theme class.
+ * white on dark, near-black on light - so `bg-tint/5` lifts a surface in
+ * either direction without a per-theme class.
  * ------------------------------------------------------------------------ */
 
-/* shadcn's `dark:` variants follow the active theme, not the OS setting. */
+/* shadcn's `dark:` variants follow the resolved theme (`lib/theme.ts`), which
+ * is the OS setting only when the user picked "System". */
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -68,142 +69,10 @@
     --radius: 1rem;
 }
 
-/* Maizy - the default. Green signal on a green-black field. */
+/* Graphite - neutral greys, so the blue signal is the only hue on screen.
+ * Dark is also the fallback before `lib/theme.ts` has run. */
 :root,
-[data-theme='maizy'] {
-    color-scheme: dark;
-
-    --background: #070d0a;
-    --foreground: #e8f4ec;
-
-    --rail: #040806;
-    --surface: rgba(255, 255, 255, 0.045);
-    --surface-hover: rgba(255, 255, 255, 0.075);
-    --hairline: rgba(255, 255, 255, 0.07);
-
-    /* Opaque surfaces for overlays, which cannot rely on what is behind them. */
-    --card: #101815;
-    --card-foreground: #e8f4ec;
-    --popover: #101815;
-    --popover-foreground: #e8f4ec;
-
-    --primary: #14f471;
-    --primary-foreground: #04200f;
-
-    --secondary: #17211c;
-    --secondary-foreground: #e8f4ec;
-
-    --muted: #131c17;
-    --muted-foreground: #7f9488;
-
-    --accent: #17241d;
-    --accent-foreground: #e8f4ec;
-
-    --destructive: #ff6b6b;
-    --warning: #ffc861;
-
-    /* Two categorical series for the usage meter. Download carries the brand
-     * colour because it is the dominant series; upload takes a cool hue that
-     * stays legible beside it without competing. */
-    --chart-down: #14f471;
-    --chart-up: #45d4ff;
-
-    --border: rgba(255, 255, 255, 0.08);
-    --input: rgba(255, 255, 255, 0.1);
-    --ring: #14f471;
-
-    --tint: #ffffff;
-    --orb-shade: rgba(0, 0, 0, 0.35);
-}
-
-/* Ocean - sky-blue signal on a blue-black field. */
-[data-theme='ocean'] {
-    color-scheme: dark;
-
-    --background: #060b12;
-    --foreground: #e6f0fa;
-
-    --rail: #03070c;
-    --surface: rgba(255, 255, 255, 0.045);
-    --surface-hover: rgba(255, 255, 255, 0.075);
-    --hairline: rgba(255, 255, 255, 0.07);
-
-    --card: #0f1722;
-    --card-foreground: #e6f0fa;
-    --popover: #0f1722;
-    --popover-foreground: #e6f0fa;
-
-    --primary: #45d4ff;
-    --primary-foreground: #03202e;
-
-    --secondary: #152030;
-    --secondary-foreground: #e6f0fa;
-
-    --muted: #111a26;
-    --muted-foreground: #7f90a4;
-
-    --accent: #15212f;
-    --accent-foreground: #e6f0fa;
-
-    --destructive: #ff6b6b;
-    --warning: #ffc861;
-
-    --chart-down: #45d4ff;
-    --chart-up: #b18cff;
-
-    --border: rgba(255, 255, 255, 0.08);
-    --input: rgba(255, 255, 255, 0.1);
-    --ring: #45d4ff;
-
-    --tint: #ffffff;
-    --orb-shade: rgba(0, 0, 0, 0.35);
-}
-
-/* Nebula - violet signal on a plum-black field. */
-[data-theme='nebula'] {
-    color-scheme: dark;
-
-    --background: #0b0812;
-    --foreground: #efe9fa;
-
-    --rail: #07050c;
-    --surface: rgba(255, 255, 255, 0.045);
-    --surface-hover: rgba(255, 255, 255, 0.075);
-    --hairline: rgba(255, 255, 255, 0.07);
-
-    --card: #161021;
-    --card-foreground: #efe9fa;
-    --popover: #161021;
-    --popover-foreground: #efe9fa;
-
-    --primary: #b18cff;
-    --primary-foreground: #1a0b33;
-
-    --secondary: #1d1629;
-    --secondary-foreground: #efe9fa;
-
-    --muted: #17111f;
-    --muted-foreground: #9087a4;
-
-    --accent: #1f1730;
-    --accent-foreground: #efe9fa;
-
-    --destructive: #ff6b6b;
-    --warning: #ffc861;
-
-    --chart-down: #b18cff;
-    --chart-up: #45d4ff;
-
-    --border: rgba(255, 255, 255, 0.08);
-    --input: rgba(255, 255, 255, 0.1);
-    --ring: #b18cff;
-
-    --tint: #ffffff;
-    --orb-shade: rgba(0, 0, 0, 0.35);
-}
-
-/* Graphite - no hue at all; brightness alone carries the signal. */
-[data-theme='graphite'] {
+[data-theme='dark'] {
     color-scheme: dark;
 
     --background: #0b0b0c;
@@ -214,13 +83,14 @@
     --surface-hover: rgba(255, 255, 255, 0.075);
     --hairline: rgba(255, 255, 255, 0.07);
 
+    /* Opaque surfaces for overlays, which cannot rely on what is behind them. */
     --card: #161618;
     --card-foreground: #ededee;
     --popover: #161618;
     --popover-foreground: #ededee;
 
-    --primary: #f2f2f3;
-    --primary-foreground: #111113;
+    --primary: #2d5bf6;
+    --primary-foreground: #ffffff;
 
     --secondary: #1c1c1f;
     --secondary-foreground: #ededee;
@@ -234,59 +104,59 @@
     --destructive: #ff6b6b;
     --warning: #ffc861;
 
-    --chart-down: #f2f2f3;
+    /* Download carries the signal colour because it is the dominant series. */
+    --chart-down: #2d5bf6;
     --chart-up: #8a8a90;
 
     --border: rgba(255, 255, 255, 0.08);
     --input: rgba(255, 255, 255, 0.1);
-    --ring: #f2f2f3;
+    --ring: #2d5bf6;
 
     --tint: #ffffff;
     --orb-shade: rgba(0, 0, 0, 0.35);
 }
 
-/* Daylight - the light theme. The signal green is darkened so it still reads
- * as text on a pale surface; panels sit as white cards on a soft field. */
-[data-theme='daylight'] {
+/* Light Graphite - panels sit as white cards on a soft grey field. */
+[data-theme='light'] {
     color-scheme: light;
 
-    --background: #f2f5f3;
-    --foreground: #0d1a13;
+    --background: #f4f4f5;
+    --foreground: #111113;
 
-    --rail: #e7ede9;
+    --rail: #ebebed;
     --surface: #ffffff;
-    --surface-hover: #f7faf8;
-    --hairline: rgba(13, 26, 19, 0.08);
+    --surface-hover: #f9f9fa;
+    --hairline: rgba(17, 17, 19, 0.08);
 
     --card: #ffffff;
-    --card-foreground: #0d1a13;
+    --card-foreground: #111113;
     --popover: #ffffff;
-    --popover-foreground: #0d1a13;
+    --popover-foreground: #111113;
 
-    --primary: #08873f;
+    --primary: #2d5bf6;
     --primary-foreground: #ffffff;
 
-    --secondary: #e8eeea;
-    --secondary-foreground: #0d1a13;
+    --secondary: #ececee;
+    --secondary-foreground: #111113;
 
-    --muted: #e9efeb;
-    --muted-foreground: #5b6b62;
+    --muted: #ececee;
+    --muted-foreground: #5f5f66;
 
-    --accent: #e6efe9;
-    --accent-foreground: #0d1a13;
+    --accent: #e9e9ec;
+    --accent-foreground: #111113;
 
     --destructive: #d93a3a;
     --warning: #9a6200;
 
-    --chart-down: #08873f;
-    --chart-up: #0a84c6;
+    --chart-down: #2d5bf6;
+    --chart-up: #8a8a90;
 
-    --border: rgba(13, 26, 19, 0.1);
-    --input: rgba(13, 26, 19, 0.14);
-    --ring: #08873f;
+    --border: rgba(17, 17, 19, 0.1);
+    --input: rgba(17, 17, 19, 0.14);
+    --ring: #2d5bf6;
 
-    --tint: #0d1a13;
-    --orb-shade: rgba(13, 26, 19, 0.06);
+    --tint: #111113;
+    --orb-shade: rgba(17, 17, 19, 0.06);
 }
 
 @layer base {

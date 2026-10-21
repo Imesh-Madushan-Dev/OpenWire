@@ -1,10 +1,13 @@
-//! Server catalog: bundled defaults, on-disk user catalog, and `vless://` import.
+//! Server catalog: the on-disk user catalog, and share-link import and export
+//! for the protocols this client speaks (`vless://`, `trojan://`).
 //!
 //! Credentials live in the user's config directory, never in the repository and
 //! never in the binary. The bundled defaults ship with empty UUIDs on purpose -
 //! a node stays `configured: false` until the user supplies its access key.
 
-use crate::core::models::{Outbound, ServerNode, VlessConfig};
+use rustls::pki_types::ServerName;
+
+use crate::core::models::{Outbound, ServerEdit, ServerNode, TrojanConfig, VlessConfig};
 use crate::error::{AppError, AppResult};
 
 /// The local route monitor mode and the diagnostic option run through.
@@ -58,21 +61,107 @@ pub fn optimal<'a>(
 }
 
 // ---------------------------------------------------------------------------
-// vless:// import
+// Share-link import
 // ---------------------------------------------------------------------------
 
-/// Parses `vless://uuid@host:port?security=tls&sni=example.com#Label`.
-///
-/// This is the share-link format every VLESS server emits, so it is the path a
-/// user actually has to hand when adding their own node.
-pub fn parse_vless_uri(uri: &str) -> AppResult<ServerNode> {
-    let invalid =
-        |msg: &str| AppError::Invalid(format!("That link isn't a valid server link: {msg}"));
+/// Schemes recognised in pasted text, supported or not. Unsupported ones are
+/// still picked out so the import can say "2 links skipped" instead of
+/// silently finding nothing.
+const LINK_SCHEMES: [&str; 11] = [
+    "vless",
+    "trojan",
+    "vmess",
+    "ss",
+    "ssr",
+    "socks",
+    "hysteria2",
+    "hy2",
+    "tuic",
+    "wireguard",
+    "wg",
+];
 
+/// Parses any supported share link into a node.
+pub fn parse_share_link(uri: &str) -> AppResult<ServerNode> {
+    let trimmed = uri.trim();
+    let scheme = trimmed
+        .split_once("://")
+        .map(|(scheme, _)| scheme.to_ascii_lowercase())
+        .unwrap_or_default();
+
+    match scheme.as_str() {
+        "vless" => parse_vless_uri(trimmed),
+        "trojan" => parse_trojan_uri(trimmed),
+        "" => Err(AppError::Invalid(
+            "That isn't a server link. Links start with vless:// or trojan://.".into(),
+        )),
+        other => Err(AppError::Invalid(format!(
+            "{other}:// links aren't supported yet. Maizy speaks VLESS and Trojan."
+        ))),
+    }
+}
+
+/// Every share link in a block of text: a pasted list, a file, a decoded QR
+/// code, or a base64 subscription body - the format subscription URLs serve.
+pub fn extract_links(text: &str) -> Vec<String> {
+    let found = scan_links(text);
+    if !found.is_empty() {
+        return found;
+    }
+    decode_subscription(text)
+        .map(|decoded| scan_links(&decoded))
+        .unwrap_or_default()
+}
+
+fn scan_links(text: &str) -> Vec<String> {
+    text.split_whitespace()
+        .filter(|token| {
+            token.split_once("://").is_some_and(|(scheme, rest)| {
+                !rest.is_empty() && LINK_SCHEMES.contains(&scheme.to_ascii_lowercase().as_str())
+            })
+        })
+        .map(str::to_string)
+        .collect()
+}
+
+fn decode_subscription(text: &str) -> Option<String> {
+    use base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
+    use base64::Engine;
+
+    let compact: String = text.chars().filter(|c| !c.is_whitespace()).collect();
+    if compact.len() < 16 {
+        return None;
+    }
+    [STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD]
+        .iter()
+        .find_map(|engine| engine.decode(&compact).ok())
+        .and_then(|bytes| String::from_utf8(bytes).ok())
+        .filter(|decoded| decoded.contains("://"))
+}
+
+/// The pieces every supported link shares:
+/// `scheme://secret@host:port?key=value&...#label`.
+struct LinkParts {
+    secret: String,
+    host: String,
+    port: u16,
+    label: String,
+    sni: String,
+    alpn: Vec<String>,
+    allow_insecure: bool,
+}
+
+fn invalid(msg: &str) -> AppError {
+    AppError::Invalid(format!("That link isn't a valid server link: {msg}"))
+}
+
+fn parse_parts(uri: &str, scheme: &str, secret_name: &str) -> AppResult<LinkParts> {
+    let prefix = format!("{scheme}://");
     let rest = uri
-        .trim()
-        .strip_prefix("vless://")
-        .ok_or_else(|| invalid("it must start with vless://"))?;
+        .get(..prefix.len())
+        .filter(|head| head.eq_ignore_ascii_case(&prefix))
+        .map(|_| &uri[prefix.len()..])
+        .ok_or_else(|| invalid(&format!("it must start with {prefix}")))?;
 
     // Split off the #label before anything else - labels may contain @ and ?.
     let (rest, label) = match rest.split_once('#') {
@@ -85,11 +174,13 @@ pub fn parse_vless_uri(uri: &str) -> AppResult<ServerNode> {
         None => (rest, ""),
     };
 
-    let (uuid, endpoint) = rest
-        .split_once('@')
-        .ok_or_else(|| invalid("the access key is missing"))?;
-    if uuid.is_empty() {
-        return Err(invalid("the access key is empty"));
+    // rsplit: a Trojan password may itself contain an `@`.
+    let (secret, endpoint) = rest
+        .rsplit_once('@')
+        .ok_or_else(|| invalid(&format!("the {secret_name} is missing")))?;
+    let secret = percent_decode(secret);
+    if secret.is_empty() {
+        return Err(invalid(&format!("the {secret_name} is empty")));
     }
 
     // rsplit so IPv6 literals in brackets survive.
@@ -101,11 +192,12 @@ pub fn parse_vless_uri(uri: &str) -> AppResult<ServerNode> {
         return Err(invalid("the host is empty"));
     }
     let port: u16 = port
+        .trim_end_matches('/')
         .parse()
         .map_err(|_| invalid("the port must be a number"))?;
 
     let mut sni = String::new();
-    let mut alpn = vec!["h2".to_string(), "http/1.1".to_string()];
+    let mut alpn = crate::core::models::default_alpn();
     let mut allow_insecure = false;
     let mut security = String::new();
     let mut transport = String::new();
@@ -114,7 +206,10 @@ pub fn parse_vless_uri(uri: &str) -> AppResult<ServerNode> {
         let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
         let value = percent_decode(value);
         match key {
-            "sni" | "host" | "peer" => {
+            "sni" | "peer" => sni = value,
+            // `host` is the HTTP Host header for ws/h2 transports; a fallback
+            // name only when nothing more specific was given.
+            "host" => {
                 if sni.is_empty() {
                     sni = value;
                 }
@@ -156,30 +251,190 @@ pub fn parse_vless_uri(uri: &str) -> AppResult<ServerNode> {
         sni = host.to_string();
     }
 
-    let name = if label.is_empty() {
-        host.to_string()
+    Ok(LinkParts {
+        secret,
+        host: host.to_string(),
+        port,
+        label,
+        sni,
+        alpn,
+        allow_insecure,
+    })
+}
+
+fn custom_node(id_seed: &str, parts: &LinkParts, outbound: Outbound) -> ServerNode {
+    let name = if parts.label.is_empty() {
+        parts.host.clone()
     } else {
-        label
+        parts.label.clone()
     };
 
-    Ok(ServerNode {
-        id: format!("custom-{}", short_hash(&format!("{host}:{port}:{uuid}"))),
-        name: name.clone(),
+    ServerNode {
+        id: format!("custom-{}", short_hash(id_seed)),
+        name,
         country: "Custom".to_string(),
         country_code: "xx".to_string(),
         city: String::new(),
-        host: host.to_string(),
-        port,
+        host: parts.host.clone(),
+        port: parts.port,
         tier: crate::core::models::Tier::Free,
-        outbound: Outbound::Vless(VlessConfig {
-            uuid: uuid.to_string(),
-            sni,
-            alpn,
-            allow_insecure,
-        }),
+        outbound,
         load: 0,
         tags: vec!["custom".to_string()],
-    })
+    }
+}
+
+/// Parses `vless://uuid@host:port?security=tls&sni=example.com#Label`.
+pub fn parse_vless_uri(uri: &str) -> AppResult<ServerNode> {
+    let parts = parse_parts(uri.trim(), "vless", "access key")?;
+    // Seeded without a scheme: this is the id every existing VLESS node
+    // already has, and changing it would duplicate them on re-import.
+    let seed = format!("{}:{}:{}", parts.host, parts.port, parts.secret);
+    let outbound = Outbound::Vless(VlessConfig {
+        uuid: parts.secret.clone(),
+        sni: parts.sni.clone(),
+        alpn: parts.alpn.clone(),
+        allow_insecure: parts.allow_insecure,
+    });
+    Ok(custom_node(&seed, &parts, outbound))
+}
+
+/// Parses `trojan://password@host:port?security=tls&sni=example.com#Label`.
+/// The password is percent-decoded: share links escape anything outside the
+/// URL-safe set.
+pub fn parse_trojan_uri(uri: &str) -> AppResult<ServerNode> {
+    let parts = parse_parts(uri.trim(), "trojan", "password")?;
+    let seed = format!("trojan:{}:{}:{}", parts.host, parts.port, parts.secret);
+    let outbound = Outbound::Trojan(TrojanConfig {
+        password: parts.secret.clone(),
+        sni: parts.sni.clone(),
+        alpn: parts.alpn.clone(),
+        allow_insecure: parts.allow_insecure,
+    });
+    Ok(custom_node(&seed, &parts, outbound))
+}
+
+// ---------------------------------------------------------------------------
+// Share-link export
+// ---------------------------------------------------------------------------
+
+/// The share link for a node - the same format it was imported from, so it
+/// can be pasted into this or any other client. `None` for the direct route,
+/// which has nothing to share.
+pub fn share_link(node: &ServerNode) -> Option<String> {
+    let (scheme, secret, tls) = match &node.outbound {
+        Outbound::Direct => return None,
+        Outbound::Vless(config) => ("vless", config.uuid.as_str(), node.outbound.tls()?),
+        Outbound::Trojan(config) => ("trojan", config.password.as_str(), node.outbound.tls()?),
+    };
+
+    let host = if node.host.contains(':') {
+        format!("[{}]", node.host)
+    } else {
+        node.host.clone()
+    };
+
+    let mut query = Vec::new();
+    if scheme == "vless" {
+        query.push("encryption=none".to_string());
+    }
+    query.push("security=tls".to_string());
+    query.push(format!("sni={}", percent_encode(tls.sni)));
+    query.push(format!("alpn={}", percent_encode(&tls.alpn.join(","))));
+    query.push("type=tcp".to_string());
+    if tls.allow_insecure {
+        query.push("allowInsecure=1".to_string());
+    }
+
+    Some(format!(
+        "{scheme}://{}@{host}:{}?{}#{}",
+        percent_encode(secret),
+        node.port,
+        query.join("&"),
+        percent_encode(&node.name)
+    ))
+}
+
+// ---------------------------------------------------------------------------
+// Editing
+// ---------------------------------------------------------------------------
+
+/// Applies a user's edit, validating every field it touches. On error the
+/// node is left exactly as it was.
+pub fn apply_edit(node: &mut ServerNode, edit: ServerEdit) -> AppResult<()> {
+    let bad = |msg: &str| AppError::Invalid(msg.to_string());
+    let mut next = node.clone();
+
+    if let Some(name) = edit.name {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(bad("Give the server a name."));
+        }
+        next.name = name.chars().take(64).collect();
+    }
+
+    if let Some(host) = edit.host {
+        let host = host.trim().trim_matches(|c| c == '[' || c == ']');
+        if host.is_empty() || host.contains(|c: char| c.is_whitespace() || c == '/') {
+            return Err(bad(
+                "Enter the server's address, like vpn.example.com or 203.0.113.10.",
+            ));
+        }
+        next.host = host.to_string();
+    }
+
+    if let Some(port) = edit.port {
+        if port == 0 {
+            return Err(bad("Choose a port between 1 and 65535."));
+        }
+        next.port = port;
+    }
+
+    let tls = match &mut next.outbound {
+        Outbound::Direct => {
+            return if edit.sni.is_some() || edit.allow_insecure.is_some() {
+                Err(bad(
+                    "The direct route has no connection settings to change.",
+                ))
+            } else {
+                *node = next;
+                Ok(())
+            };
+        }
+        Outbound::Vless(config) => (&mut config.sni, &mut config.allow_insecure),
+        Outbound::Trojan(config) => (&mut config.sni, &mut config.allow_insecure),
+    };
+
+    if let Some(sni) = edit.sni {
+        let sni = sni.trim();
+        // The handshake will reject anything that is not a valid server name,
+        // so reject it here, where the user can still fix it.
+        if sni.is_empty() || ServerName::try_from(sni.to_string()).is_err() {
+            return Err(bad(
+                "The masking domain must be a hostname, like www.microsoft.com.",
+            ));
+        }
+        *tls.0 = sni.to_string();
+    }
+    if let Some(allow_insecure) = edit.allow_insecure {
+        *tls.1 = allow_insecure;
+    }
+
+    *node = next;
+    Ok(())
+}
+
+/// Percent-encodes everything outside RFC 3986's unreserved set.
+fn percent_encode(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for byte in input.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            out.push(byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
 }
 
 fn percent_decode(input: &str) -> String {
@@ -316,6 +571,131 @@ mod tests {
 
         // Plain TLS over raw TCP is the supported combination.
         assert!(parse_vless_uri("vless://key@host:443?security=tls&type=tcp").is_ok());
+    }
+
+    #[test]
+    fn parses_a_trojan_link_with_an_escaped_password() {
+        let node = parse_trojan_uri(
+            "trojan://p%40ss%3Aword@edge.example.org:443?security=tls&sni=aka.ms&type=tcp&headerType=none#Trojan%20One",
+        )
+        .expect("should parse");
+
+        assert_eq!(node.name, "Trojan One");
+        assert_eq!(node.host, "edge.example.org");
+        assert_eq!(node.port, 443);
+        assert!(node.is_configured());
+        match node.outbound {
+            Outbound::Trojan(t) => {
+                assert_eq!(t.password, "p@ss:word");
+                assert_eq!(t.sni, "aka.ms");
+                assert!(!t.allow_insecure);
+            }
+            other => panic!("expected trojan, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn trojan_rejects_what_this_client_cannot_speak() {
+        assert!(parse_trojan_uri("trojan://p@host:443?type=ws&path=%2F").is_err());
+        assert!(parse_trojan_uri("trojan://p@host:443?security=reality").is_err());
+        assert!(
+            parse_trojan_uri("trojan://@host:443").is_err(),
+            "empty password"
+        );
+        assert!(
+            parse_trojan_uri("trojan://p@host:443").is_ok(),
+            "tls is the default"
+        );
+    }
+
+    #[test]
+    fn the_scheme_picks_the_parser_and_names_what_is_unsupported() {
+        assert!(matches!(
+            parse_share_link(LINK).unwrap().outbound,
+            Outbound::Vless(_)
+        ));
+        assert!(matches!(
+            parse_share_link("TROJAN://p@h:443").unwrap().outbound,
+            Outbound::Trojan(_)
+        ));
+
+        let err = parse_share_link("vmess://eyJ2IjoiMiJ9").unwrap_err();
+        assert!(
+            err.user_message().contains("vmess://"),
+            "{}",
+            err.user_message()
+        );
+        assert!(parse_share_link("hello").is_err());
+    }
+
+    #[test]
+    fn links_are_found_in_pasted_text_and_in_subscriptions() {
+        let pasted = format!(
+            "My servers:\n{LINK}\n  trojan://p@h:443#B  \nvmess://abc\nhttps://example.com"
+        );
+        let links = extract_links(&pasted);
+        assert_eq!(links.len(), 3, "{links:?}");
+        assert!(
+            links.iter().any(|l| l.starts_with("vmess://")),
+            "kept so it can be reported"
+        );
+
+        use base64::Engine;
+        let subscription = base64::engine::general_purpose::STANDARD
+            .encode(format!("{LINK}\ntrojan://p@h:443#B\n"));
+        assert_eq!(extract_links(&subscription).len(), 2);
+        assert!(extract_links("not a link and not base64!").is_empty());
+    }
+
+    #[test]
+    fn a_shared_link_imports_back_to_the_same_server() {
+        for link in [
+            "vless://2b4f8c1e-0000-4000-8000-abcdefabcdef@[2001:db8::1]:8443?security=tls&sni=aka.ms&alpn=h2&type=tcp&allowInsecure=1#Edge%20%231",
+            "trojan://p%40ss@edge.example.org:443?security=tls&sni=zoom.us#Trojan%20%C3%A9",
+        ] {
+            let node = parse_share_link(link).unwrap();
+            let shared = share_link(&node).expect("shareable");
+            let again = parse_share_link(&shared).unwrap();
+            assert_eq!(again, node, "{shared}");
+        }
+        assert!(share_link(&direct_node().unwrap()).is_none());
+    }
+
+    #[test]
+    fn edits_validate_and_leave_the_node_alone_on_error() {
+        let mut node = imported();
+        let before = node.clone();
+
+        let bad = ServerEdit {
+            name: Some("Renamed".into()),
+            sni: Some("not a hostname!".into()),
+            ..ServerEdit::default()
+        };
+        assert!(apply_edit(&mut node, bad).is_err());
+        assert_eq!(node, before, "a rejected edit must change nothing");
+
+        let good = ServerEdit {
+            name: Some("  Renamed  ".into()),
+            port: Some(8443),
+            sni: Some("www.microsoft.com".into()),
+            allow_insecure: Some(true),
+            ..ServerEdit::default()
+        };
+        apply_edit(&mut node, good).expect("valid edit");
+        assert_eq!(node.name, "Renamed");
+        assert_eq!(node.port, 8443);
+        assert_eq!(node.id, before.id, "ids stay stable across edits");
+        match &node.outbound {
+            Outbound::Vless(v) => {
+                assert_eq!(v.sni, "www.microsoft.com");
+                assert!(v.allow_insecure);
+                assert_eq!(
+                    v.uuid, "2b4f8c1e-0000-4000-8000-abcdefabcdef",
+                    "secret untouched"
+                );
+            }
+            other => panic!("expected vless, got {other:?}"),
+        }
     }
 
     #[test]

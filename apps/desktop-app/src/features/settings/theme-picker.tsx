@@ -1,5 +1,5 @@
 /**
- * Theme choice.
+ * Theme choice: light, dark, or follow the device.
  *
  * Each preview carries its own `data-theme`, so it is painted by that theme's
  * real tokens - the swatches can never drift from what the app will look like.
@@ -12,14 +12,14 @@ import { motion } from 'motion/react'
 import { cn } from 'cn'
 
 import { staggerChild } from '@/lib/motion'
-import { readTheme, saveTheme, THEMES, type ThemeId } from '@/lib/theme'
+import { readTheme, saveTheme, THEMES, type ResolvedTheme, type ThemeMode } from '@/lib/theme'
 
 export function ThemePicker() {
-  const [current, setCurrent] = useState<ThemeId>(readTheme)
+  const [current, setCurrent] = useState<ThemeMode>(readTheme)
 
-  const choose = (id: ThemeId) => {
-    setCurrent(id)
-    saveTheme(id)
+  const choose = (mode: ThemeMode) => {
+    setCurrent(mode)
+    saveTheme(mode)
   }
 
   return (
@@ -44,7 +44,7 @@ export function ThemePicker() {
                 selected && 'border-primary/60',
               )}
             >
-              <ThemePreview id={theme.id} />
+              <ThemePreview mode={theme.id} />
               <span className="flex items-start gap-2 px-1.5 pb-1">
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium">{theme.label}</span>
@@ -66,14 +66,32 @@ export function ThemePicker() {
   )
 }
 
-/** A miniature of the shell: rail, ambient glow, orb, and a location card. */
-function ThemePreview({ id }: { id: ThemeId }) {
+/** System shows both themes, split on the diagonal. */
+function ThemePreview({ mode }: { mode: ThemeMode }) {
   return (
     <span
-      data-theme={id}
       aria-hidden
-      className="flex h-22 overflow-hidden rounded-xl border border-hairline bg-background"
+      className="relative block h-22 overflow-hidden rounded-xl border border-hairline"
     >
+      {mode === 'system' ? (
+        <>
+          <MiniShell theme="dark" />
+          <MiniShell
+            theme="light"
+            className="[clip-path:polygon(100%_0,100%_100%,0_100%)]"
+          />
+        </>
+      ) : (
+        <MiniShell theme={mode} />
+      )}
+    </span>
+  )
+}
+
+/** A miniature of the shell: rail, ambient glow, orb, and a location card. */
+function MiniShell({ theme, className }: { theme: ResolvedTheme; className?: string }) {
+  return (
+    <span data-theme={theme} className={cn('absolute inset-0 flex bg-background', className)}>
       <span className="flex w-6 shrink-0 flex-col items-center gap-1.5 bg-rail py-2">
         <span className="mb-0.5 size-2.5 rounded-[4px] bg-primary/25" />
         <span className="h-1 w-3 rounded-full bg-primary" />

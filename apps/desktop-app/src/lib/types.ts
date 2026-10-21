@@ -46,13 +46,34 @@ export interface ServerSummary {
   countryCode: string
   city: string
   host: string
+  port: number
   tier: Tier
   load: number
   tags: string[]
-  protocol: 'direct' | 'vless-tls'
+  protocol: 'direct' | 'vless-tls' | 'trojan-tls'
+  /** The masking domain sent in the TLS handshake; empty for direct. */
+  sni: string
+  allowInsecure: boolean
   /** False until the node has credentials; connecting to it will be refused. */
   configured: boolean
   latencyMs: number | null
+}
+
+/** What can be changed about a server after adding it. Credentials are not
+ *  here: a new key means importing the server's new link. */
+export interface ServerEdit {
+  name?: string
+  host?: string
+  port?: number
+  sni?: string
+  allowInsecure?: boolean
+}
+
+export interface ImportReport {
+  imported: ServerSummary[]
+  /** Links found but not imported - unsupported protocols, mostly. */
+  failed: number
+  firstError: string | null
 }
 
 export interface Settings {

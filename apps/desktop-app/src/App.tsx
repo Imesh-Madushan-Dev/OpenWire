@@ -45,7 +45,7 @@ function Shell() {
               exit="exit"
               className="absolute inset-0"
             >
-              {view === 'vpn' && <VpnView onOpenFeatures={() => setView('settings')} />}
+              {view === 'vpn' && <VpnView onOpenSettings={() => setView('settings')} />}
               {view === 'network' && <NetworkView />}
               {view === 'usage' && <UsageView />}
               {view === 'settings' && <SettingsView />}

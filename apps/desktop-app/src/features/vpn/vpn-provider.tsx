@@ -24,6 +24,7 @@ import {
   type ConnectionState,
   type Notice,
   type PlatformInfo,
+  type ServerEdit,
   type ServerSummary,
   type Settings,
   type SettingsPatch,
@@ -161,10 +162,10 @@ export function VpnProvider({ children }: { children: ReactNode }) {
 
   /** Picks a server, remembers it, and moves a live session over to it. */
   const chooseServer = useCallback(
-    async (id: string) => {
+    async (id: string | null) => {
       try {
         setSettings(await api.updateSettings({ preferredServer: id }))
-        if (isActive(connection.phase)) {
+        if (isActive(connection.phase) && connection.serverId !== id) {
           await disconnect()
           await connect(id)
         }
@@ -172,7 +173,7 @@ export function VpnProvider({ children }: { children: ReactNode }) {
         surface(error)
       }
     },
-    [connection.phase, connect, disconnect, surface],
+    [connection.phase, connection.serverId, connect, disconnect, surface],
   )
 
   const probeServers = useCallback(async () => {
@@ -197,6 +198,51 @@ export function VpnProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         surface(error)
         return null
+      }
+    },
+    [refreshCatalog, surface],
+  )
+
+  const importLinks = useCallback(
+    async (text?: string) => {
+      try {
+        const report = await (text === undefined ? api.importClipboard() : api.importText(text))
+        await refreshCatalog()
+
+        const added = report.imported.length
+        if (added === 0) {
+          setNotice({
+            level: 'error',
+            message: report.firstError ?? 'None of those links could be added.',
+          })
+        } else {
+          const what = added === 1 ? report.imported[0].name : `${added} servers`
+          setNotice({
+            level: report.failed > 0 ? 'warning' : 'info',
+            message:
+              report.failed > 0
+                ? `Added ${what}. ${report.failed} skipped: ${report.firstError ?? 'not supported.'}`
+                : `Added ${what}.`,
+          })
+        }
+        return report
+      } catch (error) {
+        surface(error)
+        return null
+      }
+    },
+    [refreshCatalog, surface],
+  )
+
+  const updateServer = useCallback(
+    async (id: string, edit: ServerEdit) => {
+      try {
+        await api.updateServer(id, edit)
+        await refreshCatalog()
+        return true
+      } catch (error) {
+        surface(error)
+        return false
       }
     },
     [refreshCatalog, surface],
@@ -258,6 +304,8 @@ export function VpnProvider({ children }: { children: ReactNode }) {
       chooseServer,
       probeServers,
       importServer,
+      importLinks,
+      updateServer,
       removeServer,
       updateSettings,
       notify,
@@ -280,6 +328,8 @@ export function VpnProvider({ children }: { children: ReactNode }) {
       chooseServer,
       probeServers,
       importServer,
+      importLinks,
+      updateServer,
       removeServer,
       updateSettings,
       notify,

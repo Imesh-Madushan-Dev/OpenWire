@@ -1,6 +1,6 @@
 /**
- * Adds a node from a `vless://` share link - the format every VLESS server
- * emits, so this is the one path a user actually has to hand.
+ * Adds a node from a `vless://` or `trojan://` share link - the format every
+ * such server emits, so this is the one path a user actually has to hand.
  *
  * The link contains an access key, so the field never echoes it back into
  * state once submitted and is typed as a password input.
@@ -49,7 +49,7 @@ export function ServerImportField({ onAdded }: { onAdded?: () => void }) {
             type="password"
             value={uri}
             onChange={(event) => setUri(event.target.value)}
-            placeholder="vless://key@host:443?security=tls&sni=..."
+            placeholder="vless://… or trojan://…"
             autoComplete="off"
             spellCheck={false}
             aria-label="Server share link"

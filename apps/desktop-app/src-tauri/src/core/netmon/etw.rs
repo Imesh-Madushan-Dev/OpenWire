@@ -279,15 +279,21 @@ impl Properties {
 mod tests {
     use super::*;
 
-    /// Without admin rights StartTraceW must refuse on access grounds. A
-    /// malformed properties block is rejected as an invalid parameter
-    /// instead, so this pins the struct layout even on unelevated runs.
-    /// Elevated, it starts and stops a real session.
+    /// Without admin rights StartTraceW must refuse on access grounds - or,
+    /// on a machine with the monitor installed, because its service already
+    /// holds the session. A malformed properties block is rejected as an
+    /// invalid parameter instead, so this pins the struct layout even on
+    /// unelevated runs. Elevated, it starts and stops a real session.
     #[test]
     fn starting_a_session_fails_on_rights_not_on_layout() {
+        const ACCESS_DENIED: i32 = 5;
+        const ALREADY_RUNNING: i32 = 183;
         match Session::start() {
             Ok(session) => session.stop(),
-            Err(err) => assert_eq!(err.raw_os_error(), Some(5), "{err}"),
+            Err(err) => assert!(
+                matches!(err.raw_os_error(), Some(ACCESS_DENIED | ALREADY_RUNNING)),
+                "{err}"
+            ),
         }
     }
 }

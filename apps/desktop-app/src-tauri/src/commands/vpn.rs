@@ -198,7 +198,7 @@ async fn bring_up(
             match node.outbound {
                 // Be explicit that the diagnostic node does not mask anything.
                 Outbound::Direct => Some("Diagnostic route - traffic is not masked.".to_string()),
-                Outbound::Vless(_) => None,
+                Outbound::Vless(_) | Outbound::Trojan(_) => None,
             }
         };
     }))
@@ -269,7 +269,7 @@ fn resolve_node(state: &AppState, requested: Option<String>) -> AppResult<Server
 
     preferred.or_else(|| state.optimal_node()).ok_or_else(|| {
         AppError::Invalid(
-            "No server is set up yet. Add one with a vless:// link in Settings.".to_string(),
+            "No server is set up yet. Add one from its share link on the VPN page.".to_string(),
         )
     })
 }
@@ -277,7 +277,7 @@ fn resolve_node(state: &AppState, requested: Option<String>) -> AppResult<Server
 fn exit_label(node: &ServerNode) -> String {
     match node.outbound {
         Outbound::Direct => "This device".to_string(),
-        Outbound::Vless(_) => node.host.clone(),
+        Outbound::Vless(_) | Outbound::Trojan(_) => node.host.clone(),
     }
 }
 

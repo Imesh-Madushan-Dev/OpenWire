@@ -12,10 +12,12 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
 import type {
   ConnectionState,
+  ImportReport,
   MonitorStatus,
   Notice,
   PlatformInfo,
   Ranked,
+  ServerEdit,
   ServerSummary,
   Settings,
   SettingsPatch,
@@ -76,6 +78,14 @@ export const api = {
   servers: () => call<ServerSummary[]>('servers_list'),
   probeServers: () => call<ServerSummary[]>('servers_probe'),
   importServer: (uri: string) => call<ServerSummary>('servers_import', { uri }),
+  /** Every link in a block of text, or in a base64 subscription body. */
+  importText: (text: string) => call<ImportReport>('servers_import_text', { text }),
+  /** Read in the backend, so the link never passes through the webview. */
+  importClipboard: () => call<ImportReport>('servers_import_clipboard'),
+  /** The server's link, credentials included. Only for an explicit Share. */
+  shareLink: (id: string) => call<string>('servers_share_link', { id }),
+  updateServer: (id: string, edit: ServerEdit) =>
+    call<ServerSummary>('servers_update', { id, edit }),
   removeServer: (id: string) => call<void>('servers_remove', { id }),
   optimalServer: () => call<ServerSummary | null>('servers_optimal'),
 

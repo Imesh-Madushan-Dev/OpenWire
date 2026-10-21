@@ -67,8 +67,7 @@ export const SECTION_GROUPS: readonly (readonly Section[])[] = [
     {
       id: 'appearance',
       label: 'Appearance',
-      description:
-        'Pick a theme. Whatever the palette, the signal colour still means one thing - you are covered.',
+      description: 'Light, dark, or whichever your device is using.',
       icon: PaintBoardIcon,
     },
     {

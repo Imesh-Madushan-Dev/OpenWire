@@ -2,6 +2,8 @@
 //! bytes, and watches the remote's health.
 
 pub mod inbound;
+pub mod tls;
+pub mod trojan;
 pub mod vless;
 
 use std::net::{IpAddr, SocketAddr};
@@ -79,10 +81,11 @@ impl Tunnel {
         }
 
         // Build the TLS config once per session, not once per connection.
-        let tls = match &node.outbound {
-            Outbound::Vless(cfg) => Some(vless::build_tls(cfg, &node.host)?),
-            Outbound::Direct => None,
-        };
+        let tls = node
+            .outbound
+            .tls()
+            .map(|settings| tls::build(settings, &node.host))
+            .transpose()?;
 
         // Loopback only. Binding 0.0.0.0 would turn this into an open proxy for
         // anyone on the same network.
@@ -160,7 +163,7 @@ impl Tunnel {
                     // The diagnostic node has no remote to probe.
                     let latency = match session.node.outbound {
                         Outbound::Direct => Some(0),
-                        Outbound::Vless(_) => {
+                        Outbound::Vless(_) | Outbound::Trojan(_) => {
                             probe::tcp_latency(&session.node.host, session.node.port).await
                         }
                     };
@@ -187,10 +190,7 @@ impl Tunnel {
         log::info!(
             "tunnel up on {local_addr} via {} ({})",
             session.node.name,
-            match session.node.outbound {
-                Outbound::Direct => "direct",
-                Outbound::Vless(_) => "vless-tls",
-            }
+            session.node.outbound.protocol()
         );
 
         Ok(Self {
@@ -257,8 +257,9 @@ async fn handle(mut client: TcpStream, session: Arc<Session>) -> AppResult<()> {
         Arc::clone(&session.metrics),
     );
 
-    // VLESS answers with its own 2+N byte head that the client must never see.
-    let strip_head = !direct;
+    // VLESS answers with its own 2+N byte head that the client must never see;
+    // Trojan answers with nothing but the destination's bytes.
+    let strip_head = !direct && matches!(session.node.outbound, Outbound::Vless(_));
     relay(
         client,
         upstream,
@@ -286,23 +287,21 @@ async fn dial(
         return Ok(Box::new(stream));
     }
 
-    let Outbound::Vless(cfg) = &session.node.outbound else {
-        return Err(AppError::Internal("outbound/tls mismatch".into()));
-    };
     let tls = session
         .tls
         .clone()
         .ok_or_else(|| AppError::Internal("tls config missing".into()))?;
+    let node = &session.node;
 
-    let stream = vless::dial(
-        &session.node.host,
-        session.node.port,
-        cfg,
-        tls,
-        &request.host,
-        request.port,
-    )
-    .await?;
+    let stream = match &node.outbound {
+        Outbound::Vless(cfg) => {
+            vless::dial(&node.host, node.port, cfg, tls, &request.host, request.port).await?
+        }
+        Outbound::Trojan(cfg) => {
+            trojan::dial(&node.host, node.port, cfg, tls, &request.host, request.port).await?
+        }
+        Outbound::Direct => return Err(AppError::Internal("outbound/tls mismatch".into())),
+    };
     Ok(Box::new(stream))
 }
 
