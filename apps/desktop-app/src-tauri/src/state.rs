@@ -12,7 +12,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::core::catalog;
-use crate::core::license::{self, LicenseStatus};
 use crate::core::metrics::Metrics;
 use crate::core::models::{
     ConnectionState, Phase, ServerNode, ServerSummary, Settings, StatsSnapshot,
@@ -123,23 +122,6 @@ impl AppState {
         if let Err(err) = self.usage.persist(&self.config_dir.join("usage.json")) {
             log::warn!("could not save usage history: {err}");
         }
-    }
-
-    // -- license ------------------------------------------------------------
-
-    pub fn license_status(&self) -> LicenseStatus {
-        license::status(&self.config_dir, crate::core::usage::unix_seconds())
-    }
-
-    pub fn activate_license(&self, key: &str) -> AppResult<LicenseStatus> {
-        license::activate(&self.config_dir, key, crate::core::usage::unix_seconds())
-            .map_err(AppError::License)
-    }
-
-    /// `Ok` only while a genuine, unexpired key for this machine is active.
-    pub fn require_license(&self) -> AppResult<()> {
-        license::require(&self.config_dir, crate::core::usage::unix_seconds())
-            .map_err(AppError::License)
     }
 
     // -- settings -----------------------------------------------------------

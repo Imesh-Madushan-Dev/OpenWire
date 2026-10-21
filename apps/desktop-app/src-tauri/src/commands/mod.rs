@@ -1,4 +1,3 @@
-pub mod license;
 pub mod servers;
 pub mod settings;
 pub mod usage;

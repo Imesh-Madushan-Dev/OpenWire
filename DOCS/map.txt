@@ -2,7 +2,7 @@
 "use client";
 
 import { useRef, useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import DottedMap from "dotted-map";
 import Image from "next/image";
 import { useTheme } from "next-themes";
@@ -326,7 +326,7 @@ export function WorldMap({
 // --- Demo ---
 "use client";
 import { WorldMap } from "@/components/ui/map";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 
 export default function MapDemo() {
   return (

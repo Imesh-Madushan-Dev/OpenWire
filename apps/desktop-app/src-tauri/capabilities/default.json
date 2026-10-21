@@ -17,6 +17,7 @@
     "core:window:allow-show",
     "core:window:allow-set-focus",
     "log:default",
+    "autostart:default",
     {
       "identifier": "opener:allow-open-url",
       "allow": [{ "url": "https://github.com/Imesh-Madushan-Dev" }]

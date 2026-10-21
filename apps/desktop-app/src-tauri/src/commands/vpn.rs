@@ -94,12 +94,6 @@ async fn bring_up(
     node: ServerNode,
     monitoring: bool,
 ) -> AppResult<ConnectionState> {
-    // The license gate lives here, in native code at the one place a tunnel
-    // comes up, rather than in the webview where a devtools console could step
-    // around it. Connect, monitor mode, auto-connect and the tray all arrive
-    // through this function.
-    state.require_license()?;
-
     let settings = state.settings();
 
     // Monitor mode starts itself on launch and after a disconnect. Flashing

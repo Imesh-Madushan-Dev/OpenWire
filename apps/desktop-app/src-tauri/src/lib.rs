@@ -28,6 +28,10 @@ pub fn run() {
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .plugin(
             tauri_plugin_log::Builder::default()
                 .level(if cfg!(debug_assertions) {
@@ -57,8 +61,6 @@ pub fn run() {
             commands::usage::usage_summary_between,
             commands::usage::usage_span,
             commands::usage::usage_device_apps,
-            commands::license::license_status,
-            commands::license::license_activate,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -128,19 +130,6 @@ fn spawn_stats_ticker(app: AppHandle) {
             ticks = ticks.wrapping_add(1);
             if ticks % PERSIST_EVERY_TICKS == 0 {
                 state.persist_usage();
-
-                // A license can lapse mid-session. Checked here as well as at
-                // connect, so an expiry cannot be outlasted by never
-                // disconnecting.
-                if state.is_tunnel_up() {
-                    if let Err(err) = state.require_license() {
-                        state.teardown();
-                        state.update_connection(|conn| {
-                            *conn = crate::core::models::ConnectionState::default()
-                        });
-                        state.notify("error", err.user_message());
-                    }
-                }
             }
 
             if !state.is_tunnel_up() {

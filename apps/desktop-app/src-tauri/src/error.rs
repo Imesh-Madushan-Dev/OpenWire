@@ -45,9 +45,6 @@ pub enum AppError {
     #[error("invalid input: {0}")]
     Invalid(String),
 
-    #[error("license check failed: {0}")]
-    License(String),
-
     #[error("internal failure: {0}")]
     Internal(String),
 }
@@ -67,7 +64,6 @@ impl AppError {
             Self::SystemProxy(_) => "SYSTEM_PROXY_FAILED",
             Self::Config(_) => "CONFIG_FAILED",
             Self::Invalid(_) => "INVALID_INPUT",
-            Self::License(_) => "LICENSE_REQUIRED",
             Self::Internal(_) => "INTERNAL",
         }
     }
@@ -102,8 +98,6 @@ impl AppError {
             }
             Self::Config(_) => "Couldn't save your settings to disk.".into(),
             Self::Invalid(detail) => detail.clone(),
-            // Already written for a person by `core::license`.
-            Self::License(detail) => detail.clone(),
             Self::Internal(_) => "Something went wrong. Please try again.".into(),
         }
     }

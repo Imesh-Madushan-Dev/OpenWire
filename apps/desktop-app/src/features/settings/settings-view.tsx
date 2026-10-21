@@ -1,6 +1,6 @@
 /** Settings: protection, routing, servers, app behaviour, diagnostics, and about. */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ChartHistogramIcon,
@@ -14,6 +14,7 @@ import {
   Shield01Icon,
   Wifi01Icon,
 } from '@hugeicons/core-free-icons'
+import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { motion } from 'motion/react'
 
@@ -154,6 +155,7 @@ export function SettingsView() {
         </section>
 
         <SettingGroup title="App">
+          <StartWithWindowsRow />
           <SettingRow
             icon={Rocket01Icon}
             title="Connect on launch"
@@ -287,6 +289,34 @@ function PortRow({ port }: { port: number }) {
           className="numeric h-9 w-24 shrink-0 text-center"
         />
       }
+    />
+  )
+}
+
+/** Registers Maizy with the OS login items; the OS entry is the source of truth. */
+function StartWithWindowsRow() {
+  const [on, setOn] = useState(false)
+
+  useEffect(() => {
+    isEnabled().then(setOn).catch(() => {})
+  }, [])
+
+  const toggle = async (next: boolean) => {
+    setOn(next)
+    try {
+      await (next ? enable() : disable())
+    } catch {
+      setOn(!next)
+    }
+  }
+
+  return (
+    <SettingRow
+      icon={ComputerIcon}
+      title="Start with Windows"
+      description="Open Maizy automatically when you sign in."
+      checked={on}
+      onChange={(next) => void toggle(next)}
     />
   )
 }

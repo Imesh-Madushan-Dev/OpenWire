@@ -12,7 +12,6 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
 import type {
   ConnectionState,
-  LicenseStatus,
   UsageEntry,
   Notice,
   PlatformInfo,
@@ -92,8 +91,6 @@ export const api = {
   updateSettings: (patch: SettingsPatch) => call<Settings>('settings_update', { patch }),
   platform: () => call<PlatformInfo>('platform_info'),
 
-  licenseStatus: () => call<LicenseStatus>('license_status'),
-  activateLicense: (key: string) => call<LicenseStatus>('license_activate', { key }),
   restoreNetwork: () => call<string>('network_restore'),
 }
 
