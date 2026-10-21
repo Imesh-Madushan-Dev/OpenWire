@@ -84,7 +84,7 @@ export function VpnView({ onOpenSettings }: { onOpenSettings: () => void }) {
           )}
         </AnimatePresence>
 
-        <div className="relative px-8 pb-7">
+        <div className="relative px-8 pb-dock">
           <QuickToggles onOpenSettings={onOpenSettings} />
         </div>
       </section>

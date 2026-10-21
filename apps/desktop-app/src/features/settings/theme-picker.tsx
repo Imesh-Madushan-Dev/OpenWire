@@ -88,22 +88,23 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
   )
 }
 
-/** A miniature of the shell: rail, ambient glow, orb, and a location card. */
+/** A miniature of the shell: ambient glow, orb, and the floating dock. */
 function MiniShell({ theme, className }: { theme: ResolvedTheme; className?: string }) {
   return (
-    <span data-theme={theme} className={cn('absolute inset-0 flex bg-background', className)}>
-      <span className="flex w-6 shrink-0 flex-col items-center gap-1.5 bg-rail py-2">
-        <span className="mb-0.5 size-2.5 rounded-[4px] bg-primary/25" />
-        <span className="h-1 w-3 rounded-full bg-primary" />
-        <span className="h-1 w-3 rounded-full bg-tint/15" />
-        <span className="h-1 w-3 rounded-full bg-tint/15" />
-      </span>
-
-      <span className="relative grid flex-1 place-items-center bg-[radial-gradient(circle_at_50%_42%,color-mix(in_oklab,var(--primary)_22%,transparent),transparent_62%)]">
-        <span className="orb-surface -mt-3 size-9 rounded-full border-2 border-primary" />
-        <span className="panel absolute inset-x-3 bottom-2 flex h-3 items-center gap-1 rounded-md px-1">
-          <span className="size-1.5 rounded-full bg-primary" />
-          <span className="h-1 w-6 rounded-full bg-tint/20" />
+    <span
+      data-theme={theme}
+      className={cn(
+        'absolute inset-0 grid place-items-center bg-background bg-[radial-gradient(circle_at_50%_38%,color-mix(in_oklab,var(--primary)_22%,transparent),transparent_62%)]',
+        className,
+      )}
+    >
+      <span className="orb-surface -mt-4 size-9 rounded-full border-2 border-primary" />
+      <span className="absolute inset-x-0 bottom-2 flex justify-center">
+        <span className="flex items-center gap-1 rounded-full border border-hairline bg-card px-1.5 py-1">
+          <span className="h-1.5 w-4 rounded-full bg-primary" />
+          <span className="size-1.5 rounded-full bg-tint/20" />
+          <span className="size-1.5 rounded-full bg-tint/20" />
+          <span className="size-1.5 rounded-full bg-tint/20" />
         </span>
       </span>
     </span>

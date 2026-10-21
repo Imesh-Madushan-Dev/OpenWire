@@ -244,7 +244,7 @@ export function ServerPanel() {
           variants={staggerParent}
           initial="initial"
           animate="animate"
-          className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-4"
+          className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-dock"
         >
           {!query && (
             <AutomaticRow

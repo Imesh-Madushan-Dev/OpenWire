@@ -53,6 +53,10 @@
     --color-chart-down: var(--chart-down);
     --color-chart-up: var(--chart-up);
 
+    /* Room views leave at the bottom for the floating dock (`components/dock.tsx`):
+     * the pill itself, its lift off the window edge, and a gap above it. */
+    --spacing-dock: 5.5rem;
+
     /* Generous radii: nothing in this UI has a corner tighter than 12px. */
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
@@ -104,10 +108,6 @@
     --destructive: #ff6b6b;
     --warning: #ffc861;
 
-    /* Download carries the signal colour because it is the dominant series. */
-    --chart-down: #2d5bf6;
-    --chart-up: #8a8a90;
-
     --border: rgba(255, 255, 255, 0.08);
     --input: rgba(255, 255, 255, 0.1);
     --ring: #2d5bf6;
@@ -148,15 +148,87 @@
     --destructive: #d93a3a;
     --warning: #9a6200;
 
-    --chart-down: #2d5bf6;
-    --chart-up: #8a8a90;
-
     --border: rgba(17, 17, 19, 0.1);
     --input: rgba(17, 17, 19, 0.14);
     --ring: #2d5bf6;
 
     --tint: #111113;
     --orb-shade: rgba(17, 17, 19, 0.06);
+}
+
+/* ---------------------------------------------------------------------------
+ * Chart palettes
+ *
+ * Each palette is a download/upload pair, picked separately for each mode and
+ * checked against that mode's panel surface: at least 3:1 contrast, and still
+ * apart from each other under protanopia and deuteranopia. Download comes
+ * first because it is almost always the larger series. No pair uses warning
+ * amber or destructive red, so a series never reads as a status.
+ *
+ * `lib/chart-palette.ts` puts the chosen `data-chart` on <html>; a palette
+ * preview carries its own, and the mapping below re-reads the pair for
+ * whichever mode is active.
+ * ------------------------------------------------------------------------ */
+
+/* Signal - blue and orange, the most colour-blind-safe pairing. */
+:root,
+[data-chart='signal'] {
+    --chart-down-dark: #5088f2;
+    --chart-up-dark: #d77500;
+    --chart-down-light: #2d5bf6;
+    --chart-up-light: #bd6706;
+}
+
+/* Aurora - green and violet. */
+[data-chart='aurora'] {
+    --chart-down-dark: #33ac5a;
+    --chart-up-dark: #9163d5;
+    --chart-down-light: #05893e;
+    --chart-up-light: #763ebd;
+}
+
+/* Lagoon - teal and rose. */
+[data-chart='lagoon'] {
+    --chart-down-dark: #01ac9f;
+    --chart-up-dark: #bd3c6f;
+    --chart-down-light: #099b8f;
+    --chart-up-light: #991451;
+}
+
+/* Glacier - sky and magenta. */
+[data-chart='glacier'] {
+    --chart-down-dark: #1ba0d5;
+    --chart-up-dark: #b33ca0;
+    --chart-down-light: #0392c4;
+    --chart-up-light: #8e107e;
+}
+
+/* Citrus - lime and indigo. */
+[data-chart='citrus'] {
+    --chart-down-dark: #799f06;
+    --chart-up-dark: #6a69db;
+    --chart-down-light: #678806;
+    --chart-up-light: #4f42c9;
+}
+
+/* Ember - orange and purple. */
+[data-chart='ember'] {
+    --chart-down-dark: #e36927;
+    --chart-up-dark: #9e4ebe;
+    --chart-down-light: #c55205;
+    --chart-up-light: #842da5;
+}
+
+:root,
+[data-chart] {
+    --chart-down: var(--chart-down-dark);
+    --chart-up: var(--chart-up-dark);
+}
+
+[data-theme='light'],
+[data-theme='light'] [data-chart] {
+    --chart-down: var(--chart-down-light);
+    --chart-up: var(--chart-up-light);
 }
 
 @layer base {

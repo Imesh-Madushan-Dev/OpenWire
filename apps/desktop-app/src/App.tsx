@@ -1,9 +1,9 @@
-/** App shell: window chrome, navigation rail, and the active view. */
+/** App shell: window chrome, the active view, and the floating dock. */
 
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 
-import { NavRail, type ViewId } from '@/components/nav-rail'
+import { Dock, type ViewId } from '@/components/dock'
 import { NoticeBar } from '@/components/notice-bar'
 import { TitleBar } from '@/components/title-bar'
 import { viewVariants } from '@/lib/motion'
@@ -29,32 +29,29 @@ function Shell() {
 
   return (
     // The window is frameless, so the app paints its own rounded shell.
-    <div className="flex h-full overflow-hidden rounded-xl border border-tint/8 bg-background">
-      <NavRail active={view} onChange={setView} connected={isActive(connection.phase)} />
+    <div className="relative flex h-full flex-col overflow-hidden rounded-xl border border-tint/8 bg-background">
+      <TitleBar onFeedback={(message) => notify({ level: 'info', message })} />
 
-      <div className="relative flex min-w-0 flex-1 flex-col">
-        <TitleBar onFeedback={(message) => notify({ level: 'info', message })} />
+      <main className="relative min-h-0 flex-1">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={view}
+            variants={viewVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="absolute inset-0"
+          >
+            {view === 'vpn' && <VpnView onOpenSettings={() => setView('settings')} />}
+            {view === 'network' && <NetworkView />}
+            {view === 'usage' && <UsageView />}
+            {view === 'settings' && <SettingsView />}
+          </motion.div>
+        </AnimatePresence>
+      </main>
 
-        <main className="relative min-h-0 flex-1">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={view}
-              variants={viewVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className="absolute inset-0"
-            >
-              {view === 'vpn' && <VpnView onOpenSettings={() => setView('settings')} />}
-              {view === 'network' && <NetworkView />}
-              {view === 'usage' && <UsageView />}
-              {view === 'settings' && <SettingsView />}
-            </motion.div>
-          </AnimatePresence>
-        </main>
-
-        <NoticeBar notice={notice} onDismiss={dismissNotice} />
-      </div>
+      <Dock active={view} onChange={setView} connected={isActive(connection.phase)} />
+      <NoticeBar notice={notice} onDismiss={dismissNotice} />
     </div>
   )
 }

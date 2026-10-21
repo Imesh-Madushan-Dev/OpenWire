@@ -15,6 +15,7 @@ import {
 import { formatSpeed } from '@/lib/format'
 import type { UsageRange } from '@/lib/types'
 
+import { ChartPaletteSelect } from './components/chart-palette-select'
 import { ThroughputChart } from './components/throughput-chart'
 import { BUCKET_SECONDS, SCALE_OPTIONS } from './tiers'
 import { useTimeline } from './use-usage'
@@ -55,7 +56,7 @@ export function NetworkView() {
         />
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 px-8 pb-6">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 px-8 pb-dock">
         <div className="flex shrink-0 items-center gap-2">
           {/* `items` lets the trigger show the label rather than the raw
               byte-rate value the graph needs. */}
@@ -92,6 +93,8 @@ export function NetworkView() {
               />
             </button>
           )}
+
+          <ChartPaletteSelect className="ml-auto" />
         </div>
 
         <div className="panel relative min-h-0 flex-1 rounded-2xl p-3">

@@ -275,7 +275,7 @@ export function UsageView() {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-8">
+      <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-dock">
         {/* Keyed by scope so a switch replays the entrance and every column
             starts collapsed again, instead of morphing one list into another. */}
         <motion.div

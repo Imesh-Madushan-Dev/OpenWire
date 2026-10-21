@@ -33,6 +33,7 @@ import { monitorSummary, useMonitor } from '@/features/usage/use-monitor'
 import { useVpn } from '@/features/vpn/vpn-context'
 import { RestoreNetworkRow } from './restore-network-row'
 import { SECTIONS, type SectionId } from './sections'
+import { ChartPalettePicker } from './chart-palette-picker'
 import { SettingsNav } from './settings-nav'
 import { ThemePicker } from './theme-picker'
 
@@ -57,7 +58,7 @@ export function SettingsView() {
 
   return (
     <div ref={scrollerRef} className="h-full overflow-y-auto">
-      <div className="mx-auto flex w-full max-w-208 gap-8 px-8 pt-4 pb-10">
+      <div className="mx-auto flex w-full max-w-208 gap-8 px-8 pt-4 pb-dock">
         <SettingsNav active={active} onChange={select} />
 
         <div
@@ -107,7 +108,12 @@ function SectionBody({ id, settings }: { id: SectionId; settings: Settings }) {
     case 'general':
       return <GeneralSection settings={settings} />
     case 'appearance':
-      return <ThemePicker />
+      return (
+        <>
+          <ThemePicker />
+          <ChartPalettePicker />
+        </>
+      )
     case 'diagnostics':
       return <DiagnosticsSection />
     case 'about':
