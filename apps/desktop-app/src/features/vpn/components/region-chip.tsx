@@ -25,8 +25,8 @@ export function RegionChip({ countryCode, className, size = 'md' }: RegionChipPr
     <span
       aria-hidden
       className={cn(
-        'inline-grid shrink-0 place-items-center rounded-md border border-white/10',
-        'bg-[linear-gradient(150deg,rgba(255,255,255,0.14),rgba(255,255,255,0.03))]',
+        'inline-grid shrink-0 place-items-center rounded-md border border-tint/10',
+        'chip-surface',
         'font-semibold tracking-wider text-foreground/80',
         size === 'sm' ? 'h-4 w-6 text-[9px]' : 'h-5 w-7 text-[10px]',
         className,

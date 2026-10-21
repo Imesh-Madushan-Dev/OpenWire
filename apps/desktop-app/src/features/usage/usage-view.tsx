@@ -290,8 +290,8 @@ function DateField({
       max={max}
       onChange={(event) => onChange(event.target.value)}
       // `color-scheme` is what makes the native picker and its calendar icon
-      // render dark; without it Chromium paints a white widget on the panel.
-      className="h-8 w-33 px-2.5 text-xs scheme-dark"
+      // match the theme; without it Chromium paints a white widget on the panel.
+      className="h-8 w-33 px-2.5 text-xs scheme-light dark:scheme-dark"
     />
   )
 }

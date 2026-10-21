@@ -86,7 +86,7 @@ export function BreakdownColumn({
                 </span>
               </div>
 
-              <div className="h-1 w-full overflow-hidden rounded-full bg-white/6">
+              <div className="h-1 w-full overflow-hidden rounded-full bg-tint/6">
                 <motion.div
                   className="h-full rounded-full bg-primary"
                   // Fade with rank so the eye reads the order, not six colours.

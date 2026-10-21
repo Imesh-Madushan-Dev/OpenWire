@@ -45,7 +45,7 @@ export function LocationCard({ server, settings, onOpen }: LocationCardProps) {
       whileTap={{ scale: 0.99 }}
       className="panel-interactive flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
     >
-      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/5">
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-tint/5">
         {automatic || !server ? (
           <HugeiconsIcon
             icon={GlobalIcon}

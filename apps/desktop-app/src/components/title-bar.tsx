@@ -42,7 +42,7 @@ export function TitleBar({ onFeedback }: { onFeedback: (message: string) => void
       <button
         type="button"
         onClick={() => onFeedback(FEEDBACK_MESSAGE)}
-        className="mr-1 flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/6 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
+        className="mr-1 flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-tint/6 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
       >
         <HugeiconsIcon icon={Mail01Icon} size={13} strokeWidth={2} />
         Feedback
@@ -81,7 +81,7 @@ function WindowButton({
       className={cn(
         'grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors',
         'focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none',
-        danger ? 'hover:bg-destructive/80 hover:text-white' : 'hover:bg-white/8 hover:text-foreground',
+        danger ? 'hover:bg-destructive/80 hover:text-white' : 'hover:bg-tint/8 hover:text-foreground',
       )}
     >
       {children}

@@ -51,7 +51,7 @@ const TREATMENT: Record<
   { ring: string; icon: string; glow: number; label: string }
 > = {
   disconnected: {
-    ring: 'border-white/12',
+    ring: 'border-tint/12',
     icon: 'text-muted-foreground',
     glow: 0.12,
     label: 'Connect',
@@ -75,7 +75,7 @@ const TREATMENT: Record<
     label: 'Reconnecting',
   },
   disconnecting: {
-    ring: 'border-white/20',
+    ring: 'border-tint/20',
     icon: 'text-muted-foreground',
     glow: 0.2,
     label: 'Disconnecting',
@@ -83,7 +83,7 @@ const TREATMENT: Record<
   // Reads as off, because it is off - only the dimmer ring hints that
   // something is still running.
   monitoring: {
-    ring: 'border-white/12',
+    ring: 'border-tint/12',
     icon: 'text-muted-foreground',
     glow: 0.12,
     label: 'Connect',
@@ -191,7 +191,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
         aria-pressed={phase === 'connected'}
         className={cn(
           'group relative grid size-49 place-items-center rounded-full border-2',
-          'bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.06),rgba(0,0,0,0.35))]',
+          'orb-surface',
           'outline-none transition-colors duration-300',
           'focus-visible:ring-4 focus-visible:ring-primary/40',
           inert ? 'cursor-progress' : 'cursor-pointer',
@@ -206,7 +206,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
           aria-hidden
           className={cn(
             'absolute inset-3 rounded-full border transition-colors duration-300',
-            phase === 'connected' ? 'border-primary/25' : 'border-white/5',
+            phase === 'connected' ? 'border-primary/25' : 'border-tint/5',
           )}
         />
 

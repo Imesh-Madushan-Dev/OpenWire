@@ -118,7 +118,7 @@ export function ThroughputChart({ points, range, scale }: ThroughputChartProps) 
             height={28}
             travellerWidth={8}
             stroke="var(--hairline)"
-            fill="rgba(255,255,255,0.02)"
+            fill="color-mix(in oklab, var(--tint) 2%, transparent)"
             tickFormatter={formatTime}
           />
         )}
@@ -141,7 +141,7 @@ function UsageTooltip({ active, payload, label, formatTime }: TooltipProps) {
     payload.find((entry) => entry.dataKey === key)?.value ?? 0
 
   return (
-    <div className="rounded-xl border border-white/10 bg-card/95 px-3 py-2 shadow-xl backdrop-blur">
+    <div className="rounded-xl border border-tint/10 bg-card/95 px-3 py-2 shadow-xl backdrop-blur">
       <p className="numeric mb-1.5 text-[10px] text-muted-foreground">
         {typeof label === 'number' ? formatTime(label) : ''}
       </p>

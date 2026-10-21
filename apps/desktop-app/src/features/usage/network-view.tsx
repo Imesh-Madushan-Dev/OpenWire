@@ -83,7 +83,7 @@ export function NetworkView() {
               onClick={() => setPaused((value) => !value)}
               aria-label={paused ? 'Resume' : 'Pause'}
               aria-pressed={paused}
-              className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-white/8 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
+              className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-tint/8 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
             >
               <HugeiconsIcon
                 icon={paused ? PlayIcon : PauseIcon}

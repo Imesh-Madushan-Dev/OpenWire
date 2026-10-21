@@ -6,10 +6,18 @@
 /* ---------------------------------------------------------------------------
  * Maizy design system
  *
- * One committed look: a deep, near-black surface with a single signal colour
- * (#14f471) reserved for protection state. Colour is never decoration here -
- * if something is green, it means "you are covered".
+ * A quiet surface with a single signal colour reserved for protection state.
+ * Colour is never decoration here - if something carries the signal colour,
+ * it means "you are covered".
+ *
+ * Themes swap the palette, never the structure: every theme defines the same
+ * tokens, and components only ever read tokens. `--tint` is the overlay ink -
+ * white on dark themes, near-black on light ones - so `bg-tint/5` lifts a
+ * surface in either direction without a per-theme class.
  * ------------------------------------------------------------------------ */
+
+/* shadcn's `dark:` variants follow the active theme, not the OS setting. */
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
     --font-heading: var(--font-sans);
@@ -39,6 +47,7 @@
     --color-surface: var(--surface);
     --color-surface-hover: var(--surface-hover);
     --color-hairline: var(--hairline);
+    --color-tint: var(--tint);
     --color-warning: var(--warning);
     --color-chart-down: var(--chart-down);
     --color-chart-up: var(--chart-up);
@@ -53,10 +62,16 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Theme selectors are plain attributes rather than `:root[...]`, so a preview
+ * swatch can carry `data-theme` and render in that theme's colours. */
 :root {
-    color-scheme: dark;
-
     --radius: 1rem;
+}
+
+/* Maizy - the default. Green signal on a green-black field. */
+:root,
+[data-theme='maizy'] {
+    color-scheme: dark;
 
     --background: #070d0a;
     --foreground: #e8f4ec;
@@ -96,6 +111,182 @@
     --border: rgba(255, 255, 255, 0.08);
     --input: rgba(255, 255, 255, 0.1);
     --ring: #14f471;
+
+    --tint: #ffffff;
+    --orb-shade: rgba(0, 0, 0, 0.35);
+}
+
+/* Ocean - sky-blue signal on a blue-black field. */
+[data-theme='ocean'] {
+    color-scheme: dark;
+
+    --background: #060b12;
+    --foreground: #e6f0fa;
+
+    --rail: #03070c;
+    --surface: rgba(255, 255, 255, 0.045);
+    --surface-hover: rgba(255, 255, 255, 0.075);
+    --hairline: rgba(255, 255, 255, 0.07);
+
+    --card: #0f1722;
+    --card-foreground: #e6f0fa;
+    --popover: #0f1722;
+    --popover-foreground: #e6f0fa;
+
+    --primary: #45d4ff;
+    --primary-foreground: #03202e;
+
+    --secondary: #152030;
+    --secondary-foreground: #e6f0fa;
+
+    --muted: #111a26;
+    --muted-foreground: #7f90a4;
+
+    --accent: #15212f;
+    --accent-foreground: #e6f0fa;
+
+    --destructive: #ff6b6b;
+    --warning: #ffc861;
+
+    --chart-down: #45d4ff;
+    --chart-up: #b18cff;
+
+    --border: rgba(255, 255, 255, 0.08);
+    --input: rgba(255, 255, 255, 0.1);
+    --ring: #45d4ff;
+
+    --tint: #ffffff;
+    --orb-shade: rgba(0, 0, 0, 0.35);
+}
+
+/* Nebula - violet signal on a plum-black field. */
+[data-theme='nebula'] {
+    color-scheme: dark;
+
+    --background: #0b0812;
+    --foreground: #efe9fa;
+
+    --rail: #07050c;
+    --surface: rgba(255, 255, 255, 0.045);
+    --surface-hover: rgba(255, 255, 255, 0.075);
+    --hairline: rgba(255, 255, 255, 0.07);
+
+    --card: #161021;
+    --card-foreground: #efe9fa;
+    --popover: #161021;
+    --popover-foreground: #efe9fa;
+
+    --primary: #b18cff;
+    --primary-foreground: #1a0b33;
+
+    --secondary: #1d1629;
+    --secondary-foreground: #efe9fa;
+
+    --muted: #17111f;
+    --muted-foreground: #9087a4;
+
+    --accent: #1f1730;
+    --accent-foreground: #efe9fa;
+
+    --destructive: #ff6b6b;
+    --warning: #ffc861;
+
+    --chart-down: #b18cff;
+    --chart-up: #45d4ff;
+
+    --border: rgba(255, 255, 255, 0.08);
+    --input: rgba(255, 255, 255, 0.1);
+    --ring: #b18cff;
+
+    --tint: #ffffff;
+    --orb-shade: rgba(0, 0, 0, 0.35);
+}
+
+/* Graphite - no hue at all; brightness alone carries the signal. */
+[data-theme='graphite'] {
+    color-scheme: dark;
+
+    --background: #0b0b0c;
+    --foreground: #ededee;
+
+    --rail: #070708;
+    --surface: rgba(255, 255, 255, 0.045);
+    --surface-hover: rgba(255, 255, 255, 0.075);
+    --hairline: rgba(255, 255, 255, 0.07);
+
+    --card: #161618;
+    --card-foreground: #ededee;
+    --popover: #161618;
+    --popover-foreground: #ededee;
+
+    --primary: #f2f2f3;
+    --primary-foreground: #111113;
+
+    --secondary: #1c1c1f;
+    --secondary-foreground: #ededee;
+
+    --muted: #161618;
+    --muted-foreground: #8a8a90;
+
+    --accent: #1e1e21;
+    --accent-foreground: #ededee;
+
+    --destructive: #ff6b6b;
+    --warning: #ffc861;
+
+    --chart-down: #f2f2f3;
+    --chart-up: #8a8a90;
+
+    --border: rgba(255, 255, 255, 0.08);
+    --input: rgba(255, 255, 255, 0.1);
+    --ring: #f2f2f3;
+
+    --tint: #ffffff;
+    --orb-shade: rgba(0, 0, 0, 0.35);
+}
+
+/* Daylight - the light theme. The signal green is darkened so it still reads
+ * as text on a pale surface; panels sit as white cards on a soft field. */
+[data-theme='daylight'] {
+    color-scheme: light;
+
+    --background: #f2f5f3;
+    --foreground: #0d1a13;
+
+    --rail: #e7ede9;
+    --surface: #ffffff;
+    --surface-hover: #f7faf8;
+    --hairline: rgba(13, 26, 19, 0.08);
+
+    --card: #ffffff;
+    --card-foreground: #0d1a13;
+    --popover: #ffffff;
+    --popover-foreground: #0d1a13;
+
+    --primary: #08873f;
+    --primary-foreground: #ffffff;
+
+    --secondary: #e8eeea;
+    --secondary-foreground: #0d1a13;
+
+    --muted: #e9efeb;
+    --muted-foreground: #5b6b62;
+
+    --accent: #e6efe9;
+    --accent-foreground: #0d1a13;
+
+    --destructive: #d93a3a;
+    --warning: #9a6200;
+
+    --chart-down: #08873f;
+    --chart-up: #0a84c6;
+
+    --border: rgba(13, 26, 19, 0.1);
+    --input: rgba(13, 26, 19, 0.14);
+    --ring: #08873f;
+
+    --tint: #0d1a13;
+    --orb-shade: rgba(13, 26, 19, 0.06);
 }
 
 @layer base {
@@ -138,14 +329,14 @@
     }
 
     ::-webkit-scrollbar-thumb {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: color-mix(in oklab, var(--tint) 10%, transparent);
         border: 3px solid transparent;
         border-radius: 999px;
         background-clip: content-box;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-        background-color: rgba(255, 255, 255, 0.18);
+        background-color: color-mix(in oklab, var(--tint) 18%, transparent);
     }
 
     ::-webkit-scrollbar-track {
@@ -177,7 +368,25 @@
 
     .panel-interactive:hover {
         background-color: var(--surface-hover);
-        border-color: rgba(255, 255, 255, 0.12);
+        border-color: color-mix(in oklab, var(--tint) 12%, transparent);
+    }
+
+    /* The power orb's face: a top highlight over a soft shade. */
+    .orb-surface {
+        background: radial-gradient(
+            circle at 50% 30%,
+            color-mix(in oklab, var(--tint) 6%, transparent),
+            var(--orb-shade)
+        );
+    }
+
+    /* A small raised tile, e.g. the region code chip. */
+    .chip-surface {
+        background: linear-gradient(
+            150deg,
+            color-mix(in oklab, var(--tint) 14%, transparent),
+            color-mix(in oklab, var(--tint) 3%, transparent)
+        );
     }
 
     /* Numeric readouts must not reflow as digits change. */

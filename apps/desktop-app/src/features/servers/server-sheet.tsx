@@ -70,7 +70,7 @@ export function ServerSheet({ open, onOpenChange }: ServerSheetProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full gap-0 border-white/10 p-0 sm:max-w-md">
+      <SheetContent side="right" className="w-full gap-0 border-tint/10 p-0 sm:max-w-md">
         <SheetHeader className="gap-3 px-5 pt-5 pb-3">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -149,7 +149,7 @@ export function ServerSheet({ open, onOpenChange }: ServerSheetProps) {
           )}
         </motion.ul>
 
-        <div className="border-t border-white/8 px-5 py-4">
+        <div className="border-t border-tint/8 px-5 py-4">
           <p className="mb-2 text-xs font-medium text-foreground/80">Add your own server</p>
           <ServerImportField />
         </div>
@@ -174,7 +174,7 @@ function ServerRow({ server, selected, active, onSelect, onRemove }: ServerRowPr
       <div
         className={cn(
           'group flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors',
-          server.configured ? 'hover:bg-white/5' : 'opacity-55',
+          server.configured ? 'hover:bg-tint/5' : 'opacity-55',
         )}
       >
         <button
@@ -213,9 +213,9 @@ function ServerRow({ server, selected, active, onSelect, onRemove }: ServerRowPr
           </span>
 
           {/* Load bar: a quiet capacity hint, not a headline number. */}
-          <span aria-hidden className="hidden h-1 w-10 overflow-hidden rounded-full bg-white/8 sm:block">
+          <span aria-hidden className="hidden h-1 w-10 overflow-hidden rounded-full bg-tint/8 sm:block">
             <span
-              className="block h-full rounded-full bg-white/25"
+              className="block h-full rounded-full bg-tint/25"
               style={{ width: `${Math.min(100, Math.max(4, server.load))}%` }}
             />
           </span>

@@ -39,7 +39,7 @@ export function SettingRow({
       className={cn('flex flex-col gap-2 px-4 py-3.5', disabled && 'opacity-55')}
     >
       <div className="flex items-center gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/5">
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-tint/5">
           <HugeiconsIcon icon={icon} size={17} strokeWidth={1.8} className="text-primary" />
         </span>
 
@@ -81,7 +81,7 @@ export function SettingGroup({
           {title}
         </h2>
       )}
-      <div className="panel divide-y divide-white/6 overflow-hidden rounded-2xl">{children}</div>
+      <div className="panel divide-y divide-tint/6 overflow-hidden rounded-2xl">{children}</div>
     </section>
   )
 }

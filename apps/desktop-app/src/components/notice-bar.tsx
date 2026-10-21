@@ -21,7 +21,7 @@ import type { Notice } from '@/lib/types'
 const AUTO_DISMISS_MS = 6000
 
 const TONE = {
-  info: 'border-white/10 text-foreground',
+  info: 'border-tint/10 text-foreground',
   warning: 'border-warning/35 text-warning',
   error: 'border-destructive/40 text-destructive',
 } as const
@@ -68,7 +68,7 @@ export function NoticeBar({
               type="button"
               onClick={onDismiss}
               aria-label="Dismiss"
-              className="-mt-0.5 -mr-1 grid size-6 shrink-0 place-items-center rounded-lg text-current/70 transition-colors hover:bg-white/8 hover:text-current focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
+              className="-mt-0.5 -mr-1 grid size-6 shrink-0 place-items-center rounded-lg text-current/70 transition-colors hover:bg-tint/8 hover:text-current focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
             >
               <HugeiconsIcon icon={Cancel01Icon} size={13} strokeWidth={2.2} />
             </button>

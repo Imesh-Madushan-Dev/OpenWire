@@ -2,10 +2,10 @@
 
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import {
-  ChartLineData01Icon,
-  GlobalIcon,
-  PieChart01Icon,
-  Settings02Icon,
+  ChartRingIcon,
+  DashboardSpeed02Icon,
+  Settings01Icon,
+  ShieldEnergyIcon,
 } from '@hugeicons/core-free-icons'
 import { motion } from 'motion/react'
 import { cn } from 'cn'
@@ -20,13 +20,15 @@ interface NavItem {
   icon: IconSvgElement
 }
 
+// Distinct silhouettes - shield, gauge, ring, gear - so each item reads at a
+// glance without the label.
 const PRIMARY: NavItem[] = [
-  { id: 'vpn', label: 'VPN', icon: GlobalIcon },
-  { id: 'network', label: 'Network', icon: ChartLineData01Icon },
-  { id: 'usage', label: 'Usage', icon: PieChart01Icon },
+  { id: 'vpn', label: 'VPN', icon: ShieldEnergyIcon },
+  { id: 'network', label: 'Network', icon: DashboardSpeed02Icon },
+  { id: 'usage', label: 'Usage', icon: ChartRingIcon },
 ]
 
-const SECONDARY: NavItem[] = [{ id: 'settings', label: 'Settings', icon: Settings02Icon }]
+const SECONDARY: NavItem[] = [{ id: 'settings', label: 'Settings', icon: Settings01Icon }]
 
 interface NavRailProps {
   active: ViewId
@@ -39,7 +41,7 @@ export function NavRail({ active, onChange, connected }: NavRailProps) {
   return (
     <nav
       aria-label="Main"
-      className="flex w-21 shrink-0 flex-col items-center gap-1 border-r border-white/6 bg-rail py-3"
+      className="flex w-21 shrink-0 flex-col items-center gap-1 border-r border-tint/6 bg-rail py-3"
     >
       <div className="relative mb-3 grid size-9 place-items-center rounded-xl bg-primary/12">
         <span aria-hidden className="text-sm font-bold text-primary">
@@ -97,31 +99,36 @@ function RailButton({
       type="button"
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className="group relative flex w-17 flex-col items-center gap-1 rounded-2xl py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      className="group flex w-full flex-col items-center gap-1 py-1.5 outline-none"
     >
-      {/* One shared element slides between items instead of fading per button. */}
-      {active && (
-        <motion.span
-          layoutId="rail-active"
-          aria-hidden
-          className="absolute inset-0 rounded-2xl bg-white/7"
-          transition={spring.soft}
-        />
-      )}
-
-      <HugeiconsIcon
-        icon={item.icon}
-        size={20}
-        strokeWidth={1.8}
-        className={cn(
-          'relative transition-colors duration-200',
-          active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground/80',
+      {/* The indicator wraps the icon only, so the label stays legible beneath it. */}
+      <span className="relative grid h-8 w-14 place-items-center rounded-full transition-colors duration-200 group-hover:bg-tint/6 group-focus-visible:ring-2 group-focus-visible:ring-primary/50">
+        {/* One shared element slides between items instead of fading per button. */}
+        {active && (
+          <motion.span
+            layoutId="rail-active"
+            aria-hidden
+            className="absolute inset-0 rounded-full bg-primary/14"
+            transition={spring.soft}
+          />
         )}
-      />
+
+        <HugeiconsIcon
+          icon={item.icon}
+          size={20}
+          strokeWidth={1.8}
+          className={cn(
+            'relative transition-colors duration-200',
+            active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground/80',
+          )}
+        />
+      </span>
       <span
         className={cn(
-          'relative text-[10px] font-medium transition-colors duration-200',
-          active ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground/80',
+          'text-[11px] transition-colors duration-200',
+          active
+            ? 'font-semibold text-foreground'
+            : 'font-medium text-muted-foreground group-hover:text-foreground/80',
         )}
       >
         {item.label}

@@ -29,7 +29,7 @@ function Shell() {
 
   return (
     // The window is frameless, so the app paints its own rounded shell.
-    <div className="flex h-full overflow-hidden rounded-xl border border-white/8 bg-background">
+    <div className="flex h-full overflow-hidden rounded-xl border border-tint/8 bg-background">
       <NavRail active={view} onChange={setView} connected={isActive(connection.phase)} />
 
       <div className="relative flex min-w-0 flex-1 flex-col">
