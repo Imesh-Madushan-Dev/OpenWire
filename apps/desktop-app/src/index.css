@@ -6,9 +6,11 @@
 /* ---------------------------------------------------------------------------
  * Maizy design system
  *
- * A quiet surface with a single signal colour reserved for protection state.
- * Colour is never decoration here - if something carries the signal colour,
- * it means "you are covered".
+ * A quiet charcoal surface where colour is never decoration. Each hue has one
+ * job: blue (`primary`) marks what you can act on or have selected; green,
+ * amber and red (`success`, `warning`, `destructive`) report state - covered,
+ * in trouble, failed - and a fast server reads green, a slow one red.
+ * Everything else stays grey.
  *
  * Light and dark swap the palette, never the structure: both define the same
  * tokens, and components only ever read tokens. `--tint` is the overlay ink -
@@ -49,13 +51,10 @@
     --color-surface-hover: var(--surface-hover);
     --color-hairline: var(--hairline);
     --color-tint: var(--tint);
+    --color-success: var(--success);
     --color-warning: var(--warning);
     --color-chart-down: var(--chart-down);
     --color-chart-up: var(--chart-up);
-
-    /* Room views leave at the bottom for the floating dock (`components/dock.tsx`):
-     * the pill itself, its lift off the window edge, and a gap above it. */
-    --spacing-dock: 5.5rem;
 
     /* Generous radii: nothing in this UI has a corner tighter than 12px. */
     --radius-sm: calc(var(--radius) * 0.6);
@@ -73,47 +72,52 @@
     --radius: 1rem;
 }
 
-/* Graphite - neutral greys, so the blue signal is the only hue on screen.
+/* Graphite - charcoal rather than black, so panels, header and text sit in
+ * a comfortable middle range. The header is the raised layer; dividers are
+ * dark grooves cut into the surface, not light lines drawn on top of it.
  * Dark is also the fallback before `lib/theme.ts` has run. */
 :root,
 [data-theme='dark'] {
     color-scheme: dark;
 
-    --background: #0b0b0c;
-    --foreground: #ededee;
+    --background: #2a2a2c;
+    --foreground: #dedee1;
 
-    --rail: #070708;
-    --surface: rgba(255, 255, 255, 0.045);
-    --surface-hover: rgba(255, 255, 255, 0.075);
-    --hairline: rgba(255, 255, 255, 0.07);
+    --rail: #333336;
+    --surface: rgba(255, 255, 255, 0.035);
+    --surface-hover: rgba(255, 255, 255, 0.06);
+    --hairline: rgba(0, 0, 0, 0.2);
 
     /* Opaque surfaces for overlays, which cannot rely on what is behind them. */
-    --card: #161618;
-    --card-foreground: #ededee;
-    --popover: #161618;
-    --popover-foreground: #ededee;
+    --card: #333336;
+    --card-foreground: #dedee1;
+    --popover: #36363a;
+    --popover-foreground: #dedee1;
 
-    --primary: #2d5bf6;
+    /* One step lighter than the brand blue, which falls under 3:1 on charcoal;
+     * white text on it still clears 4.5:1. */
+    --primary: #3c69f7;
     --primary-foreground: #ffffff;
 
-    --secondary: #1c1c1f;
-    --secondary-foreground: #ededee;
+    --secondary: #38383c;
+    --secondary-foreground: #dedee1;
 
-    --muted: #161618;
-    --muted-foreground: #8a8a90;
+    --muted: #313134;
+    --muted-foreground: #9a9aa2;
 
-    --accent: #1e1e21;
-    --accent-foreground: #ededee;
+    --accent: #3a3a3e;
+    --accent-foreground: #dedee1;
 
-    --destructive: #ff6b6b;
-    --warning: #ffc861;
+    --success: #4cc47a;
+    --warning: #f2b84b;
+    --destructive: #f98c8c;
 
-    --border: rgba(255, 255, 255, 0.08);
-    --input: rgba(255, 255, 255, 0.1);
-    --ring: #2d5bf6;
+    --border: rgba(255, 255, 255, 0.09);
+    --input: rgba(255, 255, 255, 0.12);
+    --ring: #3c69f7;
 
     --tint: #ffffff;
-    --orb-shade: rgba(0, 0, 0, 0.35);
+    --orb-shade: rgba(0, 0, 0, 0.16);
 }
 
 /* Light Graphite - panels sit as white cards on a soft grey field. */
@@ -123,7 +127,7 @@
     --background: #f4f4f5;
     --foreground: #111113;
 
-    --rail: #ebebed;
+    --rail: #fcfcfd;
     --surface: #ffffff;
     --surface-hover: #f9f9fa;
     --hairline: rgba(17, 17, 19, 0.08);
@@ -145,8 +149,9 @@
     --accent: #e9e9ec;
     --accent-foreground: #111113;
 
-    --destructive: #d93a3a;
+    --success: #15803d;
     --warning: #9a6200;
+    --destructive: #c53030;
 
     --border: rgba(17, 17, 19, 0.1);
     --input: rgba(17, 17, 19, 0.14);
@@ -161,9 +166,11 @@
  *
  * Each palette is a download/upload pair, picked separately for each mode and
  * checked against that mode's panel surface: at least 3:1 contrast, and still
- * apart from each other under protanopia and deuteranopia. Download comes
- * first because it is almost always the larger series. No pair uses warning
- * amber or destructive red, so a series never reads as a status.
+ * apart from each other under protanopia and deuteranopia. With contrast
+ * pinning every colour to a narrow lightness band, only a warm/cool split
+ * survives colour-blind vision, so each pair is one of each. Download comes
+ * first because it is almost always the larger series. No pair uses the
+ * status green, amber or red, so a series never reads as a state.
  *
  * `lib/chart-palette.ts` puts the chosen `data-chart` on <html>; a palette
  * preview carries its own, and the mapping below re-reads the pair for
@@ -173,50 +180,34 @@
 /* Signal - blue and orange, the most colour-blind-safe pairing. */
 :root,
 [data-chart='signal'] {
-    --chart-down-dark: #5088f2;
-    --chart-up-dark: #d77500;
+    --chart-down-dark: #5a8ff3;
+    --chart-up-dark: #dc7702;
     --chart-down-light: #2d5bf6;
     --chart-up-light: #bd6706;
 }
 
-/* Aurora - green and violet. */
-[data-chart='aurora'] {
-    --chart-down-dark: #33ac5a;
-    --chart-up-dark: #9163d5;
-    --chart-down-light: #05893e;
-    --chart-up-light: #763ebd;
-}
-
-/* Lagoon - teal and rose. */
-[data-chart='lagoon'] {
-    --chart-down-dark: #01ac9f;
-    --chart-up-dark: #bd3c6f;
-    --chart-down-light: #099b8f;
-    --chart-up-light: #991451;
-}
-
-/* Glacier - sky and magenta. */
+/* Glacier - sky and coral. */
 [data-chart='glacier'] {
-    --chart-down-dark: #1ba0d5;
-    --chart-up-dark: #b33ca0;
-    --chart-down-light: #0392c4;
-    --chart-up-light: #8e107e;
+    --chart-down-dark: #179fd4;
+    --chart-up-dark: #e07144;
+    --chart-down-light: #017ca7;
+    --chart-up-light: #c5521c;
 }
 
 /* Citrus - lime and indigo. */
 [data-chart='citrus'] {
-    --chart-down-dark: #799f06;
-    --chart-up-dark: #6a69db;
-    --chart-down-light: #678806;
+    --chart-down-dark: #879f03;
+    --chart-up-dark: #787ae7;
+    --chart-down-light: #718506;
     --chart-up-light: #4f42c9;
 }
 
-/* Ember - orange and purple. */
+/* Ember - orange and violet. */
 [data-chart='ember'] {
-    --chart-down-dark: #e36927;
-    --chart-up-dark: #9e4ebe;
+    --chart-down-dark: #e56b29;
+    --chart-up-dark: #a06cd6;
     --chart-down-light: #c55205;
-    --chart-up-light: #842da5;
+    --chart-up-light: #7733b1;
 }
 
 :root,
@@ -247,8 +238,8 @@
     }
 
     body {
-        @apply bg-background text-foreground overflow-hidden;
-        /* The window is frameless; the app paints its own rounded shell. */
+        @apply text-foreground overflow-hidden;
+        /* Transparent so the shell's rounded corners show the desktop behind. */
         background: transparent;
         -webkit-font-smoothing: antialiased;
     }
@@ -287,12 +278,13 @@
 }
 
 @layer components {
-    /* The ambient field behind the power orb. Sized in vmin so it scales with
-     * the window instead of clipping at small sizes. */
+    /* The glow behind the power orb, shown only while connected - it is the
+     * "covered" colour, so it must not appear otherwise. Sized in vmin so it
+     * scales with the window instead of clipping at small sizes. */
     .ambient-field {
         background:
-            radial-gradient(60vmin 60vmin at 50% 38%, color-mix(in oklab, var(--primary) 16%, transparent), transparent 70%),
-            radial-gradient(90vmin 70vmin at 50% 120%, color-mix(in oklab, var(--primary) 7%, transparent), transparent 72%);
+            radial-gradient(60vmin 60vmin at 50% 38%, color-mix(in oklab, var(--success) 12%, transparent), transparent 70%),
+            radial-gradient(90vmin 70vmin at 50% 120%, color-mix(in oklab, var(--success) 5%, transparent), transparent 72%);
     }
 
     .panel {

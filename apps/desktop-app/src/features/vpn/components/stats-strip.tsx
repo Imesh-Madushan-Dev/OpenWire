@@ -18,7 +18,7 @@ import { staggerChild, staggerParent } from '@/lib/motion'
 import type { StatsSnapshot } from '@/lib/types'
 
 const QUALITY_TONE = {
-  good: 'text-primary',
+  good: 'text-success',
   fair: 'text-warning',
   poor: 'text-destructive',
   unknown: 'text-muted-foreground',
@@ -38,7 +38,7 @@ export function StatsStrip({ stats }: { stats: StatsSnapshot }) {
         icon={ArrowDown01Icon}
         label="Download"
         value={formatSpeed(stats.downBps)}
-        tone="text-primary"
+        tone="text-foreground"
       />
       <Stat
         icon={ArrowUp01Icon}

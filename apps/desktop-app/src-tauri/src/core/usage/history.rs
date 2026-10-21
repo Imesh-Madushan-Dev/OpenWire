@@ -110,6 +110,12 @@ pub struct DayBreakdown {
     /// the relay has already attributed to the apps behind it.
     #[serde(skip_serializing_if = "Attributed::is_empty")]
     pub monitored: Attributed,
+    /// ISO country code per host, from the address it was reached at, for
+    /// the flag beside it. One map for both sources: where a host is does not
+    /// depend on who counted it. Only named hosts are kept - see
+    /// [`History::record_country`] - so it is bounded by the host caps.
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub countries: HashMap<String, String>,
 }
 
 impl DayBreakdown {
@@ -270,6 +276,38 @@ impl History {
         DayBreakdown::compact(&mut monitored.hosts, MAX_MONITORED_HOSTS_PER_DAY);
     }
 
+    /// Remembers which country a host was reached in. Call after recording
+    /// the host's bytes: a host the day no longer lists by name - folded into
+    /// `Other` - is not kept, which bounds the map by the host caps however
+    /// many hosts the day passes through.
+    pub fn record_country(&mut self, local_day: i64, host: &str, country: &str) {
+        let Some(day) = self.days.get_mut(&local_day) else {
+            return;
+        };
+        let DayBreakdown {
+            hosts,
+            monitored,
+            countries,
+            ..
+        } = day;
+        let listed = |host: &str| hosts.contains_key(host) || monitored.hosts.contains_key(host);
+
+        // Checked first so the steady state - the same host each second -
+        // costs one lookup and no allocation.
+        if countries.get(host).is_some_and(|known| known == country)
+            || host == OTHER_KEY
+            || !listed(host)
+        {
+            return;
+        }
+
+        if countries.len() >= MAX_HOSTS_PER_DAY + MAX_MONITORED_HOSTS_PER_DAY {
+            countries.retain(|host, _| listed(host));
+        }
+        countries.insert(host.to_string(), country.to_string());
+        self.dirty.insert(local_day);
+    }
+
     /// Records system-wide totals against a day, whether or not they were ours.
     pub fn record_day_totals(&mut self, local_day: i64, up: u64, down: u64) {
         self.dirty.insert(local_day);
@@ -383,6 +421,10 @@ impl History {
             merge_into(&mut merged.hosts, &day.hosts);
             merge_into(&mut merged.kinds, &day.kinds);
             merged.monitored.merge(&day.monitored);
+            // Later days win: a host that moved is shown where it is now.
+            merged
+                .countries
+                .extend(day.countries.iter().map(|(host, code)| (host.clone(), code.clone())));
         }
 
         merged
@@ -700,6 +742,29 @@ mod tests {
         assert_eq!(ranked[0].0, "big");
         assert_eq!(ranked[1].0, "small");
         assert_eq!(ranked[2].0, OTHER_KEY);
+    }
+
+    #[test]
+    fn countries_are_kept_only_for_hosts_the_day_still_names() {
+        let mut history = History::default();
+        history.record_breakdown(5, "edge.exe", "a.example", "HTTPS", 1, 9);
+        history.record_country(5, "a.example", "SG");
+        // Never recorded, or folded away: nothing to put a flag beside.
+        history.record_country(5, "unseen.example", "US");
+        history.record_country(5, OTHER_KEY, "US");
+        history.record_country(9, "a.example", "US");
+
+        let day = history.summary_between(5, 5);
+        assert_eq!(day.countries.len(), 1);
+        assert_eq!(day.countries["a.example"], "SG");
+
+        history.record_monitored(6, "steam.exe", "a.example", "HTTPS", 0, 5);
+        history.record_country(6, "a.example", "JP");
+        assert_eq!(
+            history.summary_between(5, 6).countries["a.example"],
+            "JP",
+            "the newest day says where the host is now"
+        );
     }
 }
 

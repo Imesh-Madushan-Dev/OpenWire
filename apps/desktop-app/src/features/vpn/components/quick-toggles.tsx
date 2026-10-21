@@ -45,7 +45,7 @@ export function QuickToggles({ onOpenSettings }: { onOpenSettings: () => void })
               type="button"
               aria-label="All settings"
               onClick={onOpenSettings}
-              className="grid size-8 place-items-center rounded-full border border-hairline bg-tint/4 text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/50"
+              className="grid size-8 place-items-center rounded-full border border-tint/8 text-muted-foreground transition-colors outline-none hover:bg-tint/6 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/50"
             />
           }
         >
@@ -81,28 +81,24 @@ function Chip({
             aria-pressed={on}
             disabled={disabled}
             onClick={onToggle}
+            // On reads as lit, off as dim; only the status dot carries colour.
             className={cn(
               'flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors duration-200 outline-none',
               'focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-50',
               on
-                ? 'border-primary/30 bg-primary/10 text-foreground'
-                : 'border-hairline bg-tint/4 text-muted-foreground hover:text-foreground',
+                ? 'border-tint/14 bg-tint/8 text-foreground'
+                : 'border-tint/8 bg-transparent text-muted-foreground hover:text-foreground',
             )}
           />
         }
       >
-        <HugeiconsIcon
-          icon={icon}
-          size={14}
-          strokeWidth={2}
-          className={cn('transition-colors', on && 'text-primary')}
-        />
+        <HugeiconsIcon icon={icon} size={14} strokeWidth={2} />
         {label}
         <span
           aria-hidden
           className={cn(
             'size-1.5 rounded-full transition-colors',
-            on ? 'bg-primary' : 'bg-tint/25',
+            on ? 'bg-success' : 'bg-tint/25',
           )}
         />
       </TooltipTrigger>

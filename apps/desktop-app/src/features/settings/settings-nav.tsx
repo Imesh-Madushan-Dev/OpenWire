@@ -1,4 +1,4 @@
-/** Section list for the settings page; mirrors the main rail's behaviour. */
+/** Section list for the settings page. */
 
 import { Fragment } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -73,7 +73,7 @@ function NavButton({
         strokeWidth={1.8}
         className={cn(
           'relative shrink-0 transition-colors duration-200',
-          active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground/80',
+          active ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground/80',
         )}
       />
       <span

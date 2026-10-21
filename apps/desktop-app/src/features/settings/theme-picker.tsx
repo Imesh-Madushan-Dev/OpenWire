@@ -88,23 +88,26 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
   )
 }
 
-/** A miniature of the shell: ambient glow, orb, and the floating dock. */
+/** A miniature of the shell: tabbed header, connected orb, and the server column. */
 function MiniShell({ theme, className }: { theme: ResolvedTheme; className?: string }) {
   return (
-    <span
-      data-theme={theme}
-      className={cn(
-        'absolute inset-0 grid place-items-center bg-background bg-[radial-gradient(circle_at_50%_38%,color-mix(in_oklab,var(--primary)_22%,transparent),transparent_62%)]',
-        className,
-      )}
-    >
-      <span className="orb-surface -mt-4 size-9 rounded-full border-2 border-primary" />
-      <span className="absolute inset-x-0 bottom-2 flex justify-center">
-        <span className="flex items-center gap-1 rounded-full border border-hairline bg-card px-1.5 py-1">
-          <span className="h-1.5 w-4 rounded-full bg-primary" />
-          <span className="size-1.5 rounded-full bg-tint/20" />
-          <span className="size-1.5 rounded-full bg-tint/20" />
-          <span className="size-1.5 rounded-full bg-tint/20" />
+    <span data-theme={theme} className={cn('absolute inset-0 flex flex-col bg-background', className)}>
+      <span className="flex h-4 shrink-0 items-center justify-center gap-1.5 border-b border-hairline bg-rail">
+        <span className="relative h-1 w-3 rounded-full bg-tint/60">
+          <span className="absolute inset-x-0.5 -bottom-1 h-px rounded-full bg-primary" />
+        </span>
+        <span className="h-1 w-3 rounded-full bg-tint/20" />
+        <span className="h-1 w-3 rounded-full bg-tint/20" />
+        <span className="h-1 w-3 rounded-full bg-tint/20" />
+      </span>
+
+      <span className="flex min-h-0 flex-1">
+        <span className="grid flex-1 place-items-center bg-[radial-gradient(circle_at_50%_50%,color-mix(in_oklab,var(--success)_18%,transparent),transparent_62%)]">
+          <span className="orb-surface size-8 rounded-full border-2 border-success" />
+        </span>
+        <span className="flex w-10 flex-col gap-1 border-l border-hairline bg-rail/50 p-1.5">
+          <span className="h-2.5 rounded-sm bg-tint/10" />
+          <span className="h-2.5 rounded-sm bg-tint/5" />
         </span>
       </span>
     </span>

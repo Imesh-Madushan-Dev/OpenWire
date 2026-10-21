@@ -121,6 +121,9 @@ impl FlowTable {
 type RowKey = (Arc<str>, String, &'static str);
 /// A pending row's identity: quarter-hour bucket, app, host, traffic type.
 type PendingKey = (i64, String, String, String);
+/// What a row carries besides its identity and bytes: the app's path and the
+/// host's country.
+type Extras<P, C> = (Option<P>, Option<C>);
 
 /// Folds drained flows into rows.
 ///
@@ -130,6 +133,10 @@ type PendingKey = (i64, String, String, String);
 ///   event fields are not relied on for that, so a provider that reports the
 ///   packet's direction rather than the connection's cannot flip host and
 ///   port into nonsense.
+///
+/// The remote address is located here because this is the last point it is
+/// known: rows are keyed by host name, and one name can front many addresses.
+/// The first address to place the host wins for the second.
 pub fn fold(
     flows: Vec<(AppName, FlowKey, Bytes)>,
     t: i64,
@@ -137,7 +144,7 @@ pub fn fold(
     local: &HashSet<IpAddr>,
     mut host_of: impl FnMut(&IpAddr) -> Option<Arc<str>>,
 ) -> Vec<Row> {
-    let mut rows: HashMap<RowKey, (Option<Arc<str>>, Bytes)> = HashMap::new();
+    let mut rows: HashMap<RowKey, (Extras<Arc<str>, &'static str>, Bytes)> = HashMap::new();
 
     for (app, key, bytes) in flows {
         if excluded.contains(&key.pid) {
@@ -157,19 +164,23 @@ pub fn fold(
             .unwrap_or_else(|| remote.to_string());
         let kind = TrafficKind::classify(key.proto == Proto::Udp, remote_port, local_port).label();
 
-        let slot = rows
+        let ((_, country), total) = rows
             .entry((Arc::clone(&app.name), host, kind))
-            .or_insert((app.path.clone(), Bytes::default()));
-        slot.1.up += bytes.up;
-        slot.1.down += bytes.down;
+            .or_insert(((app.path.clone(), None), Bytes::default()));
+        if country.is_none() {
+            *country = crate::core::geo::country(remote);
+        }
+        total.up += bytes.up;
+        total.down += bytes.down;
     }
 
     rows.into_iter()
-        .map(|((app, host, kind), (path, bytes))| Row {
+        .map(|((app, host, kind), ((path, country), bytes))| Row {
             t,
             app: app.to_string(),
             path: path.map(|path| path.to_string()),
             host,
+            country: country.map(str::to_string),
             kind: kind.to_string(),
             up: bytes.up,
             down: bytes.down,
@@ -184,7 +195,7 @@ pub fn fold(
 /// merged so memory stays bounded however long nobody listens.
 #[derive(Debug, Default)]
 pub struct Pending {
-    rows: HashMap<PendingKey, (Option<String>, Bytes)>,
+    rows: HashMap<PendingKey, (Extras<String, String>, Bytes)>,
 }
 
 const PENDING_BUCKET_SECS: i64 = 15 * 60;
@@ -199,22 +210,27 @@ impl Pending {
             } else {
                 row.host
             };
-            let slot = self
+            let ((_, country), total) = self
                 .rows
                 .entry((bucket, row.app, host, row.kind))
-                .or_insert((row.path, Bytes::default()));
-            slot.1.up += row.up;
-            slot.1.down += row.down;
+                .or_insert(((row.path, None), Bytes::default()));
+            if country.is_none() {
+                *country = row.country;
+            }
+            total.up += row.up;
+            total.down += row.down;
         }
     }
 
     pub fn take(&mut self) -> Vec<Row> {
         std::mem::take(&mut self.rows)
             .into_iter()
-            .map(|((t, app, host, kind), (path, bytes))| Row {
+            .map(|((t, app, host, kind), ((path, country), bytes))| Row {
                 t,
                 app,
                 path,
+                // A host merged into `Other` has no one country.
+                country: country.filter(|_| host != crate::core::usage::history::OTHER_KEY),
                 host,
                 kind,
                 up: bytes.up,
@@ -303,6 +319,11 @@ mod tests {
         assert_eq!(row.app, "edge.exe", "named once, at first sight");
         assert_eq!(row.path.as_deref(), Some(r"C:\Apps\edge.exe"));
         assert_eq!(row.host, "example.com");
+        assert_eq!(
+            row.country.as_deref().map(str::len),
+            Some(2),
+            "located from the address, which the row no longer carries"
+        );
         assert_eq!(row.kind, "HTTPS");
         assert_eq!((row.up, row.down, row.t), (100, 900, 42));
     }
@@ -390,6 +411,7 @@ mod tests {
             app: "a.exe".into(),
             path: None,
             host: "h".into(),
+            country: None,
             kind: "HTTPS".into(),
             up: 0,
             down,

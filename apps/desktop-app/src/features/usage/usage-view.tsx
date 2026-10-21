@@ -275,7 +275,7 @@ export function UsageView() {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-dock">
+      <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-8">
         {/* Keyed by scope so a switch replays the entrance and every column
             starts collapsed again, instead of morphing one list into another. */}
         <motion.div
@@ -285,45 +285,47 @@ export function UsageView() {
           animate="animate"
           className="flex flex-col gap-4"
         >
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_1fr]">
+          {/* One surface, four zones side by side at every window size - the
+              ring, then the three rankings - divided by grooves rather than
+              split into cards. Stacking them pushed the figures out of view. */}
+          <div className="panel grid grid-cols-[14rem_repeat(3,minmax(0,1fr))] divide-x divide-hairline overflow-hidden rounded-2xl">
             <UsageDonut summary={summary} scope={scope} />
 
-            <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-3">
-              <BreakdownColumn
-                title="Apps"
-                icon={ComputerIcon}
-                ranked={apps}
-                loading={fallback && windows.loading}
-                note={fallback ? "From Windows' per-app records" : undefined}
-                emptyHint={emptyHint}
-                iconFor={iconFor}
-              />
+            <BreakdownColumn
+              title="Apps"
+              icon={ComputerIcon}
+              ranked={apps}
+              loading={fallback && windows.loading}
+              note={fallback ? "From Windows' per-app records" : undefined}
+              emptyHint={emptyHint}
+              iconFor={iconFor}
+            />
 
-              {columns ? (
-                <>
-                  <BreakdownColumn
-                    title="Hosts"
-                    icon={GlobalIcon}
-                    ranked={columns.hosts}
-                    emptyHint={emptyHint}
-                  />
-                  <BreakdownColumn
-                    title="Traffic type"
-                    icon={Route01Icon}
-                    ranked={columns.kinds}
-                    emptyHint={emptyHint}
-                  />
-                </>
-              ) : (
-                <MonitorPrompt
-                  state={monitor.state}
-                  error={monitor.status?.error ?? null}
-                  busy={monitor.busy}
-                  onEnable={() => void monitor.enable()}
-                  className="sm:col-span-2"
+            {columns ? (
+              <>
+                <BreakdownColumn
+                  title="Hosts"
+                  icon={GlobalIcon}
+                  ranked={columns.hosts}
+                  emptyHint={emptyHint}
+                  flags
                 />
-              )}
-            </div>
+                <BreakdownColumn
+                  title="Traffic type"
+                  icon={Route01Icon}
+                  ranked={columns.kinds}
+                  emptyHint={emptyHint}
+                />
+              </>
+            ) : (
+              <MonitorPrompt
+                state={monitor.state}
+                error={monitor.status?.error ?? null}
+                busy={monitor.busy}
+                onEnable={() => void monitor.enable()}
+                className="col-span-2"
+              />
+            )}
           </div>
 
           <p className="px-1 text-xs leading-relaxed text-muted-foreground">
@@ -360,9 +362,9 @@ function footnote(
 function MonitorBadge({ state }: { state: MonitorState }) {
   const tone =
     state === 'active'
-      ? { label: 'Monitoring', dot: 'bg-primary', text: 'text-foreground/80' }
+      ? { label: 'Monitoring', dot: 'bg-success', text: 'text-foreground/80' }
       : state === 'starting'
-        ? { label: 'Starting', dot: 'bg-primary/50', text: 'text-muted-foreground' }
+        ? { label: 'Starting', dot: 'bg-success/50', text: 'text-muted-foreground' }
         : state === 'failing' || state === 'stopped' || state === 'outdated'
           ? { label: 'Monitor needs attention', dot: 'bg-warning', text: 'text-warning' }
           : null
@@ -374,7 +376,7 @@ function MonitorBadge({ state }: { state: MonitorState }) {
         {state === 'active' && (
           <span
             aria-hidden
-            className="absolute inset-0 animate-ping rounded-full bg-primary opacity-60"
+            className="absolute inset-0 animate-ping rounded-full bg-success opacity-60"
           />
         )}
         <span className={cn('relative size-1.5 rounded-full', tone.dot)} />

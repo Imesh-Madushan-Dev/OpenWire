@@ -16,6 +16,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, watch};
 use tokio::time::timeout;
 
+use crate::core::geo;
 use crate::core::metrics::Metrics;
 use crate::core::models::{Outbound, ServerNode};
 use crate::core::probe;
@@ -236,8 +237,8 @@ async fn handle(mut client: TcpStream, session: Arc<Session>) -> AppResult<()> {
     let bypass = session.lan_bypass && is_local_destination(&request.host);
     let direct = bypass || matches!(session.node.outbound, Outbound::Direct);
 
-    let upstream: Box<dyn IoStream> = match dial(&session, &request, direct).await {
-        Ok(stream) => stream,
+    let (upstream, remote) = match dial(&session, &request, direct).await {
+        Ok(dialed) => dialed,
         Err(err) => {
             let _ = inbound::send_reply(&mut client, request.protocol, false).await;
             return Err(err);
@@ -253,6 +254,9 @@ async fn handle(mut client: TcpStream, session: Arc<Session>) -> AppResult<()> {
             app,
             host: request.host.clone(),
             kind: TrafficKind::from_port(request.port),
+            country: remote
+                .and_then(geo::country)
+                .or_else(|| geo::country_of_literal(&request.host)),
         },
         Arc::clone(&session.metrics),
     );
@@ -270,11 +274,14 @@ async fn handle(mut client: TcpStream, session: Arc<Session>) -> AppResult<()> {
     .await
 }
 
+/// Opens the upstream leg. A direct dial also returns the address it reached,
+/// which is how its host gets a country; through the tunnel the server does
+/// the resolving, so there is none to return.
 async fn dial(
     session: &Session,
     request: &inbound::Request,
     direct: bool,
-) -> AppResult<Box<dyn IoStream>> {
+) -> AppResult<(Box<dyn IoStream>, Option<IpAddr>)> {
     if direct {
         let stream = timeout(
             DIRECT_DIAL_TIMEOUT,
@@ -284,7 +291,8 @@ async fn dial(
         .map_err(|_| AppError::Dial(format!("{}:{} timed out", request.host, request.port)))?
         .map_err(|e| AppError::Dial(format!("{}:{}: {e}", request.host, request.port)))?;
         let _ = stream.set_nodelay(true);
-        return Ok(Box::new(stream));
+        let remote = stream.peer_addr().ok().map(|addr| addr.ip());
+        return Ok((Box::new(stream), remote));
     }
 
     let tls = session
@@ -302,7 +310,7 @@ async fn dial(
         }
         Outbound::Direct => return Err(AppError::Internal("outbound/tls mismatch".into())),
     };
-    Ok(Box::new(stream))
+    Ok((Box::new(stream), None))
 }
 
 async fn relay(

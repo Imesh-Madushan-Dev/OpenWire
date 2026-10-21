@@ -4,6 +4,7 @@
  */
 
 import { AnimatePresence, motion } from 'motion/react'
+import { cn } from 'cn'
 
 import { swapVariants } from '@/lib/motion'
 import { isActive, isBusy } from '@/lib/types'
@@ -32,7 +33,13 @@ export function VpnView({ onOpenSettings }: { onOpenSettings: () => void }) {
   return (
     <div className="flex h-full">
       <section className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div aria-hidden className="ambient-field pointer-events-none absolute inset-0" />
+        <div
+          aria-hidden
+          className={cn(
+            'ambient-field pointer-events-none absolute inset-0 transition-opacity duration-700',
+            connection.phase === 'connected' ? 'opacity-100' : 'opacity-0',
+          )}
+        />
 
         <div className="relative flex flex-1 flex-col items-center justify-center gap-8 px-8">
           <StatusHeadline connection={connection} />
@@ -84,7 +91,7 @@ export function VpnView({ onOpenSettings }: { onOpenSettings: () => void }) {
           )}
         </AnimatePresence>
 
-        <div className="relative px-8 pb-dock">
+        <div className="relative px-8 pb-7">
           <QuickToggles onOpenSettings={onOpenSettings} />
         </div>
       </section>

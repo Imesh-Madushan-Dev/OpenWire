@@ -82,6 +82,12 @@ pub struct Row {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
     pub host: String,
+    /// ISO code of the country the host's address is in, looked up here
+    /// while the address is still known - the row names the host, not the IP.
+    /// Optional on the wire, so a service installed before it existed still
+    /// speaks the same protocol.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
     pub kind: String,
     pub up: u64,
     pub down: u64,
@@ -123,6 +129,7 @@ mod tests {
                 app: "a.exe".into(),
                 path: None,
                 host: "h".into(),
+                country: None,
                 kind: "HTTPS".into(),
                 up: 2,
                 down: 3,
@@ -131,8 +138,8 @@ mod tests {
         let line = serde_json::to_string(&message).unwrap();
         assert!(line.starts_with(r#"{"type":"usage""#), "{line}");
         assert!(
-            !line.contains("path"),
-            "absent paths cost nothing on the wire"
+            !line.contains("path") && !line.contains("country"),
+            "absent fields cost nothing on the wire"
         );
         assert_eq!(serde_json::from_str::<Message>(&line).unwrap(), message);
 

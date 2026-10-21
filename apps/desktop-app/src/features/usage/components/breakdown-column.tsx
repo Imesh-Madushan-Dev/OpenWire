@@ -13,6 +13,7 @@ import { ArrowDown01Icon, ArrowUp01Icon } from '@hugeicons/core-free-icons'
 import { motion } from 'motion/react'
 import { cn } from 'cn'
 
+import { countryName, Flag } from '@/components/flag'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatBytes } from '@/lib/format'
@@ -34,6 +35,8 @@ interface BreakdownColumnProps {
   note?: string
   /** Per-row glyphs, for the apps column. */
   iconFor?: (key: string) => string | undefined
+  /** A country flag beside each row, for the hosts column. */
+  flags?: boolean
 }
 
 export function BreakdownColumn({
@@ -44,6 +47,7 @@ export function BreakdownColumn({
   loading = false,
   note,
   iconFor,
+  flags = false,
 }: BreakdownColumnProps) {
   const [expanded, setExpanded] = useState(false)
   const { entries, more } = ranked
@@ -62,7 +66,7 @@ export function BreakdownColumn({
   return (
     <motion.section
       variants={staggerChild}
-      className="panel flex min-w-0 flex-col gap-3 rounded-2xl p-4"
+      className="flex min-w-0 flex-col gap-3 p-4"
     >
       <header className="flex items-center gap-2 text-muted-foreground">
         <HugeiconsIcon icon={icon} size={13} strokeWidth={2} />
@@ -78,7 +82,7 @@ export function BreakdownColumn({
 
       {entries.length === 0 ? (
         loading ? (
-          <Placeholder withGlyph={Boolean(iconFor)} />
+          <Placeholder withGlyph={Boolean(iconFor) || flags} />
         ) : (
           <p className="py-6 text-center text-xs leading-relaxed text-muted-foreground">
             {emptyHint}
@@ -88,7 +92,7 @@ export function BreakdownColumn({
         <TooltipProvider delay={250}>
           <ol className="flex flex-col gap-2.5">
             {shown.map((entry) => (
-              <Row key={entry.key} entry={entry} leader={leader} iconFor={iconFor} />
+              <Row key={entry.key} entry={entry} leader={leader} iconFor={iconFor} flag={flags} />
             ))}
 
             {/* The tail the backend summed is listed only when expanded;
@@ -139,11 +143,15 @@ function Row({
   entry,
   leader,
   iconFor,
+  flag,
 }: {
   entry: UsageEntry
   leader: number
   iconFor?: (key: string) => string | undefined
+  flag: boolean
 }) {
+  const country = flag ? countryName(entry.country) : undefined
+
   return (
     <Tooltip>
       <TooltipTrigger
@@ -152,6 +160,7 @@ function Row({
       >
         <div className="flex min-w-0 items-center gap-2">
           {iconFor && <Glyph src={iconFor(entry.key)} name={entry.key} />}
+          {flag && <Flag code={entry.country} />}
           <span className="truncate text-xs font-medium">{entry.key}</span>
           <span className="numeric ml-auto shrink-0 text-[11px] text-muted-foreground">
             {formatBytes(entry.total)}
@@ -162,6 +171,7 @@ function Row({
 
       <TooltipContent side="top" align="start" className="gap-3">
         <span className="max-w-48 truncate font-medium">{entry.key}</span>
+        {country && <span className="opacity-70">{country}</span>}
         <Direction icon={ArrowDown01Icon} color="var(--chart-down)" bytes={entry.down} />
         <Direction icon={ArrowUp01Icon} color="var(--chart-up)" bytes={entry.up} />
       </TooltipContent>

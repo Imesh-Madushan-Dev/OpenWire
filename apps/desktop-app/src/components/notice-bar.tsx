@@ -42,8 +42,7 @@ export function NoticeBar({
   }, [notice, transient, onDismiss])
 
   return (
-    // Lifted clear of the dock so a notice never covers navigation.
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 flex justify-center px-6 pb-dock">
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 flex justify-center px-6 pb-6">
       <AnimatePresence>
         {notice && (
           <motion.div

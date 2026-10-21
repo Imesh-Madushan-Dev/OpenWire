@@ -69,7 +69,7 @@ export function ServerRow({
             </span>
           )}
           {inUse && (
-            <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-px text-[10px] font-semibold text-primary">
+            <span className="shrink-0 rounded-full bg-success/14 px-1.5 py-px text-[10px] font-semibold text-success">
               Connected
             </span>
           )}
@@ -126,7 +126,7 @@ export function AutomaticRow({
 }) {
   return (
     <RowFrame selected={selected} label="Choose the fastest server automatically" onSelect={onSelect}>
-      <span className="pointer-events-none grid size-8 shrink-0 place-items-center rounded-xl bg-primary/12 text-primary">
+      <span className="pointer-events-none grid size-8 shrink-0 place-items-center rounded-xl bg-tint/7 text-foreground/80">
         <HugeiconsIcon icon={FlashIcon} size={16} strokeWidth={2} />
       </span>
       <div className="pointer-events-none min-w-0 flex-1">
@@ -162,7 +162,8 @@ function RowFrame({
       <div
         className={cn(
           'group relative flex items-center gap-3 rounded-2xl border py-2.5 pr-1.5 pl-3 transition-colors duration-200',
-          selected ? 'border-primary/35 bg-primary/7' : 'border-transparent hover:bg-tint/5',
+          // Selection is carried by the radio; the row itself only lifts.
+          selected ? 'border-tint/10 bg-tint/6' : 'border-transparent hover:bg-tint/4',
         )}
       >
         <button
@@ -194,8 +195,9 @@ function RowFrame({
   )
 }
 
+// Traffic-light tones: the number alone does not tell you whether 140 ms is good.
 const LATENCY_TONE = {
-  good: 'bg-primary/12 text-primary',
+  good: 'bg-success/12 text-success',
   fair: 'bg-warning/12 text-warning',
   poor: 'bg-destructive/12 text-destructive',
   unknown: 'bg-tint/6 text-muted-foreground',

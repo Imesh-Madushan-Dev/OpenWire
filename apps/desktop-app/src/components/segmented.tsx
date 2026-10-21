@@ -42,14 +42,15 @@ export function Segmented<T extends string>({
               'relative rounded-full font-medium whitespace-nowrap transition-colors outline-none',
               'focus-visible:ring-2 focus-visible:ring-primary/50',
               size === 'sm' ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1.5 text-xs',
-              selected ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+              selected ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
             )}
           >
+            {/* A raised neutral chip: choosing a range is a view setting, not a call to action. */}
             {selected && (
               <motion.span
                 layoutId={layoutId}
                 aria-hidden
-                className="absolute inset-0 rounded-full bg-primary"
+                className="absolute inset-0 rounded-full bg-tint/12 shadow-sm"
                 transition={spring.soft}
               />
             )}

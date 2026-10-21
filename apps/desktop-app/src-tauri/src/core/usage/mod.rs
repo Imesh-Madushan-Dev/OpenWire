@@ -19,6 +19,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 
+use crate::core::geo;
 use crate::core::metrics::Metrics;
 use crate::core::netmon;
 use crate::core::store;
@@ -121,6 +122,10 @@ pub struct UsageKey {
     pub app: String,
     pub host: String,
     pub kind: TrafficKind,
+    /// Where the host is, when the address it was reached at is known: a
+    /// direct connection, or a host that is itself an address. Through the
+    /// tunnel the server resolves the name, so this side never learns it.
+    pub country: Option<&'static str>,
 }
 
 // ---------------------------------------------------------------------------
@@ -239,14 +244,11 @@ impl UsageTracker {
 
         if let Ok(mut history) = self.history.lock() {
             for row in rows {
-                history.record_monitored(
-                    netstat::local_day(row.t),
-                    &row.app,
-                    &row.host,
-                    &row.kind,
-                    row.up,
-                    row.down,
-                );
+                let day = netstat::local_day(row.t);
+                history.record_monitored(day, &row.app, &row.host, &row.kind, row.up, row.down);
+                if let Some(country) = row.country.as_deref() {
+                    history.record_country(day, &row.host, country);
+                }
             }
         }
     }
@@ -341,6 +343,9 @@ impl UsageTracker {
             history.record_day_totals(day, sample.up, sample.down);
             for (key, up, down) in deltas {
                 history.record_breakdown(day, &key.app, &key.host, key.kind.label(), up, down);
+                if let Some(country) = key.country {
+                    history.record_country(day, &key.host, country);
+                }
             }
         }
 
@@ -438,8 +443,13 @@ impl UsageTracker {
                     slot.down += pair.down;
                 }
             }
-            Columns::from(&all)
+            let mut columns = Columns::from(&all);
+            columns.hosts.locate(&merged.countries);
+            columns
         });
+
+        let mut maizy = Columns::from(&relay);
+        maizy.hosts.locate(&merged.countries);
 
         UsageSummary {
             from_ts: netstat::day_noon_unix(first_day),
@@ -448,7 +458,7 @@ impl UsageTracker {
             total_down: merged.down,
             tunnel_up: merged.tunnel_up,
             tunnel_down: merged.tunnel_down,
-            maizy: Columns::from(&relay),
+            maizy,
             device,
             monitored_from_ts: monitored_from.map(netstat::day_noon_unix),
             attribution_supported: cfg!(windows),
@@ -607,6 +617,9 @@ pub struct UsageEntry {
     pub up: u64,
     pub down: u64,
     pub total: u64,
+    /// ISO country code, on hosts only, when it is known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
 }
 
 impl UsageEntry {
@@ -616,6 +629,7 @@ impl UsageEntry {
             up,
             down,
             total: up + down,
+            country: None,
         }
     }
 }
@@ -653,6 +667,17 @@ impl Ranked {
             .collect();
         let rest = entries.split_off(entries.len().min(TOP_N));
         Self::new(entries, rest)
+    }
+
+    /// Puts a country on each listed host: where it was last reached, or for
+    /// a host that is itself an address, wherever that address is.
+    fn locate(&mut self, countries: &HashMap<String, String>) {
+        for entry in &mut self.entries {
+            entry.country = countries
+                .get(&entry.key)
+                .cloned()
+                .or_else(|| geo::country_of_literal(&entry.key).map(str::to_string));
+        }
     }
 }
 
@@ -735,6 +760,7 @@ mod tests {
                 app: "edge.exe".to_string(),
                 host: "example.com".to_string(),
                 kind: TrafficKind::Https,
+                country: None,
             },
             Arc::clone(&metrics),
         );
@@ -767,6 +793,7 @@ mod tests {
                     app: "curl.exe".to_string(),
                     host: "example.net".to_string(),
                     kind: TrafficKind::Https,
+                    country: None,
                 },
                 metrics,
             );
@@ -790,6 +817,7 @@ mod tests {
                 app: "edge.exe".to_string(),
                 host: "example.com".to_string(),
                 kind: TrafficKind::Https,
+                country: None,
             },
             metrics,
         );
@@ -801,6 +829,7 @@ mod tests {
             app: app.to_string(),
             path: None,
             host: host.to_string(),
+            country: (host == "cdn.example").then(|| "SG".to_string()),
             kind: "HTTPS".to_string(),
             up: 0,
             down,
@@ -826,6 +855,9 @@ mod tests {
             "the Maizy view is untouched"
         );
         assert!(summary.monitored_from_ts.is_some());
+
+        let cdn = device.hosts.entries.iter().find(|e| e.key == "cdn.example").unwrap();
+        assert_eq!(cdn.country.as_deref(), Some("SG"), "the monitor's location reaches the column");
     }
 
     #[test]
@@ -886,6 +918,7 @@ mod tests {
                 app: "app".to_string(),
                 host: "h".to_string(),
                 kind: TrafficKind::Https,
+                country: None,
             },
             metrics,
         );

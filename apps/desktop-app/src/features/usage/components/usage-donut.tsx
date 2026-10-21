@@ -28,18 +28,16 @@ export function UsageDonut({ summary, scope }: { summary: UsageSummary; scope: U
   ].filter((slice) => slice.value > 0)
 
   return (
-    <motion.div
-      variants={staggerChild}
-      className="panel flex flex-col items-center gap-5 rounded-2xl px-5 py-6"
-    >
-      <div className="relative size-44">
+    // Sized for a narrow leading column, so the rankings keep the width.
+    <motion.div variants={staggerChild} className="flex flex-col items-center gap-4 px-4 py-5">
+      <div className="relative size-36">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={slices.length ? slices : [{ name: 'Idle', value: 1, color: 'var(--muted)' }]}
               dataKey="value"
-              innerRadius={62}
-              outerRadius={84}
+              innerRadius={52}
+              outerRadius={70}
               startAngle={90}
               endAngle={-270}
               paddingAngle={slices.length > 1 ? 2 : 0}
@@ -59,11 +57,11 @@ export function UsageDonut({ summary, scope }: { summary: UsageSummary; scope: U
           <p className="text-[10px] tracking-wide text-muted-foreground uppercase">
             {all ? 'Total' : 'Through Maizy'}
           </p>
-          <p className="numeric text-xl font-semibold">{formatBytes(total)}</p>
+          <p className="numeric text-lg font-semibold">{formatBytes(total)}</p>
         </div>
       </div>
 
-      <dl className="grid w-full grid-cols-2 gap-x-4 gap-y-3">
+      <dl className="grid w-full grid-cols-2 gap-x-3 gap-y-3">
         <Figure label="Incoming" value={formatBytes(down)} dot="var(--chart-down)" />
         <Figure label="Outgoing" value={formatBytes(up)} dot="var(--chart-up)" />
         {all ? (

@@ -155,7 +155,7 @@ export function ServerPanel() {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false)
       }}
       onDrop={onDrop}
-      className="relative flex h-full w-[380px] shrink-0 flex-col border-l border-hairline bg-rail/40"
+      className="relative flex h-full w-85 shrink-0 flex-col border-l border-hairline bg-rail/50"
     >
       <header className="flex items-center gap-1.5 px-5 pt-1 pb-3">
         <div className="min-w-0 flex-1">
@@ -244,7 +244,7 @@ export function ServerPanel() {
           variants={staggerParent}
           initial="initial"
           animate="animate"
-          className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-dock"
+          className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-4"
         >
           {!query && (
             <AutomaticRow
@@ -342,7 +342,7 @@ export function ServerPanel() {
 function EmptyState({ onPaste, onAdd }: { onPaste: () => void; onAdd: () => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-10 pb-10 text-center">
-      <span className="grid size-12 place-items-center rounded-2xl bg-primary/12 text-primary">
+      <span className="grid size-12 place-items-center rounded-2xl bg-tint/7 text-muted-foreground">
         <HugeiconsIcon icon={ServerStack01Icon} size={22} strokeWidth={1.8} />
       </span>
       <div className="flex flex-col gap-1">

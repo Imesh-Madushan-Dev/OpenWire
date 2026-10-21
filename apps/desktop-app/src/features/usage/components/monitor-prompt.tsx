@@ -28,31 +28,28 @@ export function MonitorPrompt({ state, error, busy, onEnable, className }: Monit
   return (
     <motion.section
       variants={staggerChild}
-      className={cn('panel relative isolate overflow-hidden rounded-2xl', className)}
+      className={cn('relative isolate overflow-hidden', className)}
     >
-      {/* A soft wash of the signal colour - or the warning one when the
-          monitor needs attention - so the card reads as state, not as an ad. */}
-      <div
-        aria-hidden
-        className={cn(
-          'absolute inset-0 -z-10',
-          troubled
-            ? 'bg-[radial-gradient(120%_80%_at_50%_0%,color-mix(in_oklab,var(--warning)_10%,transparent),transparent_70%)]'
-            : 'bg-[radial-gradient(120%_80%_at_50%_0%,color-mix(in_oklab,var(--primary)_12%,transparent),transparent_70%)]',
-        )}
-      />
+      {/* A warning wash only when the monitor needs attention - that is state.
+          Otherwise the card stays neutral and the button carries the action. */}
+      {troubled && (
+        <div
+          aria-hidden
+          className="absolute inset-0 -z-10 bg-[radial-gradient(120%_80%_at_50%_0%,color-mix(in_oklab,var(--warning)_10%,transparent),transparent_70%)]"
+        />
+      )}
 
       <div className="flex h-full flex-col items-center justify-center gap-3 px-8 py-10 text-center">
         <span
           className={cn(
             'relative grid size-11 place-items-center rounded-2xl',
-            troubled ? 'bg-warning/12 text-warning' : 'bg-primary/12 text-primary',
+            troubled ? 'bg-warning/12 text-warning' : 'bg-tint/7 text-foreground/80',
           )}
         >
           {state === 'starting' && (
             <span
               aria-hidden
-              className="absolute inset-0 animate-ping rounded-2xl bg-primary/20"
+              className="absolute inset-0 animate-ping rounded-2xl bg-tint/15"
             />
           )}
           <HugeiconsIcon icon={troubled ? Alert02Icon : Radar01Icon} size={20} strokeWidth={1.8} />

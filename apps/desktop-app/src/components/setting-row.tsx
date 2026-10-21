@@ -43,7 +43,7 @@ export function SettingRow({
     >
       <div className="flex items-center gap-3">
         <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-tint/5">
-          <HugeiconsIcon icon={icon} size={17} strokeWidth={1.8} className="text-primary" />
+          <HugeiconsIcon icon={icon} size={17} strokeWidth={1.8} className="text-foreground/70" />
         </span>
 
         <label htmlFor={id} className="min-w-0 flex-1 cursor-default">

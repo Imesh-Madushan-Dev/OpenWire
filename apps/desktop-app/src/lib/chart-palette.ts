@@ -7,7 +7,7 @@
  * the theme is - it applies before first paint.
  */
 
-export type ChartPaletteId = 'signal' | 'aurora' | 'lagoon' | 'glacier' | 'citrus' | 'ember'
+export type ChartPaletteId = 'signal' | 'glacier' | 'citrus' | 'ember'
 
 export interface ChartPaletteOption {
   id: ChartPaletteId
@@ -18,11 +18,9 @@ export interface ChartPaletteOption {
 
 export const CHART_PALETTES: readonly ChartPaletteOption[] = [
   { id: 'signal', label: 'Signal', description: 'Blue & orange' },
-  { id: 'aurora', label: 'Aurora', description: 'Green & violet' },
-  { id: 'lagoon', label: 'Lagoon', description: 'Teal & rose' },
-  { id: 'glacier', label: 'Glacier', description: 'Sky & magenta' },
+  { id: 'glacier', label: 'Glacier', description: 'Sky & coral' },
   { id: 'citrus', label: 'Citrus', description: 'Lime & indigo' },
-  { id: 'ember', label: 'Ember', description: 'Orange & purple' },
+  { id: 'ember', label: 'Ember', description: 'Orange & violet' },
 ]
 
 export const DEFAULT_CHART_PALETTE: ChartPaletteId = 'signal'

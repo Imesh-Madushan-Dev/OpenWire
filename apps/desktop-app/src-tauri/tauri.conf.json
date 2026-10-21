@@ -14,17 +14,17 @@
       {
         "title": "Maizy VPN",
         "label": "main",
-        "width": 1040,
-        "height": 700,
-        "minWidth": 900,
-        "minHeight": 620,
+        "width": 960,
+        "height": 640,
+        "minWidth": 860,
+        "minHeight": 580,
         "center": true,
         "resizable": true,
         "fullscreen": false,
         "decorations": false,
-        "shadow": true,
-        "dragDropEnabled": false,
-        "backgroundColor": "#060B08"
+        "transparent": true,
+        "shadow": false,
+        "dragDropEnabled": false
       }
     ],
     "security": {

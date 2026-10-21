@@ -1,13 +1,14 @@
-/** App shell: window chrome, the active view, and the floating dock. */
+/** App shell: window chrome with the main tabs, then the active view. */
 
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { cn } from 'cn'
 
-import { Dock, type ViewId } from '@/components/dock'
+import type { ViewId } from '@/components/nav-tabs'
 import { NoticeBar } from '@/components/notice-bar'
 import { TitleBar } from '@/components/title-bar'
 import { viewVariants } from '@/lib/motion'
-import { isActive } from '@/lib/types'
+import { useMaximized } from '@/lib/use-maximized'
 import { SettingsView } from '@/features/settings/settings-view'
 import { NetworkView } from '@/features/usage/network-view'
 import { UsageView } from '@/features/usage/usage-view'
@@ -26,11 +27,25 @@ export default function App() {
 function Shell() {
   const { connection, notice, notify, dismissNotice } = useVpn()
   const [view, setView] = useState<ViewId>('vpn')
+  const maximized = useMaximized()
 
   return (
-    // The window is frameless, so the app paints its own rounded shell.
-    <div className="relative flex h-full flex-col overflow-hidden rounded-xl border border-tint/8 bg-background">
-      <TitleBar onFeedback={(message) => notify({ level: 'info', message })} />
+    // The window is transparent and shadowless (tauri.conf.json), so these
+    // corners and this border are the window's real edge - Windows caps its
+    // own rounding at 8px. Maximised, the window meets the screen edges, so
+    // it squares off.
+    <div
+      className={cn(
+        'relative flex h-full flex-col overflow-hidden bg-background',
+        !maximized && 'rounded-[12px] border border-tint/12',
+      )}
+    >
+      <TitleBar
+        view={view}
+        onNavigate={setView}
+        phase={connection.phase}
+        onFeedback={(message) => notify({ level: 'info', message })}
+      />
 
       <main className="relative min-h-0 flex-1">
         <AnimatePresence mode="wait" initial={false}>
@@ -50,7 +65,6 @@ function Shell() {
         </AnimatePresence>
       </main>
 
-      <Dock active={view} onChange={setView} connected={isActive(connection.phase)} />
       <NoticeBar notice={notice} onDismiss={dismissNotice} />
     </div>
   )

@@ -45,39 +45,48 @@ const CREEP_SECONDS = 9
 /** How long 100% stays on screen before the orb returns to its icon. */
 const HOLD_MS = 900
 
-/** Per-phase visual treatment, kept in one table rather than spread through JSX. */
+/**
+ * Per-phase visual treatment, kept in one table rather than spread through JSX.
+ * Connecting wears the action blue - it is the user's request in flight - and
+ * only an established tunnel earns the green.
+ */
 const TREATMENT: Record<
   Phase,
-  { ring: string; icon: string; glow: number; label: string }
+  { ring: string; icon: string; halo: string; glow: number; label: string }
 > = {
   disconnected: {
     ring: 'border-tint/12',
     icon: 'text-muted-foreground',
-    glow: 0.12,
+    halo: 'var(--tint)',
+    glow: 0.08,
     label: 'Connect',
   },
   connecting: {
     ring: 'border-primary/40',
     icon: 'text-primary',
-    glow: 0.5,
+    halo: 'var(--primary)',
+    glow: 0.45,
     label: 'Connecting',
   },
   connected: {
-    ring: 'border-primary',
-    icon: 'text-primary',
-    glow: 1,
+    ring: 'border-success',
+    icon: 'text-success',
+    halo: 'var(--success)',
+    glow: 0.8,
     label: 'Disconnect',
   },
   reconnecting: {
     ring: 'border-warning/70',
     icon: 'text-warning',
-    glow: 0.45,
+    halo: 'var(--warning)',
+    glow: 0.4,
     label: 'Reconnecting',
   },
   disconnecting: {
     ring: 'border-tint/20',
     icon: 'text-muted-foreground',
-    glow: 0.2,
+    halo: 'var(--tint)',
+    glow: 0.08,
     label: 'Disconnecting',
   },
   // Reads as off, because it is off - only the dimmer ring hints that
@@ -85,7 +94,8 @@ const TREATMENT: Record<
   monitoring: {
     ring: 'border-tint/12',
     icon: 'text-muted-foreground',
-    glow: 0.12,
+    halo: 'var(--tint)',
+    glow: 0.08,
     label: 'Connect',
   },
 }
@@ -153,8 +163,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
         aria-hidden
         className="pointer-events-none absolute size-85 rounded-full blur-3xl"
         style={{
-          background:
-            'radial-gradient(circle, color-mix(in oklab, var(--primary) 55%, transparent), transparent 65%)',
+          background: `radial-gradient(circle, color-mix(in oklab, ${treatment.halo} 55%, transparent), transparent 65%)`,
         }}
         animate={{
           opacity: treatment.glow * 0.55,
@@ -173,7 +182,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
           <motion.div
             aria-hidden
             key="pulse"
-            className="pointer-events-none absolute size-49 rounded-full border border-primary/40"
+            className="pointer-events-none absolute size-49 rounded-full border border-success/40"
             initial={{ opacity: 0, scale: 1 }}
             animate={{ opacity: [0.5, 0], scale: [1, 1.45] }}
             exit={{ opacity: 0 }}
@@ -206,7 +215,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
           aria-hidden
           className={cn(
             'absolute inset-3 rounded-full border transition-colors duration-300',
-            phase === 'connected' ? 'border-primary/25' : 'border-tint/5',
+            phase === 'connected' ? 'border-success/25' : 'border-tint/5',
           )}
         />
 
@@ -228,7 +237,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
                 cy="50"
                 r={RADIUS}
                 fill="none"
-                stroke="var(--primary)"
+                stroke={phase === 'connected' ? 'var(--success)' : 'var(--primary)'}
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeDasharray={CIRCUMFERENCE}
@@ -259,7 +268,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
                 cy="50"
                 r={RADIUS}
                 fill="none"
-                stroke="var(--primary)"
+                stroke="var(--muted-foreground)"
                 strokeWidth="2"
                 strokeLinecap="round"
                 // A quarter-turn sweep of the 2*pi*r circumference.
@@ -278,7 +287,10 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05 }}
               transition={transition.fast}
-              className="numeric text-4xl font-semibold tabular-nums text-primary"
+              className={cn(
+                'numeric text-4xl font-semibold tabular-nums transition-colors duration-300',
+                phase === 'connected' ? 'text-success' : 'text-primary',
+              )}
             >
               <motion.span>{percent}</motion.span>
             </motion.span>

@@ -58,7 +58,7 @@ export function SettingsView() {
 
   return (
     <div ref={scrollerRef} className="h-full overflow-y-auto">
-      <div className="mx-auto flex w-full max-w-208 gap-8 px-8 pt-4 pb-dock">
+      <div className="mx-auto flex w-full max-w-208 gap-8 px-8 pt-4 pb-10">
         <SettingsNav active={active} onChange={select} />
 
         <div
@@ -385,6 +385,11 @@ function AboutSection() {
           Server credentials are stored in your local app config folder and are never sent
           anywhere. Closing the window keeps the tunnel running - quit from the tray to stop it
           and restore your network settings.
+        </p>
+        {/* Required by the CC BY 4.0 licence of the bundled country database. */}
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Host locations use IP geolocation by DB-IP (db-ip.com), licensed under CC BY 4.0. Lookups
+          run on this device; no address is sent anywhere to be located.
         </p>
         <p className="text-center text-xs text-muted-foreground">
           Built with ❤️ for Sri Lanka 🇱🇰

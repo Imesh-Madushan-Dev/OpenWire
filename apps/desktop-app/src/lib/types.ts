@@ -175,6 +175,8 @@ export interface UsageEntry {
   up: number
   down: number
   total: number
+  /** ISO country code, on hosts only, when the address it was reached at is known. */
+  country?: string
 }
 
 /** The tail past the listed entries, summed: "+41 more, 189 MB". */
