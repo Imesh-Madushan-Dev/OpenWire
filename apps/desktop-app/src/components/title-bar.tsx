@@ -42,16 +42,21 @@ const FEEDBACK_MESSAGE =
 /**
  * The state badge, in GlassWire's upgrade-badge slot. A solid fill in the
  * state's own colour, with the page colour as ink: dark on the bright dark-mode
- * hues, white on the deep light-mode ones, 4.5:1 or better either way. Off is
- * drawn in the exposed colour - traffic is going out uncovered.
+ * hues, white on the deep light-mode ones, 4.5:1 or better either way.
+ *
+ * Worded as a tunnel, which is what Maizy is - it disguises traffic rather
+ * than promising privacy - so "off" means traffic is going out directly, not
+ * that the user is in danger. It still wears the warm `exposed` colour: the
+ * tunnel not doing its job is worth a glance.
  */
 const STATUS: Record<Phase, { label: string; fill: string }> = {
-  disconnected: { label: 'Unprotected', fill: 'bg-exposed' },
+  disconnected: { label: 'Tunnel off', fill: 'bg-exposed' },
   connecting: { label: 'Connecting', fill: 'bg-primary' },
-  connected: { label: 'Protected', fill: 'bg-protected' },
+  connected: { label: 'Tunnel on', fill: 'bg-protected' },
   reconnecting: { label: 'Reconnecting', fill: 'bg-warning' },
   disconnecting: { label: 'Disconnecting', fill: 'bg-muted-foreground' },
-  monitoring: { label: 'Unprotected', fill: 'bg-exposed' },
+  // Routing locally to count traffic, with nothing going through a server.
+  monitoring: { label: 'Tunnel off', fill: 'bg-exposed' },
 }
 
 interface TitleBarProps {

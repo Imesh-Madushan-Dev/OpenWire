@@ -12,6 +12,7 @@ import { useMaximized } from '@/lib/use-maximized'
 import { useDevices } from '@/features/devices/devices-context'
 import { DevicesProvider } from '@/features/devices/devices-provider'
 import { DevicesView } from '@/features/devices/devices-view'
+import { FirewallView } from '@/features/firewall/firewall-view'
 import type { SectionId } from '@/features/settings/sections'
 import { SettingsView } from '@/features/settings/settings-view'
 import { NetworkView } from '@/features/usage/network-view'
@@ -90,6 +91,7 @@ function Shell() {
             {view === 'network' && <NetworkView />}
             {view === 'usage' && <UsageView />}
             {view === 'devices' && <DevicesView />}
+            {view === 'firewall' && <FirewallView />}
             {view === 'settings' && (
               <SettingsView key={settingsEntry.seq} initialSection={settingsEntry.section} />
             )}

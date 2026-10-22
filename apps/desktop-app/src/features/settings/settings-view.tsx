@@ -144,7 +144,7 @@ function ProtectionSection({ settings }: { settings: Settings }) {
       <SettingRow
         icon={Shield01Icon}
         title="Kill switch"
-        description="If the server drops, block everything rather than let traffic out unprotected. Your internet stops until the tunnel recovers - that is the trade."
+        description="If the server drops, block everything rather than let traffic go out without the tunnel. Your internet stops until the tunnel recovers - that is the trade."
         checked={settings.killSwitch}
         onChange={(next) => void updateSettings({ killSwitch: next })}
         hint={restartHint}

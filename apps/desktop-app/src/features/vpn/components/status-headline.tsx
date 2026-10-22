@@ -8,13 +8,15 @@ import type { ConnectionState, Phase } from '@/lib/types'
 
 import { RegionChip } from './region-chip'
 
+// Tunnel words, not protection words: Maizy disguises where traffic goes,
+// it does not promise to keep anyone safe.
 const HEADLINE: Record<Phase, string> = {
-  disconnected: 'VPN is off',
-  connecting: 'Securing your connection',
-  connected: 'You are protected',
-  reconnecting: 'Connection interrupted',
+  disconnected: 'Tunnel is off',
+  connecting: 'Opening the tunnel',
+  connected: 'Tunnel is on',
+  reconnecting: 'Tunnel interrupted',
   disconnecting: 'Closing the tunnel',
-  monitoring: 'VPN is off, measuring usage',
+  monitoring: 'Tunnel is off, measuring usage',
 }
 
 const TONE: Record<Phase, string> = {
@@ -23,14 +25,14 @@ const TONE: Record<Phase, string> = {
   connected: 'text-protected',
   reconnecting: 'text-warning',
   disconnecting: 'text-muted-foreground',
-  // Not protected, so it must not borrow the protected colour.
+  // Not tunnelled, so it must not borrow the tunnel-up colour.
   monitoring: 'text-exposed',
 }
 
 export function StatusHeadline({ connection }: { connection: ConnectionState }) {
   const { phase, serverName, exitHost, countryCode } = connection
   // Monitor mode has no exit location worth showing - traffic leaves from
-  // this device, which is what "VPN is off" already says.
+  // this device, which is what "Tunnel is off" already says.
   const showLocation =
     phase !== 'disconnected' && phase !== 'monitoring' && Boolean(serverName)
 
@@ -86,8 +88,8 @@ export function StatusHeadline({ connection }: { connection: ConnectionState }) 
               className="text-sm text-muted-foreground"
             >
               {phase === 'monitoring'
-                ? 'Your traffic is exposed, but Maizy can see where it goes'
-                : 'Your traffic is exposed to your network'}
+                ? 'Traffic goes out directly; Maizy is only counting it'
+                : 'Traffic goes out directly, without the disguise'}
             </motion.p>
           )}
         </AnimatePresence>
