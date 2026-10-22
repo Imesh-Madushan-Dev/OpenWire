@@ -35,6 +35,10 @@ pub async fn settings_update(
         state.notify("info", "Reconnect to apply the new connection settings.");
     }
 
+    if saved.taskbar_speed != previous.taskbar_speed {
+        crate::taskbar::set_enabled(&app, saved.taskbar_speed);
+    }
+
     // Monitor mode is the one toggle that takes effect immediately, because it
     // only ever starts or stops a route that no VPN session is using.
     if saved.monitor_when_idle != previous.monitor_when_idle {

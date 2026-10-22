@@ -66,6 +66,9 @@ export function UsageDonut({ summary, scope, corner, caption }: UsageDonutProps)
               outerRadius="100%"
               startAngle={90}
               endAngle={-270}
+              // A gap only between two directions; a lone one stays a full ring.
+              paddingAngle={slices.length > 1 ? 4 : 0}
+              cornerRadius={3}
               stroke="none"
               isAnimationActive={false}
             >

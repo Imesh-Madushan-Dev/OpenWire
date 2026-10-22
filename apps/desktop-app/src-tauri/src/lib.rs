@@ -4,6 +4,7 @@ mod commands;
 mod core;
 mod error;
 mod state;
+mod taskbar;
 mod tray;
 
 use std::time::{Duration, Instant};
@@ -102,6 +103,7 @@ pub fn run() {
             app.manage(state);
 
             tray::build(&handle)?;
+            taskbar::set_enabled(&handle, settings.taskbar_speed);
             spawn_stats_ticker(handle.clone());
             spawn_initial_probe(handle.clone());
             spawn_device_watch(handle.clone());
@@ -133,6 +135,8 @@ pub fn run() {
             if let Some(state) = handle.try_state::<AppState>() {
                 state.teardown();
             }
+            // Out of Explorer's taskbar before the process goes.
+            taskbar::set_enabled(handle, false);
         }
     });
 }
@@ -159,6 +163,7 @@ fn spawn_stats_ticker(app: AppHandle) {
 
             let sample = state.usage.sample();
             let _ = app.emit(EVENT_USAGE_SAMPLE, &sample);
+            taskbar::record(sample.up, sample.down);
 
             ticks = ticks.wrapping_add(1);
             if ticks % PERSIST_EVERY_TICKS == 0 {

@@ -86,6 +86,8 @@ export interface Settings {
   monitorWhenIdle: boolean
   /** Sweep the local network every few minutes and say when a device joins. */
   watchDevices: boolean
+  /** Live upload and download speed on the Windows taskbar. */
+  taskbarSpeed: boolean
   preferredServer: string | null
 }
 

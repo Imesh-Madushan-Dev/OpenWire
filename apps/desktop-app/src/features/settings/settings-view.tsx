@@ -9,6 +9,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ChartHistogramIcon,
   ComputerIcon,
+  DashboardSpeed01Icon,
   Delete02Icon,
   GithubIcon,
   InformationCircleIcon,
@@ -320,7 +321,8 @@ function ServersSection() {
 }
 
 function GeneralSection({ settings }: { settings: Settings }) {
-  const { updateSettings } = useVpn()
+  const { platform, updateSettings } = useVpn()
+  const notWindows = platform ? platform.platform !== 'windows' : false
 
   return (
     <SettingGroup>
@@ -338,6 +340,14 @@ function GeneralSection({ settings }: { settings: Settings }) {
         description="Launch without opening the window. OpenWire keeps running in the background."
         checked={settings.launchMinimized}
         onChange={(next) => void updateSettings({ launchMinimized: next })}
+      />
+      <SettingRow
+        icon={DashboardSpeed01Icon}
+        title="Speed on the taskbar"
+        description="Live upload and download speed for this device, just left of the clock. Click it to open OpenWire."
+        checked={settings.taskbarSpeed && !notWindows}
+        disabled={notWindows}
+        onChange={(next) => void updateSettings({ taskbarSpeed: next })}
       />
     </SettingGroup>
   )

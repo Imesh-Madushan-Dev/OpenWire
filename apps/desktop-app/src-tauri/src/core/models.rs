@@ -304,6 +304,9 @@ pub struct Settings {
     /// Defaulted on its own, so settings saved before it existed still load.
     #[serde(default = "default_true")]
     pub watch_devices: bool,
+    /// Show live upload and download speed on the Windows taskbar.
+    #[serde(default = "default_true")]
+    pub taskbar_speed: bool,
     pub preferred_server: Option<String>,
 }
 
@@ -322,6 +325,7 @@ impl Default for Settings {
             lan_bypass: true,
             monitor_when_idle: false,
             watch_devices: true,
+            taskbar_speed: true,
             preferred_server: None,
         }
     }
@@ -339,6 +343,7 @@ pub struct SettingsPatch {
     pub lan_bypass: Option<bool>,
     pub monitor_when_idle: Option<bool>,
     pub watch_devices: Option<bool>,
+    pub taskbar_speed: Option<bool>,
     /// Double option: distinguishes "absent" from "explicit null", so the
     /// preferred server can actually be cleared.
     #[serde(default, deserialize_with = "double_option")]
@@ -377,6 +382,9 @@ impl Settings {
         }
         if let Some(v) = patch.watch_devices {
             self.watch_devices = v;
+        }
+        if let Some(v) = patch.taskbar_speed {
+            self.taskbar_speed = v;
         }
         if let Some(v) = patch.preferred_server {
             self.preferred_server = v;
