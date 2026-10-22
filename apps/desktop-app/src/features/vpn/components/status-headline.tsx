@@ -18,13 +18,13 @@ const HEADLINE: Record<Phase, string> = {
 }
 
 const TONE: Record<Phase, string> = {
-  disconnected: 'text-muted-foreground',
+  disconnected: 'text-exposed',
   connecting: 'text-foreground',
-  connected: 'text-foreground',
+  connected: 'text-protected',
   reconnecting: 'text-warning',
   disconnecting: 'text-muted-foreground',
   // Not protected, so it must not borrow the protected colour.
-  monitoring: 'text-muted-foreground',
+  monitoring: 'text-exposed',
 }
 
 export function StatusHeadline({ connection }: { connection: ConnectionState }) {
@@ -45,7 +45,7 @@ export function StatusHeadline({ connection }: { connection: ConnectionState }) 
             initial="initial"
             animate="animate"
             exit="exit"
-            className={cn('text-[15px] font-medium', TONE[phase])}
+            className={cn('text-glow text-[17px] font-semibold', TONE[phase])}
           >
             {HEADLINE[phase]}
           </motion.p>

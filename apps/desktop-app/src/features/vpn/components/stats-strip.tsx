@@ -34,17 +34,22 @@ export function StatsStrip({ stats }: { stats: StatsSnapshot }) {
       animate="animate"
       className="flex items-stretch gap-2"
     >
+      {/* Arrows in the chart colours, so a direction reads the same here as
+          on the Network and Usage graphs. Only the arrows: those colours are
+          tuned for 3:1 as graphics, not 4.5:1 as text. */}
       <Stat
         icon={ArrowDown01Icon}
         label="Download"
         value={formatSpeed(stats.downBps)}
         tone="text-foreground"
+        iconTone="text-chart-down"
       />
       <Stat
         icon={ArrowUp01Icon}
         label="Upload"
         value={formatSpeed(stats.upBps)}
         tone="text-foreground"
+        iconTone="text-chart-up"
       />
       <Stat
         icon={FlashIcon}
@@ -57,6 +62,7 @@ export function StatsStrip({ stats }: { stats: StatsSnapshot }) {
         label="Session"
         value={formatDuration(stats.uptimeSecs)}
         tone="text-foreground"
+        iconTone="text-muted-foreground"
       />
     </motion.dl>
   )
@@ -67,16 +73,18 @@ interface StatProps {
   label: string
   value: string
   tone: string
+  /** The icon's colour, when it differs from the value's. */
+  iconTone?: string
 }
 
-function Stat({ icon, label, value, tone }: StatProps) {
+function Stat({ icon, label, value, tone, iconTone = tone }: StatProps) {
   return (
     <motion.div
       variants={staggerChild}
       className="panel flex min-w-[104px] flex-col gap-1 rounded-2xl px-4 py-3"
     >
       <dt className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-        <HugeiconsIcon icon={icon} size={13} strokeWidth={2} />
+        <HugeiconsIcon icon={icon} size={13} strokeWidth={2} className={iconTone} />
         {label}
       </dt>
       <dd className={cn('numeric text-sm font-semibold', tone)}>{value}</dd>

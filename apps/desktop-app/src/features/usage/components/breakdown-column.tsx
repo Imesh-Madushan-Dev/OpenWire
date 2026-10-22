@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatBytes } from '@/lib/format'
 import { staggerChild } from '@/lib/motion'
+import { toneStyle, type Tone } from '@/lib/tone'
 import type { Ranked, UsageEntry } from '@/lib/types'
 
 /** Rows shown before "+N more". */
@@ -26,6 +27,8 @@ const VISIBLE = 8
 interface BreakdownColumnProps {
   title: string
   icon: IconSvgElement
+  /** The column's identity colour, on its heading's icon tile. */
+  tone: Tone
   ranked: Ranked
   /** Shown in place of the list when there is nothing to rank. */
   emptyHint: string
@@ -42,6 +45,7 @@ interface BreakdownColumnProps {
 export function BreakdownColumn({
   title,
   icon,
+  tone,
   ranked,
   emptyHint,
   loading = false,
@@ -69,7 +73,12 @@ export function BreakdownColumn({
       className="flex min-w-0 flex-col gap-3 p-4"
     >
       <header className="flex items-center gap-2 text-muted-foreground">
-        <HugeiconsIcon icon={icon} size={13} strokeWidth={2} />
+        <span
+          className="tone-tile grid size-6 shrink-0 place-items-center rounded-md"
+          style={toneStyle(tone)}
+        >
+          <HugeiconsIcon icon={icon} size={13} strokeWidth={2} />
+        </span>
         <h3 className="text-xs font-semibold tracking-wide uppercase">{title}</h3>
         {distinct > 0 && (
           <span className="numeric ml-auto rounded-full bg-tint/6 px-1.5 py-px text-[10px] font-medium">

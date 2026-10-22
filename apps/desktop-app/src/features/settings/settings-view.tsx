@@ -26,8 +26,9 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { SettingGroup, SettingRow } from '@/components/setting-row'
+import { SettingGroup, SettingRow, SettingTone } from '@/components/setting-row'
 import { staggerChild, staggerParent, transition } from '@/lib/motion'
+import { toneStyle } from '@/lib/tone'
 import { isActive, type Settings } from '@/lib/types'
 import { ServerImportField } from '@/features/servers/server-import-field'
 import { monitorSummary, useMonitor } from '@/features/usage/use-monitor'
@@ -79,14 +80,25 @@ export function SettingsView() {
                 exit={{ opacity: 0, transition: transition.fast }}
                 className="flex flex-col gap-6"
               >
-                <motion.header variants={staggerChild} className="flex flex-col gap-1 pt-0.5">
-                  <h2 className="font-heading text-lg font-semibold">{section.label}</h2>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    {section.description}
-                  </p>
+                <motion.header variants={staggerChild} className="flex items-start gap-3 pt-0.5">
+                  <span
+                    className="tone-tile grid size-10 shrink-0 place-items-center rounded-xl"
+                    style={toneStyle(section.tone)}
+                  >
+                    <HugeiconsIcon icon={section.icon} size={19} strokeWidth={1.9} />
+                  </span>
+                  <span className="flex min-w-0 flex-col gap-1">
+                    <h2 className="font-heading text-lg font-semibold">{section.label}</h2>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      {section.description}
+                    </p>
+                  </span>
                 </motion.header>
 
-                <SectionBody id={active} settings={settings} />
+                {/* Rows take the section's colour for their icon tiles. */}
+                <SettingTone value={section.tone}>
+                  <SectionBody id={active} settings={settings} />
+                </SettingTone>
               </motion.div>
             </AnimatePresence>
           )}

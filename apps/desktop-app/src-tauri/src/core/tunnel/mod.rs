@@ -153,6 +153,7 @@ impl Tunnel {
         // Health watcher.
         {
             let session = Arc::clone(&session);
+            let target = probe::Target::of(&session.node);
             tokio::spawn(async move {
                 let mut failures = 0u32;
                 loop {
@@ -164,9 +165,7 @@ impl Tunnel {
                     // The diagnostic node has no remote to probe.
                     let latency = match session.node.outbound {
                         Outbound::Direct => Some(0),
-                        Outbound::Vless(_) | Outbound::Trojan(_) => {
-                            probe::tcp_latency(&session.node.host, session.node.port).await
-                        }
+                        Outbound::Vless(_) | Outbound::Trojan(_) => probe::latency(&target).await,
                     };
 
                     session.metrics.set_latency(latency);

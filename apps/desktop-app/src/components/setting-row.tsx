@@ -1,12 +1,24 @@
 /** One labelled control inside a settings group. */
 
-import type { ReactNode } from 'react'
+import { createContext, use, type ReactNode } from 'react'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { motion } from 'motion/react'
 import { cn } from 'cn'
 
 import { Switch } from '@/components/ui/switch'
 import { staggerChild } from '@/lib/motion'
+import { toneStyle, type Tone } from '@/lib/tone'
+
+/**
+ * The colour a section's rows put on their icon tiles. Provided once per
+ * section rather than passed to every row, so a row moved between sections
+ * takes on its new home's colour.
+ */
+const ToneContext = createContext<Tone | null>(null)
+
+export function SettingTone({ value, children }: { value: Tone; children: ReactNode }) {
+  return <ToneContext value={value}>{children}</ToneContext>
+}
 
 interface SettingRowProps {
   icon: IconSvgElement
@@ -35,6 +47,7 @@ export function SettingRow({
   hintTone = 'warning',
 }: SettingRowProps) {
   const id = `setting-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+  const tone = use(ToneContext)
 
   return (
     <motion.div
@@ -42,9 +55,18 @@ export function SettingRow({
       className={cn('flex flex-col gap-2 px-4 py-3.5', disabled && 'opacity-55')}
     >
       <div className="flex items-center gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-tint/5">
-          <HugeiconsIcon icon={icon} size={17} strokeWidth={1.8} className="text-foreground/70" />
-        </span>
+        {tone ? (
+          <span
+            className="tone-tile grid size-9 shrink-0 place-items-center rounded-xl"
+            style={toneStyle(tone)}
+          >
+            <HugeiconsIcon icon={icon} size={17} strokeWidth={1.8} />
+          </span>
+        ) : (
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-tint/5">
+            <HugeiconsIcon icon={icon} size={17} strokeWidth={1.8} className="text-foreground/70" />
+          </span>
+        )}
 
         <label htmlFor={id} className="min-w-0 flex-1 cursor-default">
           <span className="block text-sm font-medium">{title}</span>

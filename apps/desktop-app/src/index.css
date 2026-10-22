@@ -6,19 +6,27 @@
 /* ---------------------------------------------------------------------------
  * Maizy design system
  *
- * A quiet charcoal surface where colour is never decoration. Each hue has one
- * job: blue (`primary`) marks what you can act on or have selected; green,
- * amber and red (`success`, `warning`, `destructive`) report state - covered,
- * in trouble, failed - and a fast server reads green, a slow one red.
- * Everything else stays grey.
+ * Three colour themes - Graphite (the default), Aurora and Neon - each with a
+ * light and a dark mode. Colour is everywhere, but every hue has a job, and
+ * no one hue is sprayed across unrelated things:
  *
- * Light and dark swap the palette, never the structure: both define the same
- * tokens, and components only ever read tokens. `--tint` is the overlay ink -
- * white on dark, near-black on light - so `bg-tint/5` lifts a surface in
- * either direction without a per-theme class.
+ * - `primary` and `--action` mark what you can act on or have selected.
+ * - `exposed` and `protected` say whether traffic is covered, and tint the
+ *   whole connect screen to match.
+ * - `success`, `warning` and `destructive` report health: a fast server reads
+ *   green, a slow one red.
+ * - `--tone-*` give features and settings sections an identity, as coloured
+ *   icon tiles (`.tone-tile`).
+ *
+ * Themes and modes swap the palette, never the structure: every block below
+ * defines the same tokens, and components only ever read tokens. `--tint` is
+ * the overlay ink - white on dark, near-black on light - so `bg-tint/5` lifts
+ * a surface in either direction without a per-theme class. Every text colour
+ * clears 4.5:1 on its block's background, and white or dark text on
+ * `--action` clears it at both ends of the gradient.
  * ------------------------------------------------------------------------ */
 
-/* shadcn's `dark:` variants follow the resolved theme (`lib/theme.ts`), which
+/* shadcn's `dark:` variants follow the resolved mode (`lib/theme.ts`), which
  * is the OS setting only when the user picked "System". */
 @custom-variant dark (&:is(.dark *));
 
@@ -53,6 +61,10 @@
     --color-tint: var(--tint);
     --color-success: var(--success);
     --color-warning: var(--warning);
+    --color-exposed: var(--exposed);
+    --color-protected: var(--protected);
+    --color-selected: var(--selected);
+    --color-selected-border: var(--selected-border);
     --color-chart-down: var(--chart-down);
     --color-chart-up: var(--chart-up);
 
@@ -66,8 +78,9 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Theme selectors are plain attributes rather than `:root[...]`, so a preview
- * swatch can carry `data-theme` and render in that theme's colours. */
+/* Selectors are plain attributes rather than `:root[...]`, so a preview
+ * swatch can carry `data-theme` and `data-mode` and render in that pair's
+ * colours. Both attributes always travel together. */
 :root {
     --radius: 1rem;
 }
@@ -75,13 +88,15 @@
 /* Graphite - charcoal rather than black, so panels, header and text sit in
  * a comfortable middle range. The header is the raised layer; dividers are
  * dark grooves cut into the surface, not light lines drawn on top of it.
- * Dark is also the fallback before `lib/theme.ts` has run. */
+ * Graphite dark is also the fallback before `lib/theme.ts` has run. */
 :root,
-[data-theme='dark'] {
+[data-theme='graphite'][data-mode='dark'] {
     color-scheme: dark;
 
     --background: #2a2a2c;
     --foreground: #dedee1;
+    /* Painted over the background by the shell; Graphite keeps it flat. */
+    --canvas: none;
 
     --rail: #333336;
     --surface: rgba(255, 255, 255, 0.035);
@@ -98,6 +113,8 @@
      * white text on it still clears 4.5:1. */
     --primary: #3c69f7;
     --primary-foreground: #ffffff;
+    --action: linear-gradient(180deg, #3c69f7, #2d58e3);
+    --action-glow: rgba(60, 105, 247, 0.32);
 
     --secondary: #38383c;
     --secondary-foreground: #dedee1;
@@ -112,20 +129,36 @@
     --warning: #f2b84b;
     --destructive: #f98c8c;
 
+    --exposed: #f2b84b;
+    --protected: #4cc47a;
+    --protected-ring: linear-gradient(#4cc47a, #4cc47a);
+
+    --selected: rgba(60, 105, 247, 0.12);
+    --selected-border: rgba(107, 147, 255, 0.45);
+
+    --tone-rose: #f38b9b;
+    --tone-amber: #f2b84b;
+    --tone-green: #4cc47a;
+    --tone-teal: #3fc1b0;
+    --tone-sky: #5bb8f2;
+    --tone-violet: #a58bf5;
+
     --border: rgba(255, 255, 255, 0.09);
     --input: rgba(255, 255, 255, 0.12);
     --ring: #3c69f7;
 
     --tint: #ffffff;
     --orb-shade: rgba(0, 0, 0, 0.16);
+    --text-glow: 0px;
 }
 
 /* Light Graphite - panels sit as white cards on a soft grey field. */
-[data-theme='light'] {
+[data-theme='graphite'][data-mode='light'] {
     color-scheme: light;
 
     --background: #f4f4f5;
     --foreground: #111113;
+    --canvas: none;
 
     --rail: #fcfcfd;
     --surface: #ffffff;
@@ -139,6 +172,8 @@
 
     --primary: #2d5bf6;
     --primary-foreground: #ffffff;
+    --action: linear-gradient(180deg, #3d68f7, #2552ec);
+    --action-glow: rgba(45, 91, 246, 0.25);
 
     --secondary: #ececee;
     --secondary-foreground: #111113;
@@ -153,12 +188,273 @@
     --warning: #9a6200;
     --destructive: #c53030;
 
+    --exposed: #a85a00;
+    --protected: #15803d;
+    --protected-ring: linear-gradient(#16a34a, #16a34a);
+
+    --selected: rgba(45, 91, 246, 0.08);
+    --selected-border: rgba(45, 91, 246, 0.35);
+
+    --tone-rose: #e11d48;
+    --tone-amber: #d97706;
+    --tone-green: #16a34a;
+    --tone-teal: #0d9488;
+    --tone-sky: #0284c7;
+    --tone-violet: #7c3aed;
+
     --border: rgba(17, 17, 19, 0.1);
     --input: rgba(17, 17, 19, 0.14);
     --ring: #2d5bf6;
 
     --tint: #111113;
     --orb-shade: rgba(17, 17, 19, 0.06);
+    --text-glow: 0px;
+}
+
+/* Aurora - a deep indigo field lit from the corners, with blue-to-violet
+ * actions. Chrome is translucent so the light reaches the edges. */
+[data-theme='aurora'][data-mode='dark'] {
+    color-scheme: dark;
+
+    --background: #12141d;
+    --foreground: #eceef6;
+    --canvas:
+        radial-gradient(110% 80% at 0% 0%, rgba(84, 102, 245, 0.18), transparent 60%),
+        radial-gradient(90% 80% at 100% 100%, rgba(139, 92, 246, 0.12), transparent 60%);
+
+    --rail: rgba(255, 255, 255, 0.03);
+    --surface: rgba(255, 255, 255, 0.04);
+    --surface-hover: rgba(255, 255, 255, 0.07);
+    --hairline: rgba(255, 255, 255, 0.07);
+
+    --card: #1a1d2a;
+    --card-foreground: #eceef6;
+    --popover: #1d2030;
+    --popover-foreground: #eceef6;
+
+    --primary: #5b63f0;
+    --primary-foreground: #ffffff;
+    --action: linear-gradient(135deg, #5466f5, #7c4ddb);
+    --action-glow: rgba(99, 102, 241, 0.42);
+
+    --secondary: #22263a;
+    --secondary-foreground: #eceef6;
+
+    --muted: #1c1f2c;
+    --muted-foreground: #9196ab;
+
+    --accent: #262a3d;
+    --accent-foreground: #eceef6;
+
+    --success: #34d399;
+    --warning: #fbbf24;
+    --destructive: #fb7185;
+
+    --exposed: #ff8f80;
+    --protected: #5eead4;
+    --protected-ring: conic-gradient(from 200deg, #34d399, #22d3ee, #60a5fa, #34d399);
+
+    --selected: rgba(99, 102, 241, 0.15);
+    --selected-border: rgba(129, 140, 248, 0.5);
+
+    --tone-rose: #fb7185;
+    --tone-amber: #fbbf24;
+    --tone-green: #34d399;
+    --tone-teal: #2dd4bf;
+    --tone-sky: #38bdf8;
+    --tone-violet: #a78bfa;
+
+    --border: rgba(255, 255, 255, 0.09);
+    --input: rgba(255, 255, 255, 0.12);
+    --ring: #818cf8;
+
+    --tint: #ffffff;
+    --orb-shade: rgba(0, 0, 0, 0.28);
+    --text-glow: 0px;
+}
+
+/* Light Aurora - a lavender-white field with the same corner light. */
+[data-theme='aurora'][data-mode='light'] {
+    color-scheme: light;
+
+    --background: #f4f5fb;
+    --foreground: #151726;
+    --canvas:
+        radial-gradient(110% 80% at 0% 0%, rgba(84, 102, 245, 0.1), transparent 60%),
+        radial-gradient(90% 80% at 100% 100%, rgba(139, 92, 246, 0.08), transparent 60%);
+
+    --rail: rgba(255, 255, 255, 0.55);
+    --surface: rgba(255, 255, 255, 0.78);
+    --surface-hover: #ffffff;
+    --hairline: rgba(21, 23, 38, 0.08);
+
+    --card: #ffffff;
+    --card-foreground: #151726;
+    --popover: #ffffff;
+    --popover-foreground: #151726;
+
+    --primary: #4f46e5;
+    --primary-foreground: #ffffff;
+    --action: linear-gradient(135deg, #4f46e5, #7c3aed);
+    --action-glow: rgba(79, 70, 229, 0.28);
+
+    --secondary: #eceefa;
+    --secondary-foreground: #151726;
+
+    --muted: #eceefa;
+    --muted-foreground: #585c72;
+
+    --accent: #e8eaf8;
+    --accent-foreground: #151726;
+
+    --success: #047857;
+    --warning: #b45309;
+    --destructive: #be123c;
+
+    --exposed: #c2362b;
+    --protected: #0f766e;
+    --protected-ring: conic-gradient(from 200deg, #10b981, #06b6d4, #3b82f6, #10b981);
+
+    --selected: rgba(79, 70, 229, 0.08);
+    --selected-border: rgba(79, 70, 229, 0.35);
+
+    --tone-rose: #e11d48;
+    --tone-amber: #d97706;
+    --tone-green: #059669;
+    --tone-teal: #0d9488;
+    --tone-sky: #0284c7;
+    --tone-violet: #7c3aed;
+
+    --border: rgba(21, 23, 38, 0.1);
+    --input: rgba(21, 23, 38, 0.14);
+    --ring: #4f46e5;
+
+    --tint: #151726;
+    --orb-shade: rgba(21, 23, 38, 0.06);
+    --text-glow: 0px;
+}
+
+/* Neon - near-black with cyan and magenta light, and a glow on the state
+ * headline. Its primary is bright enough to need dark text. */
+[data-theme='neon'][data-mode='dark'] {
+    color-scheme: dark;
+
+    --background: #07080d;
+    --foreground: #f1f5ff;
+    --canvas:
+        radial-gradient(70% 60% at 100% 0%, rgba(232, 121, 249, 0.13), transparent 60%),
+        radial-gradient(70% 60% at 0% 100%, rgba(34, 211, 238, 0.11), transparent 60%);
+
+    --rail: rgba(255, 255, 255, 0.025);
+    --surface: rgba(255, 255, 255, 0.035);
+    --surface-hover: rgba(255, 255, 255, 0.065);
+    --hairline: rgba(255, 255, 255, 0.07);
+
+    --card: #10121a;
+    --card-foreground: #f1f5ff;
+    --popover: #12141d;
+    --popover-foreground: #f1f5ff;
+
+    --primary: #22d3ee;
+    --primary-foreground: #04121a;
+    --action: linear-gradient(135deg, #22d3ee, #e879f9);
+    --action-glow: rgba(217, 70, 239, 0.45);
+
+    --secondary: #151826;
+    --secondary-foreground: #f1f5ff;
+
+    --muted: #111420;
+    --muted-foreground: #8d96b0;
+
+    --accent: #191c2b;
+    --accent-foreground: #f1f5ff;
+
+    --success: #4ade80;
+    --warning: #facc15;
+    --destructive: #f472b6;
+
+    --exposed: #f472b6;
+    --protected: #67e8f9;
+    --protected-ring: conic-gradient(from 0deg, #22d3ee, #a78bfa, #e879f9, #22d3ee);
+
+    --selected: rgba(34, 211, 238, 0.1);
+    --selected-border: rgba(34, 211, 238, 0.55);
+
+    --tone-rose: #f472b6;
+    --tone-amber: #facc15;
+    --tone-green: #4ade80;
+    --tone-teal: #2dd4bf;
+    --tone-sky: #22d3ee;
+    --tone-violet: #c084fc;
+
+    --border: rgba(255, 255, 255, 0.09);
+    --input: rgba(255, 255, 255, 0.12);
+    --ring: #22d3ee;
+
+    --tint: #ffffff;
+    --orb-shade: rgba(0, 0, 0, 0.35);
+    --text-glow: 16px;
+}
+
+/* Light Neon - a cool white field; the neon hues deepen to stay legible. */
+[data-theme='neon'][data-mode='light'] {
+    color-scheme: light;
+
+    --background: #f6f7fb;
+    --foreground: #0b0d17;
+    --canvas:
+        radial-gradient(70% 60% at 100% 0%, rgba(217, 70, 239, 0.09), transparent 60%),
+        radial-gradient(70% 60% at 0% 100%, rgba(6, 182, 212, 0.09), transparent 60%);
+
+    --rail: rgba(255, 255, 255, 0.6);
+    --surface: rgba(255, 255, 255, 0.8);
+    --surface-hover: #ffffff;
+    --hairline: rgba(11, 13, 23, 0.08);
+
+    --card: #ffffff;
+    --card-foreground: #0b0d17;
+    --popover: #ffffff;
+    --popover-foreground: #0b0d17;
+
+    --primary: #0e7490;
+    --primary-foreground: #ffffff;
+    --action: linear-gradient(135deg, #0e7490, #a21caf);
+    --action-glow: rgba(162, 28, 175, 0.25);
+
+    --secondary: #eceef5;
+    --secondary-foreground: #0b0d17;
+
+    --muted: #eceef5;
+    --muted-foreground: #565e76;
+
+    --accent: #e7e9f2;
+    --accent-foreground: #0b0d17;
+
+    --success: #15803d;
+    --warning: #a16207;
+    --destructive: #be185d;
+
+    --exposed: #be185d;
+    --protected: #0e7490;
+    --protected-ring: conic-gradient(from 0deg, #06b6d4, #8b5cf6, #d946ef, #06b6d4);
+
+    --selected: rgba(14, 116, 144, 0.08);
+    --selected-border: rgba(14, 116, 144, 0.4);
+
+    --tone-rose: #db2777;
+    --tone-amber: #ca8a04;
+    --tone-green: #16a34a;
+    --tone-teal: #0d9488;
+    --tone-sky: #0891b2;
+    --tone-violet: #9333ea;
+
+    --border: rgba(11, 13, 23, 0.1);
+    --input: rgba(11, 13, 23, 0.14);
+    --ring: #0e7490;
+
+    --tint: #0b0d17;
+    --orb-shade: rgba(11, 13, 23, 0.06);
+    --text-glow: 0px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -216,8 +512,8 @@
     --chart-up: var(--chart-up-dark);
 }
 
-[data-theme='light'],
-[data-theme='light'] [data-chart] {
+[data-mode='light'],
+[data-mode='light'] [data-chart] {
     --chart-down: var(--chart-down-light);
     --chart-up: var(--chart-up-light);
 }
@@ -277,14 +573,56 @@
     }
 }
 
+/* The primary action's fill. A background image, so it sits over
+ * `bg-primary` - which still shows wherever a gradient cannot, and is what
+ * the `/opacity` variants mix. */
+@utility action-fill {
+    background-image: var(--action);
+}
+
+@utility action-glow {
+    box-shadow: 0 6px 18px -6px var(--action-glow);
+}
+
 @layer components {
-    /* The glow behind the power orb, shown only while connected - it is the
-     * "covered" colour, so it must not appear otherwise. Sized in vmin so it
-     * scales with the window instead of clipping at small sizes. */
+    /* The app's backdrop: each theme's light, painted once behind everything. */
+    .shell-canvas {
+        background-image: var(--canvas);
+    }
+
+    /* The glow behind the power orb: the covered colour while connected, the
+     * exposed colour, softer, while not. Sized in vmin so it scales with the
+     * window instead of clipping at small sizes. */
     .ambient-field {
         background:
-            radial-gradient(60vmin 60vmin at 50% 38%, color-mix(in oklab, var(--success) 12%, transparent), transparent 70%),
-            radial-gradient(90vmin 70vmin at 50% 120%, color-mix(in oklab, var(--success) 5%, transparent), transparent 72%);
+            radial-gradient(60vmin 60vmin at 50% 38%, color-mix(in oklab, var(--protected) 13%, transparent), transparent 70%),
+            radial-gradient(90vmin 70vmin at 50% 120%, color-mix(in oklab, var(--protected) 6%, transparent), transparent 72%);
+    }
+
+    .ambient-exposed {
+        background:
+            radial-gradient(55vmin 55vmin at 50% 38%, color-mix(in oklab, var(--exposed) 9%, transparent), transparent 70%),
+            radial-gradient(90vmin 70vmin at 50% 120%, color-mix(in oklab, var(--exposed) 4%, transparent), transparent 72%);
+    }
+
+    /* The connected orb's rim, drawn as an image so a theme can make it a
+     * gradient: the mask keeps only the outer 2px of a filled circle. */
+    .orb-ring {
+        background: var(--protected-ring);
+        -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+        mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+    }
+
+    /* A feature's or section's identity colour, as an icon tile. Set `--tone`
+     * to one of the `--tone-*` tokens (`lib/tone.ts`). */
+    .tone-tile {
+        background-color: color-mix(in oklab, var(--tone) 16%, transparent);
+        color: var(--tone);
+    }
+
+    /* A soft halo in the text's own colour, where the theme wants one. */
+    .text-glow {
+        text-shadow: 0 0 var(--text-glow) currentColor;
     }
 
     .panel {

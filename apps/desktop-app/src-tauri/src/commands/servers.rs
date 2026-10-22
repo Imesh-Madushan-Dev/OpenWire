@@ -18,11 +18,11 @@ pub async fn servers_list(state: State<'_, AppState>) -> AppResult<Vec<ServerSum
 /// Measures every reachable node so the picker can sort by real latency.
 #[tauri::command]
 pub async fn servers_probe(state: State<'_, AppState>) -> AppResult<Vec<ServerSummary>> {
-    let targets: Vec<(String, String, u16)> = state
+    let targets: Vec<(String, probe::Target)> = state
         .nodes()
         .into_iter()
         .filter(|n| n.is_configured() && !n.host.is_empty() && n.port != 0)
-        .map(|n| (n.id, n.host, n.port))
+        .map(|n| (n.id.clone(), probe::Target::of(&n)))
         .collect();
 
     let results = probe::probe_all(targets).await;

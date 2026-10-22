@@ -47,36 +47,42 @@ const HOLD_MS = 900
 
 /**
  * Per-phase visual treatment, kept in one table rather than spread through JSX.
- * Connecting wears the action blue - it is the user's request in flight - and
- * only an established tunnel earns the green.
+ * Off wears the exposed colour - traffic is leaving uncovered, and the button
+ * is the fix. Connecting wears the action colour - it is the user's request
+ * in flight - and only an established tunnel earns the protected colour, on
+ * a rim each theme draws its own way (`.orb-ring`).
  */
 const TREATMENT: Record<
   Phase,
-  { ring: string; icon: string; halo: string; glow: number; label: string }
+  { ring: string; rim: string; icon: string; halo: string; glow: number; label: string }
 > = {
   disconnected: {
-    ring: 'border-tint/12',
-    icon: 'text-muted-foreground',
-    halo: 'var(--tint)',
-    glow: 0.08,
+    ring: 'border-exposed/45',
+    rim: 'border-exposed/12',
+    icon: 'text-exposed',
+    halo: 'var(--exposed)',
+    glow: 0.4,
     label: 'Connect',
   },
   connecting: {
     ring: 'border-primary/40',
+    rim: 'border-primary/12',
     icon: 'text-primary',
     halo: 'var(--primary)',
     glow: 0.45,
     label: 'Connecting',
   },
   connected: {
-    ring: 'border-success',
-    icon: 'text-success',
-    halo: 'var(--success)',
+    ring: 'border-transparent',
+    rim: 'border-protected/25',
+    icon: 'text-protected',
+    halo: 'var(--protected)',
     glow: 0.8,
     label: 'Disconnect',
   },
   reconnecting: {
     ring: 'border-warning/70',
+    rim: 'border-warning/12',
     icon: 'text-warning',
     halo: 'var(--warning)',
     glow: 0.4,
@@ -84,18 +90,20 @@ const TREATMENT: Record<
   },
   disconnecting: {
     ring: 'border-tint/20',
+    rim: 'border-tint/5',
     icon: 'text-muted-foreground',
     halo: 'var(--tint)',
     glow: 0.08,
     label: 'Disconnecting',
   },
-  // Reads as off, because it is off - only the dimmer ring hints that
-  // something is still running.
+  // Reads as off, because it is off: the tunnel is down and traffic is
+  // exposed, whatever is being measured.
   monitoring: {
-    ring: 'border-tint/12',
-    icon: 'text-muted-foreground',
-    halo: 'var(--tint)',
-    glow: 0.08,
+    ring: 'border-exposed/45',
+    rim: 'border-exposed/12',
+    icon: 'text-exposed',
+    halo: 'var(--exposed)',
+    glow: 0.4,
     label: 'Connect',
   },
 }
@@ -182,7 +190,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
           <motion.div
             aria-hidden
             key="pulse"
-            className="pointer-events-none absolute size-49 rounded-full border border-success/40"
+            className="pointer-events-none absolute size-49 rounded-full border border-protected/40"
             initial={{ opacity: 0, scale: 1 }}
             animate={{ opacity: [0.5, 0], scale: [1, 1.45] }}
             exit={{ opacity: 0 }}
@@ -210,12 +218,28 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
         whileTap={inert ? undefined : { scale: 0.96 }}
         transition={spring.press}
       >
+        {/* The connected rim sits over the transparent border, so a theme's
+            gradient takes exactly the border's place. */}
+        <AnimatePresence>
+          {phase === 'connected' && (
+            <motion.span
+              key="rim"
+              aria-hidden
+              className="orb-ring pointer-events-none absolute -inset-0.5 rounded-full"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={transition.slow}
+            />
+          )}
+        </AnimatePresence>
+
         {/* Inner rim: a second, tighter ring adds depth without another element. */}
         <span
           aria-hidden
           className={cn(
             'absolute inset-3 rounded-full border transition-colors duration-300',
-            phase === 'connected' ? 'border-success/25' : 'border-tint/5',
+            treatment.rim,
           )}
         />
 
@@ -237,7 +261,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
                 cy="50"
                 r={RADIUS}
                 fill="none"
-                stroke={phase === 'connected' ? 'var(--success)' : 'var(--primary)'}
+                stroke={phase === 'connected' ? 'var(--protected)' : 'var(--primary)'}
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeDasharray={CIRCUMFERENCE}
@@ -289,7 +313,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
               transition={transition.fast}
               className={cn(
                 'numeric text-4xl font-semibold tabular-nums transition-colors duration-300',
-                phase === 'connected' ? 'text-success' : 'text-primary',
+                phase === 'connected' ? 'text-protected' : 'text-primary',
               )}
             >
               <motion.span>{percent}</motion.span>

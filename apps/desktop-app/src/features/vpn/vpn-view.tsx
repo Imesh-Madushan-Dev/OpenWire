@@ -20,6 +20,7 @@ export function VpnView({ onOpenSettings }: { onOpenSettings: () => void }) {
   const { connection, stats, targetServer, settings, toggle, ready } = useVpn()
 
   const active = isActive(connection.phase)
+  const exposed = connection.phase === 'disconnected' || connection.phase === 'monitoring'
   const automatic = settings?.preferredServer == null
 
   // What tapping will do, named - so the orb never connects somewhere the
@@ -33,11 +34,20 @@ export function VpnView({ onOpenSettings }: { onOpenSettings: () => void }) {
   return (
     <div className="flex h-full">
       <section className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+        {/* Two washes cross-fading: covered while connected, exposed while
+            off. Neither shows mid-transition, when the state is in doubt. */}
         <div
           aria-hidden
           className={cn(
             'ambient-field pointer-events-none absolute inset-0 transition-opacity duration-700',
             connection.phase === 'connected' ? 'opacity-100' : 'opacity-0',
+          )}
+        />
+        <div
+          aria-hidden
+          className={cn(
+            'ambient-exposed pointer-events-none absolute inset-0 transition-opacity duration-700',
+            exposed ? 'opacity-100' : 'opacity-0',
           )}
         />
 

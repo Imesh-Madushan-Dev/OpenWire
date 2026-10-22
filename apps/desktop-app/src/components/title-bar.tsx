@@ -24,14 +24,18 @@ import { NavTabs, type ViewId } from './nav-tabs'
 const FEEDBACK_MESSAGE =
   'Found a bug or want a feature? Open an issue in the Maizy repository - include the version from Settings.'
 
-/** The tunnel's state, readable from every tab - not just the VPN one. */
-const STATUS: Record<Phase, { label: string; dot: string }> = {
-  disconnected: { label: 'VPN off', dot: 'bg-tint/30' },
-  connecting: { label: 'Connecting', dot: 'bg-warning' },
-  connected: { label: 'Protected', dot: 'bg-success' },
-  reconnecting: { label: 'Reconnecting', dot: 'bg-warning' },
-  disconnecting: { label: 'Disconnecting', dot: 'bg-tint/30' },
-  monitoring: { label: 'VPN off', dot: 'bg-tint/30' },
+/**
+ * The tunnel's state, readable from every tab - not just the VPN one. Off is
+ * drawn in the exposed colour: traffic is going out uncovered, which is worth
+ * a glance, not a shrug.
+ */
+const STATUS: Record<Phase, { label: string; tone: string; dot: string }> = {
+  disconnected: { label: 'VPN off', tone: 'bg-exposed/12 text-exposed', dot: 'bg-exposed' },
+  connecting: { label: 'Connecting', tone: 'bg-primary/14 text-foreground', dot: 'bg-primary' },
+  connected: { label: 'Protected', tone: 'bg-protected/14 text-protected', dot: 'bg-protected' },
+  reconnecting: { label: 'Reconnecting', tone: 'bg-warning/14 text-warning', dot: 'bg-warning' },
+  disconnecting: { label: 'Disconnecting', tone: 'bg-tint/6 text-muted-foreground', dot: 'bg-tint/30' },
+  monitoring: { label: 'VPN off', tone: 'bg-exposed/12 text-exposed', dot: 'bg-exposed' },
 }
 
 interface TitleBarProps {
@@ -60,7 +64,10 @@ export function TitleBar({ view, onNavigate, badges, phase, onFeedback }: TitleB
         <span className="text-[13px] font-semibold tracking-wide text-foreground/85">maizy</span>
         <span
           role="status"
-          className="flex items-center gap-1.5 rounded-full bg-tint/6 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+          className={cn(
+            'flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold transition-colors duration-300',
+            status.tone,
+          )}
         >
           <span aria-hidden className={cn('size-1.5 rounded-full transition-colors', status.dot)} />
           {status.label}

@@ -8,6 +8,7 @@ import { Settings01Icon, Shield01Icon, Wifi01Icon } from '@hugeicons/core-free-i
 import { cn } from 'cn'
 
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { toneStyle, type Tone } from '@/lib/tone'
 import { useVpn } from '@/features/vpn/vpn-context'
 
 export function QuickToggles({ onOpenSettings }: { onOpenSettings: () => void }) {
@@ -20,6 +21,7 @@ export function QuickToggles({ onOpenSettings }: { onOpenSettings: () => void })
     <div className="flex items-center justify-center gap-2">
       <Chip
         icon={Shield01Icon}
+        tone="rose"
         label="Kill switch"
         tip="Block all traffic if the tunnel drops"
         on={settings.killSwitch}
@@ -27,6 +29,7 @@ export function QuickToggles({ onOpenSettings }: { onOpenSettings: () => void })
       />
       <Chip
         icon={Wifi01Icon}
+        tone="sky"
         label="All apps"
         tip={
           proxyUnsupported
@@ -45,7 +48,7 @@ export function QuickToggles({ onOpenSettings }: { onOpenSettings: () => void })
               type="button"
               aria-label="All settings"
               onClick={onOpenSettings}
-              className="grid size-8 place-items-center rounded-full border border-tint/8 text-muted-foreground transition-colors outline-none hover:bg-tint/6 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/50"
+              className="grid size-9 place-items-center rounded-full border border-tint/8 text-muted-foreground transition-colors outline-none hover:bg-tint/6 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/50"
             />
           }
         >
@@ -59,6 +62,7 @@ export function QuickToggles({ onOpenSettings }: { onOpenSettings: () => void })
 
 function Chip({
   icon,
+  tone,
   label,
   tip,
   on,
@@ -66,6 +70,8 @@ function Chip({
   onToggle,
 }: {
   icon: IconSvgElement
+  /** The feature's identity colour, on its icon tile. */
+  tone: Tone
   label: string
   tip: string
   on: boolean
@@ -81,9 +87,10 @@ function Chip({
             aria-pressed={on}
             disabled={disabled}
             onClick={onToggle}
-            // On reads as lit, off as dim; only the status dot carries colour.
+            // On reads as lit, off as dim, and the dot says which; the tile's
+            // colour names the feature and stays put either way.
             className={cn(
-              'flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors duration-200 outline-none',
+              'flex h-9 items-center gap-2 rounded-full border py-1 pr-3 pl-1 text-xs font-medium transition-colors duration-200 outline-none',
               'focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-50',
               on
                 ? 'border-tint/14 bg-tint/8 text-foreground'
@@ -92,7 +99,15 @@ function Chip({
           />
         }
       >
-        <HugeiconsIcon icon={icon} size={14} strokeWidth={2} />
+        <span
+          className={cn(
+            'tone-tile grid size-7 place-items-center rounded-full transition-opacity duration-200',
+            !on && 'opacity-60',
+          )}
+          style={toneStyle(tone)}
+        >
+          <HugeiconsIcon icon={icon} size={14} strokeWidth={2} />
+        </span>
         {label}
         <span
           aria-hidden

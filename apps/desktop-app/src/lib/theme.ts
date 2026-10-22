@@ -1,75 +1,111 @@
 /**
- * Light, dark, or whatever the device uses.
+ * Colour theme and light/dark mode, chosen independently.
  *
- * `index.css` defines the same tokens under `[data-theme='dark']` and
- * `[data-theme='light']`; this module picks which one `<html>` carries. The
- * choice is a pure UI preference, so it lives in local storage rather than the
- * Rust settings - which also lets it apply before first paint, with no IPC
- * round trip and no flash of the wrong palette.
+ * `index.css` defines every token once per theme and mode, under
+ * `[data-theme='…'][data-mode='…']`; this module picks which pair `<html>`
+ * carries. Both are pure UI preferences, so they live in local storage rather
+ * than the Rust settings - which also lets them apply before first paint,
+ * with no IPC round trip and no flash of the wrong palette.
  */
+
+export type ThemeId = 'graphite' | 'aurora' | 'neon'
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 
-export type ResolvedTheme = Exclude<ThemeMode, 'system'>
+export type ResolvedMode = Exclude<ThemeMode, 'system'>
 
 export interface ThemeOption {
-  id: ThemeMode
+  id: ThemeId
   label: string
   description: string
 }
 
 export const THEMES: readonly ThemeOption[] = [
-  { id: 'system', label: 'System', description: 'Follow the device setting.' },
-  { id: 'light', label: 'Light', description: 'Light surfaces for bright rooms.' },
-  { id: 'dark', label: 'Dark', description: 'Easy on the eyes at night.' },
+  { id: 'graphite', label: 'Graphite', description: 'Calm charcoal, colour where it counts.' },
+  { id: 'aurora', label: 'Aurora', description: 'Deep indigo and vivid gradients.' },
+  { id: 'neon', label: 'Neon', description: 'Near-black with glowing cyan and magenta.' },
 ]
 
-export const DEFAULT_THEME: ThemeMode = 'system'
+export const MODES: readonly { value: ThemeMode; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+]
 
-const STORAGE_KEY = 'maizy.theme'
+export const DEFAULT_THEME: ThemeId = 'graphite'
+export const DEFAULT_MODE: ThemeMode = 'system'
+
+const THEME_KEY = 'maizy.colorTheme'
+// Named before colour themes existed; it has always held the mode.
+const MODE_KEY = 'maizy.theme'
 
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
 
-function isThemeMode(value: unknown): value is ThemeMode {
-  return THEMES.some((theme) => theme.id === value)
-}
-
-/** The saved mode, or the default when storage is empty, stale or blocked. */
-export function readTheme(): ThemeMode {
+function read<T extends string>(key: string, valid: readonly T[], fallback: T): T {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    return isThemeMode(stored) ? stored : DEFAULT_THEME
+    const stored = localStorage.getItem(key)
+    return valid.includes(stored as T) ? (stored as T) : fallback
   } catch {
-    return DEFAULT_THEME
+    return fallback
   }
 }
 
-function resolve(mode: ThemeMode): ResolvedTheme {
+function write(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // Storage unavailable: the choice still applies for this session.
+  }
+}
+
+/** The saved theme, or the default when storage is empty, stale or blocked. */
+export function readTheme(): ThemeId {
+  return read(
+    THEME_KEY,
+    THEMES.map((theme) => theme.id),
+    DEFAULT_THEME,
+  )
+}
+
+/** The saved mode, or the default when storage is empty, stale or blocked. */
+export function readMode(): ThemeMode {
+  return read(
+    MODE_KEY,
+    MODES.map((mode) => mode.value),
+    DEFAULT_MODE,
+  )
+}
+
+export function resolveMode(mode: ThemeMode): ResolvedMode {
   if (mode !== 'system') return mode
   return darkQuery.matches ? 'dark' : 'light'
 }
 
-/** Paints `mode` onto the document. Safe to call before React mounts. */
-export function applyTheme(mode: ThemeMode) {
-  const theme = resolve(mode)
+/** Paints a theme and mode onto the document. Safe to call before React mounts. */
+export function applyAppearance(theme: ThemeId, mode: ThemeMode) {
+  const resolved = resolveMode(mode)
   const root = document.documentElement
   root.dataset.theme = theme
-  root.classList.toggle('dark', theme === 'dark')
+  root.dataset.mode = resolved
+  // shadcn's `dark:` variants key off this class.
+  root.classList.toggle('dark', resolved === 'dark')
 }
 
-/** Applies and remembers a mode. */
-export function saveTheme(mode: ThemeMode) {
-  applyTheme(mode)
-  try {
-    localStorage.setItem(STORAGE_KEY, mode)
-  } catch {
-    // Storage unavailable: the theme still applies for this session.
-  }
+/** Applies and remembers a theme, keeping the current mode. */
+export function saveTheme(theme: ThemeId) {
+  applyAppearance(theme, readMode())
+  write(THEME_KEY, theme)
 }
 
-/** Repaints when the device switches theme, while the app is set to follow it. */
-export function followSystemTheme() {
+/** Applies and remembers a mode, keeping the current theme. */
+export function saveMode(mode: ThemeMode) {
+  applyAppearance(readTheme(), mode)
+  write(MODE_KEY, mode)
+}
+
+/** Repaints when the device switches between light and dark, while the app follows it. */
+export function followSystemMode() {
   darkQuery.addEventListener('change', () => {
-    if (readTheme() === 'system') applyTheme('system')
+    if (readMode() === 'system') applyAppearance(readTheme(), 'system')
   })
 }

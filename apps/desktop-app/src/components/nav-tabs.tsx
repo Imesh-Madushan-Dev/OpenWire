@@ -1,9 +1,9 @@
 /**
  * Main navigation: icon-over-label tabs centred in the title bar.
  *
- * The active tab is told apart by brightness first - a lit icon and label
- * against muted ones - and by the underline second, so it never rests on
- * colour alone.
+ * The active tab is told apart by brightness first - a lit label against
+ * muted ones - then by its icon taking the theme's accent and the underline,
+ * so it never rests on colour alone.
  */
 
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
@@ -65,11 +65,16 @@ export function NavTabs({ active, onChange, badges, className }: NavTabsProps) {
             )}
           >
             <span className="relative flex">
-              <HugeiconsIcon icon={item.icon} size={19} strokeWidth={selected ? 2 : 1.7} />
+              <HugeiconsIcon
+                icon={item.icon}
+                size={19}
+                strokeWidth={selected ? 2 : 1.7}
+                className={cn('transition-colors duration-200', selected && 'text-primary')}
+              />
               {badge > 0 && (
                 <span
                   aria-hidden
-                  className="numeric absolute -top-1.5 left-3.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-primary px-1 text-[9px] leading-none font-semibold text-primary-foreground ring-2 ring-rail"
+                  className="numeric action-fill absolute -top-1.5 left-3.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-primary px-1 text-[9px] leading-none font-semibold text-primary-foreground ring-2 ring-background"
                 >
                   {badge > 99 ? '99+' : badge}
                 </span>
@@ -84,7 +89,7 @@ export function NavTabs({ active, onChange, badges, className }: NavTabsProps) {
               <motion.span
                 layoutId="nav-underline"
                 aria-hidden
-                className="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-primary"
+                className="action-fill absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-primary"
                 transition={spring.soft}
               />
             )}

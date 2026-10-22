@@ -295,6 +295,7 @@ export function UsageView() {
             <BreakdownColumn
               title="Apps"
               icon={ComputerIcon}
+              tone="violet"
               ranked={apps}
               loading={fallback && windows.loading}
               note={fallback ? "From Windows' per-app records" : undefined}
@@ -307,6 +308,7 @@ export function UsageView() {
                 <BreakdownColumn
                   title="Hosts"
                   icon={GlobalIcon}
+                  tone="sky"
                   ranked={columns.hosts}
                   emptyHint={emptyHint}
                   flags
@@ -314,6 +316,7 @@ export function UsageView() {
                 <BreakdownColumn
                   title="Traffic type"
                   icon={Route01Icon}
+                  tone="teal"
                   ranked={columns.kinds}
                   emptyHint={emptyHint}
                 />

@@ -6,6 +6,7 @@ import { motion } from 'motion/react'
 import { cn } from 'cn'
 
 import { spring } from '@/lib/motion'
+import { toneStyle } from '@/lib/tone'
 import { SECTION_GROUPS, type Section, type SectionId } from './sections'
 
 interface SettingsNavProps {
@@ -55,7 +56,7 @@ function NavButton({
       aria-selected={active}
       aria-controls="settings-panel"
       onClick={onClick}
-      className="group relative flex items-center gap-2.5 rounded-xl px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      className="group relative flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
     >
       {/* One shared element slides between items instead of fading per button. */}
       {active && (
@@ -67,15 +68,16 @@ function NavButton({
         />
       )}
 
-      <HugeiconsIcon
-        icon={section.icon}
-        size={17}
-        strokeWidth={1.8}
+      {/* The section's colour, dimmed until it is the one open. */}
+      <span
         className={cn(
-          'relative shrink-0 transition-colors duration-200',
-          active ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground/80',
+          'tone-tile relative grid size-7 shrink-0 place-items-center rounded-md transition-opacity duration-200',
+          active ? 'opacity-100' : 'opacity-70 group-hover:opacity-100',
         )}
-      />
+        style={toneStyle(section.tone)}
+      >
+        <HugeiconsIcon icon={section.icon} size={15} strokeWidth={1.9} />
+      </span>
       <span
         className={cn(
           'relative truncate text-sm font-medium transition-colors duration-200',

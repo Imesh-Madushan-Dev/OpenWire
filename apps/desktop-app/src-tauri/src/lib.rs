@@ -207,7 +207,7 @@ fn spawn_device_watch(app: AppHandle) {
 /// Warms the latency table so "Optimal location" means something on first open.
 fn spawn_initial_probe(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
-        let targets: Vec<(String, String, u16)> = {
+        let targets: Vec<(String, core::probe::Target)> = {
             let Some(state) = app.try_state::<AppState>() else {
                 return;
             };
@@ -215,7 +215,7 @@ fn spawn_initial_probe(app: AppHandle) {
                 .nodes()
                 .into_iter()
                 .filter(|n| n.is_configured() && !n.host.is_empty() && n.port != 0)
-                .map(|n| (n.id, n.host, n.port))
+                .map(|n| (n.id.clone(), core::probe::Target::of(&n)))
                 .collect()
         };
 

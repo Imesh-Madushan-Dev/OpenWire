@@ -101,6 +101,28 @@ pub async fn connect(
         .map_err(|e| AppError::Tls(e.to_string()))
 }
 
+/// The first flight of the handshake [`connect`] would make - the ClientHello,
+/// with the same SNI and ALPN - for the latency probe to send and time.
+///
+/// Nothing past the server's first reply byte is ever read, so its
+/// certificate is never seen; verification would have nothing to check.
+pub fn client_hello(sni: &str, alpn: &[String]) -> Option<Vec<u8>> {
+    let provider = Arc::new(rustls::crypto::ring::default_provider());
+    let mut config = ClientConfig::builder_with_provider(Arc::clone(&provider))
+        .with_safe_default_protocol_versions()
+        .ok()?
+        .dangerous()
+        .with_custom_certificate_verifier(Arc::new(SkipVerification(provider)))
+        .with_no_client_auth();
+    config.alpn_protocols = alpn.iter().map(|p| p.as_bytes().to_vec()).collect();
+
+    let name = ServerName::try_from(sni.to_string()).ok()?;
+    let mut connection = rustls::ClientConnection::new(Arc::new(config), name).ok()?;
+    let mut hello = Vec::new();
+    connection.write_tls(&mut hello).ok()?;
+    Some(hello)
+}
+
 /// Names a certificate may legitimately be issued for.
 ///
 /// A masked server proves the name it actually owns (the endpoint), while the

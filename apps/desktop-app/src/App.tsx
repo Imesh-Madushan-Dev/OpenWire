@@ -42,7 +42,7 @@ function Shell() {
     // it squares off.
     <div
       className={cn(
-        'relative flex h-full flex-col overflow-hidden bg-background',
+        'shell-canvas relative flex h-full flex-col overflow-hidden bg-background',
         !maximized && 'rounded-[12px] border border-tint/12',
       )}
     >

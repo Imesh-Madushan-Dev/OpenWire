@@ -8,10 +8,12 @@ import {
   MoreVerticalIcon,
   PencilEdit02Icon,
   QrCodeIcon,
+  ServerStack01Icon,
 } from '@hugeicons/core-free-icons'
 import { motion } from 'motion/react'
 import { cn } from 'cn'
 
+import { Flag } from '@/components/flag'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -20,8 +22,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { latencyQuality } from '@/lib/format'
+import { latencyQuality, regionCode } from '@/lib/format'
 import { spring, staggerChild } from '@/lib/motion'
+import { toneStyle } from '@/lib/tone'
 import type { ServerSummary } from '@/lib/types'
 
 import { protocolChips } from './links'
@@ -47,8 +50,23 @@ export function ServerRow({
 }: ServerRowProps) {
   const chips = protocolChips(server)
 
+  const country = regionCode(server.countryCode)
+
   return (
     <RowFrame selected={selected} label={`Use ${server.name}`} onSelect={onSelect}>
+      {/* Where it is, when known; otherwise a server tile in the same slot. */}
+      {country ? (
+        <span className="pointer-events-none grid size-8 shrink-0 place-items-center rounded-xl bg-tint/6">
+          <Flag code={country} className="h-3.5 w-5" />
+        </span>
+      ) : (
+        <span
+          className="tone-tile pointer-events-none grid size-8 shrink-0 place-items-center rounded-xl"
+          style={toneStyle('violet')}
+        >
+          <HugeiconsIcon icon={ServerStack01Icon} size={16} strokeWidth={2} />
+        </span>
+      )}
       <div className="pointer-events-none min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-1.5">
           <span className="truncate text-sm font-medium">{server.name}</span>
@@ -69,7 +87,7 @@ export function ServerRow({
             </span>
           )}
           {inUse && (
-            <span className="shrink-0 rounded-full bg-success/14 px-1.5 py-px text-[10px] font-semibold text-success">
+            <span className="shrink-0 rounded-full bg-protected/14 px-1.5 py-px text-[10px] font-semibold text-protected">
               Connected
             </span>
           )}
@@ -126,7 +144,10 @@ export function AutomaticRow({
 }) {
   return (
     <RowFrame selected={selected} label="Choose the fastest server automatically" onSelect={onSelect}>
-      <span className="pointer-events-none grid size-8 shrink-0 place-items-center rounded-xl bg-tint/7 text-foreground/80">
+      <span
+        className="tone-tile pointer-events-none grid size-8 shrink-0 place-items-center rounded-xl"
+        style={toneStyle('amber')}
+      >
         <HugeiconsIcon icon={FlashIcon} size={16} strokeWidth={2} />
       </span>
       <div className="pointer-events-none min-w-0 flex-1">
@@ -162,8 +183,8 @@ function RowFrame({
       <div
         className={cn(
           'group relative flex items-center gap-3 rounded-2xl border py-2.5 pr-1.5 pl-3 transition-colors duration-200',
-          // Selection is carried by the radio; the row itself only lifts.
-          selected ? 'border-tint/10 bg-tint/6' : 'border-transparent hover:bg-tint/4',
+          // The radio says which; the tint repeats it at a glance down the list.
+          selected ? 'border-selected-border bg-selected' : 'border-transparent hover:bg-tint/4',
         )}
       >
         <button
