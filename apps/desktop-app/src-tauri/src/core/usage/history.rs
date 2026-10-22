@@ -29,6 +29,12 @@ const MAX_MONITORED_APPS_PER_DAY: usize = 120;
 const MAX_MONITORED_HOSTS_PER_DAY: usize = 250;
 pub const OTHER_KEY: &str = "Other";
 
+/// How the interface counters behind the stored totals were read. Version 0
+/// summed every interface Windows lists, filter drivers included, which
+/// counted each adapter several times over - Wi-Fi six times on a typical
+/// machine. Totals from then cannot be corrected, only set aside.
+pub const COUNTING: u8 = 1;
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Sample {
@@ -96,8 +102,12 @@ impl Attributed {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct DayBreakdown {
+    /// The interface counters' total while the app ran. Read [`Self::totals`]
+    /// rather than these.
     pub up: u64,
     pub down: u64,
+    /// The [`COUNTING`] that `up` and `down` were read with.
+    pub counting: u8,
     pub tunnel_up: u64,
     pub tunnel_down: u64,
     /// What went through Maizy's proxy, attributed by the relay.
@@ -119,6 +129,27 @@ pub struct DayBreakdown {
 }
 
 impl DayBreakdown {
+    /// The day's traffic, as fully as it is known.
+    ///
+    /// Two sources, each blind to something: the interface counters run only
+    /// while the app does, and the monitor and relay see only traffic they
+    /// can name an app for - but the monitor is a service, recording whether
+    /// or not the app is open. Each is a floor on the truth, so the higher
+    /// is the better answer. Counters read the old way are left out: they
+    /// overstate by several times, which no floor can fix.
+    pub fn totals(&self) -> (u64, u64) {
+        let attributed = (
+            self.monitored.up + self.tunnel_up,
+            self.monitored.down + self.tunnel_down,
+        );
+        let counted = if self.counting == COUNTING {
+            (self.up, self.down)
+        } else {
+            (0, 0)
+        };
+        (counted.0.max(attributed.0), counted.1.max(attributed.1))
+    }
+
     /// Folds the smallest entries into `Other` once a map outgrows its cap.
     fn compact(map: &mut HashMap<String, Pair>, cap: usize) {
         if map.len() <= cap {
@@ -198,9 +229,24 @@ pub struct History {
     /// relaunch.
     minute_acc: Option<Sample>,
     hour_acc: Option<Sample>,
+
+    /// The [`COUNTING`] the timeline tiers were recorded with.
+    counting: u8,
 }
 
 impl History {
+    /// Drops timeline samples counted the old way. Called once after loading:
+    /// a graph several times too tall is worse than a short one.
+    pub fn retire_old_counting(&mut self) {
+        if self.counting != COUNTING {
+            self.minutes.clear();
+            self.hours.clear();
+            self.minute_acc = None;
+            self.hour_acc = None;
+            self.counting = COUNTING;
+        }
+    }
+
     /// Records one second of throughput.
     pub fn push(&mut self, sample: Sample) {
         push_capped(&mut self.seconds, sample, SECONDS_KEPT);
@@ -312,6 +358,13 @@ impl History {
     pub fn record_day_totals(&mut self, local_day: i64, up: u64, down: u64) {
         self.dirty.insert(local_day);
         let day = self.days.entry(local_day).or_default();
+        if day.counting != COUNTING {
+            // Counted the old way: overstated, and inseparable from what
+            // follows, so the day's count starts over.
+            day.up = 0;
+            day.down = 0;
+            day.counting = COUNTING;
+        }
         day.up += up;
         day.down += down;
     }
@@ -407,14 +460,18 @@ impl History {
     /// reaching further back than the store goes is clamped by omission rather
     /// than rejected.
     pub fn summary_between(&self, first: i64, last: i64) -> DayBreakdown {
-        let mut merged = DayBreakdown::default();
+        let mut merged = DayBreakdown {
+            counting: COUNTING,
+            ..DayBreakdown::default()
+        };
         if last < first {
             return merged;
         }
 
         for (_, day) in self.days.range(first..=last) {
-            merged.up += day.up;
-            merged.down += day.down;
+            let (up, down) = day.totals();
+            merged.up += up;
+            merged.down += down;
             merged.tunnel_up += day.tunnel_up;
             merged.tunnel_down += day.tunnel_down;
             merge_into(&mut merged.apps, &day.apps);
@@ -661,6 +718,56 @@ mod tests {
     }
 
     #[test]
+    fn a_day_totals_the_fuller_of_its_two_sources() {
+        let mut history = History::default();
+        // The app ran briefly; the monitor service recorded all day.
+        history.record_day_totals(4, 10, 100);
+        history.record_monitored(4, "edge.exe", "a.example", "HTTPS", 30, 2_000);
+        // And the interface counters saw upload the monitor could not name.
+        history.record_day_totals(4, 50, 0);
+
+        let day = history.summary_between(4, 4);
+        assert_eq!((day.up, day.down), (60, 2_000));
+    }
+
+    #[test]
+    fn totals_counted_the_old_way_are_set_aside() {
+        // A day stored before filter interfaces were skipped: six times over.
+        let stored: DayBreakdown = serde_json::from_str(
+            r#"{"up":600,"down":6000,"monitored":{"up":100,"down":1000}}"#,
+        )
+        .expect("an old day file");
+        assert_eq!(stored.counting, 0);
+        assert_eq!(stored.totals(), (100, 1000), "the monitor's figures stand in");
+
+        let mut history = History::default();
+        history.adopt_days(BTreeMap::from([(9, stored)]));
+        history.record_day_totals(9, 5, 7);
+        let day = history.summary_between(9, 9);
+        assert_eq!(
+            (day.up, day.down),
+            (100, 1000),
+            "new counting starts the day over rather than adding to the old"
+        );
+    }
+
+    #[test]
+    fn timeline_samples_counted_the_old_way_are_dropped_once() {
+        let mut history: History = serde_json::from_str(
+            r#"{"minutes":[{"t":60,"up":6,"down":60,"tunnelUp":0,"tunnelDown":0}]}"#,
+        )
+        .expect("an old store");
+        history.retire_old_counting();
+        assert!(history.timeline(Range::Day).iter().all(|s| s.down == 0));
+
+        history.push(Sample { t: 120, down: 5, ..Sample::default() });
+        let json = serde_json::to_string(&history).expect("serialize");
+        let mut reloaded: History = serde_json::from_str(&json).expect("reload");
+        reloaded.retire_old_counting();
+        assert_eq!(reloaded.counting, COUNTING, "and never again once current");
+    }
+
+    #[test]
     fn days_are_not_written_inline_any_more() {
         let mut history = History::default();
         history.record_breakdown(7, "edge.exe", "a.example", "HTTPS", 1, 9);
@@ -687,13 +794,17 @@ mod tests {
 
         // A file already written for the same day is newer and must win.
         let newer = DayBreakdown {
-            down: 500,
+            tunnel_down: 500,
             ..DayBreakdown::default()
         };
         history.adopt_days(BTreeMap::from([(8, newer)]));
 
-        assert_eq!(history.summary_between(7, 7).down, 90);
-        assert_eq!(history.summary_between(8, 8).down, 500);
+        // Read through what the relay attributed: the interface totals of a
+        // store this old were counted the overstated way, and are set aside.
+        let migrated = history.summary_between(7, 7);
+        assert_eq!(migrated.tunnel_down, 9);
+        assert_eq!(migrated.apps["edge.exe"].down, 9);
+        assert_eq!(history.summary_between(8, 8).tunnel_down, 500);
         let dirty: Vec<i64> = history
             .take_dirty()
             .into_iter()

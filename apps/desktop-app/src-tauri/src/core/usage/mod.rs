@@ -210,6 +210,7 @@ impl UsageTracker {
         let mut history: History = store::read_json(path).ok().flatten().unwrap_or_default();
         let days_dir = path.with_file_name("usage-days");
         history.adopt_days(read_days(&days_dir));
+        history.retire_old_counting();
 
         let resolver = ProcessResolver::new();
         resolver.seed_paths(history.app_paths().clone());

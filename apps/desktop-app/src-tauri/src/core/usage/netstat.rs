@@ -53,9 +53,6 @@ fn read_interfaces() -> HashMap<u64, (u64, u64)> {
     };
     use windows_sys::Win32::NetworkManagement::Ndis::IfOperStatusUp;
 
-    // Loopback would double-count our own proxy hop.
-    const IF_TYPE_SOFTWARE_LOOPBACK: u32 = 24;
-
     let mut table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
     // SAFETY: on success the pointer is set to a table owned by the OS, which
     // is handed back to FreeMibTable below.
@@ -73,7 +70,9 @@ fn read_interfaces() -> HashMap<u64, (u64, u64)> {
         );
 
         for row in rows {
-            if row.Type == IF_TYPE_SOFTWARE_LOOPBACK || row.OperStatus != IfOperStatusUp {
+            if row.OperStatus != IfOperStatusUp
+                || !counts(row.Type, row.InterfaceAndOperStatusFlags._bitfield)
+            {
                 continue;
             }
             // The LUID is stable across renames, unlike the interface index.
@@ -84,6 +83,23 @@ fn read_interfaces() -> HashMap<u64, (u64, u64)> {
     }
 
     out
+}
+
+/// Whether an interface's counters belong in the total: each adapter once.
+///
+/// Loopback would double-count our own proxy hop. And every filter driver
+/// bound to an adapter - WFP, QoS, Wi-Fi's own - is listed as an interface in
+/// its own right, repeating the adapter's counters: summing those counted
+/// Wi-Fi six times over on a typical machine. Virtual adapters (a VPN's TAP,
+/// Hyper-V's switch) are real interfaces and do count, as they do in
+/// GlassWire: traffic tunnelled through one is seen there and again, wrapped,
+/// on the adapter that carries the tunnel.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn counts(if_type: u32, flags: u8) -> bool {
+    const IF_TYPE_SOFTWARE_LOOPBACK: u32 = 24;
+    // `InterfaceAndOperStatusFlags`: bit 0 is HardwareInterface, bit 1 FilterInterface.
+    const FILTER_INTERFACE: u8 = 1 << 1;
+    if_type != IF_TYPE_SOFTWARE_LOOPBACK && flags & FILTER_INTERFACE == 0
 }
 
 #[cfg(not(windows))]
@@ -145,6 +161,37 @@ fn local_offset_secs() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn each_adapter_counts_once() {
+        const ETHERNET: u32 = 6;
+        const WIFI: u32 = 71;
+        const HARDWARE: u8 = 1;
+        const FILTER: u8 = 1 << 1;
+
+        assert!(counts(WIFI, HARDWARE), "the Wi-Fi adapter itself");
+        assert!(counts(53, 0), "a VPN's TAP adapter");
+        assert!(!counts(WIFI, FILTER), "a QoS or WFP filter repeating Wi-Fi's counters");
+        assert!(!counts(ETHERNET, FILTER | HARDWARE));
+        assert!(!counts(24, 0), "loopback");
+    }
+
+    /// The real table, read through the real filter: each adapter's counters
+    /// must appear once, never repeated by its filter drivers.
+    #[cfg(windows)]
+    #[test]
+    fn no_two_interfaces_report_the_same_counters() {
+        let interfaces = read_interfaces();
+        let mut busy: Vec<(u64, u64)> = interfaces
+            .values()
+            .copied()
+            .filter(|(i, o)| i + o > 1_000_000)
+            .collect();
+        let before = busy.len();
+        busy.sort_unstable();
+        busy.dedup();
+        assert_eq!(busy.len(), before, "an adapter is still counted more than once");
+    }
 
     #[test]
     fn first_read_primes_without_reporting_a_spike() {
@@ -245,3 +292,4 @@ mod diagnostics {
         }
     }
 }
+
