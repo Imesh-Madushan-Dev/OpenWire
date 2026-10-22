@@ -6,8 +6,8 @@
 /* ---------------------------------------------------------------------------
  * OpenWire design system
  *
- * Three colour themes - Graphite (the default), Aurora and Neon - each with a
- * light and a dark mode. The layout follows GlassWire: a raised chrome band
+ * Three colour themes - Graphite, Aurora and Neon (the default, in light
+ * mode) - each with a light and a dark mode. The layout follows GlassWire: a raised chrome band
  * (title bar plus each page's toolbar), flat content panels divided by
  * grooves, and tight corners. Colour is everywhere, but every hue has a job,
  * and no one hue is sprayed across unrelated things:

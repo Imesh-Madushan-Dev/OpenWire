@@ -35,8 +35,8 @@ export const MODES: readonly { value: ThemeMode; label: string }[] = [
   { value: 'dark', label: 'Dark' },
 ]
 
-export const DEFAULT_THEME: ThemeId = 'graphite'
-export const DEFAULT_MODE: ThemeMode = 'system'
+export const DEFAULT_THEME: ThemeId = 'neon'
+export const DEFAULT_MODE: ThemeMode = 'light'
 
 const THEME_KEY = 'openwire.colorTheme'
 // Named before colour themes existed; it has always held the mode.
