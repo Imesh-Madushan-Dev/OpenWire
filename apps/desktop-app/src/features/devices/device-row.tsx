@@ -28,7 +28,7 @@ import { deviceTitle, KINDS } from './device-kinds'
 
 /** Shared with the header row, so the columns line up. */
 export const ROW_GRID =
-  'grid grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)_6.5rem_5rem_2rem] items-center gap-4'
+  'grid grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)_6rem_4.5rem_1.75rem] items-center gap-3'
 
 const ROLE_LABEL = { thisDevice: 'This PC', router: 'Router' } as const
 
@@ -49,7 +49,7 @@ export function DeviceRow({ device, onEdit, onCopy, onAcknowledge, onForget }: D
       layout="position"
       className={cn(
         ROW_GRID,
-        'group px-4 py-2.5 transition-colors duration-200 hover:bg-tint/4',
+        'group h-11 px-3 transition-colors duration-150 hover:bg-tint/4',
         // A faint wash until looked at, so newcomers stand out in a long list.
         device.isNew && 'bg-primary/6 hover:bg-primary/9',
       )}
@@ -58,33 +58,33 @@ export function DeviceRow({ device, onEdit, onCopy, onAcknowledge, onForget }: D
         <span
           aria-hidden
           className={cn(
-            'grid size-9 shrink-0 place-items-center rounded-xl bg-tint/6 transition-colors',
+            'grid size-7 shrink-0 place-items-center rounded-md bg-tint/6 transition-colors',
             device.online ? 'text-foreground/85' : 'text-muted-foreground/60',
           )}
         >
-          <HugeiconsIcon icon={kind.icon} size={18} strokeWidth={1.7} />
+          <HugeiconsIcon icon={kind.icon} size={15} strokeWidth={1.8} />
         </span>
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-1.5">
             <span
-              className={cn('truncate text-sm font-medium', !device.online && 'text-foreground/70')}
+              className={cn('truncate text-[13px] font-medium', !device.online && 'text-foreground/70')}
               title={device.hostname && device.customName ? `Calls itself ${device.hostname}` : undefined}
             >
               {deviceTitle(device)}
             </span>
             {device.role && (
-              <span className="shrink-0 rounded-md bg-tint/7 px-1.5 py-px text-[9px] font-semibold tracking-wide text-muted-foreground uppercase">
+              <span className="shrink-0 rounded-[3px] bg-tint/8 px-1 text-[9px] font-semibold tracking-wide text-muted-foreground uppercase">
                 {ROLE_LABEL[device.role]}
               </span>
             )}
             {device.isNew && (
-              <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-px text-[10px] font-semibold text-primary">
+              <span className="shrink-0 rounded-[3px] bg-primary/15 px-1 text-[10px] font-semibold text-primary">
                 New
               </span>
             )}
           </div>
           <span
-            className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground"
+            className="block truncate font-mono text-[11px] text-muted-foreground"
             data-selectable
           >
             {device.ip} <span className="text-muted-foreground/50">·</span> {device.mac}
@@ -122,7 +122,7 @@ export function DeviceRow({ device, onEdit, onCopy, onAcknowledge, onForget }: D
           render={
             <Button
               variant="ghost"
-              size="icon-sm"
+              size="icon-xs"
               aria-label={`Actions for ${deviceTitle(device)}`}
               className="text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
             />

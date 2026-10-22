@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use serde::Serialize;
 use tauri::{Manager, State};
 
-use crate::core::usage::history::{Range, Sample};
+use crate::core::usage::history::{Range, Sample, SpanTimeline};
 use crate::core::usage::{Ranked, UsageSummary};
 use crate::error::AppResult;
 use crate::state::AppState;
@@ -15,6 +15,19 @@ use crate::state::AppState;
 #[tauri::command]
 pub async fn usage_timeline(state: State<'_, AppState>, range: Range) -> AppResult<Vec<Sample>> {
     Ok(state.usage.timeline(range))
+}
+
+/// Throughput between two instants - the day, week or month the Usage page
+/// is showing - at the finest tier that still covers its start. Unlike
+/// [`usage_timeline`] the span is not counted back from now, so a past day can
+/// be drawn too.
+#[tauri::command]
+pub async fn usage_timeline_between(
+    state: State<'_, AppState>,
+    from_ts: i64,
+    to_ts: i64,
+) -> AppResult<SpanTimeline> {
+    Ok(state.usage.timeline_between(from_ts, to_ts))
 }
 
 /// Totals plus the ranked app / host / traffic-type columns.

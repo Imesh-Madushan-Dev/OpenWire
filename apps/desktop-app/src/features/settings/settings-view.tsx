@@ -1,6 +1,7 @@
 /**
- * Settings: a section sidebar beside the active section's controls - protection,
- * routing, servers, app behaviour, appearance, diagnostics, and about.
+ * Settings: a section list beside the active section's controls - protection,
+ * routing, servers, app behaviour, appearance, diagnostics, and about - laid
+ * out as two flat panes divided by a groove, the way GlassWire's are.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -44,10 +45,10 @@ const DEVELOPER_URL = 'https://github.com/Imesh-Madushan-Dev'
 
 const RESTART_HINT = 'Reconnect to apply this change.'
 
-export function SettingsView() {
+export function SettingsView({ initialSection = 'protection' }: { initialSection?: SectionId }) {
   const { settings } = useVpn()
-  // Protection first: it is where the dashboard's feature link lands.
-  const [active, setActive] = useState<SectionId>('protection')
+  // Protection by default: it is where the VPN page's settings link lands.
+  const [active, setActive] = useState<SectionId>(initialSection)
   const scrollerRef = useRef<HTMLDivElement>(null)
 
   const section = SECTIONS.find((candidate) => candidate.id === active) ?? SECTIONS[0]
@@ -59,15 +60,15 @@ export function SettingsView() {
   }
 
   return (
-    <div ref={scrollerRef} className="h-full overflow-y-auto">
-      <div className="mx-auto flex w-full max-w-208 gap-8 px-8 pt-4 pb-10">
-        <SettingsNav active={active} onChange={select} />
+    <div className="flex h-full overflow-hidden">
+      <SettingsNav active={active} onChange={select} />
 
+      <div ref={scrollerRef} className="min-w-0 flex-1 overflow-y-auto">
         <div
           id="settings-panel"
           role="tabpanel"
           aria-labelledby={`settings-tab-${active}`}
-          className="min-w-0 flex-1"
+          className="mx-auto w-full max-w-160 px-6 pt-5 pb-8"
         >
           {/* Wait for the real values rather than rendering switches in a guessed state. */}
           {settings && (
@@ -78,18 +79,18 @@ export function SettingsView() {
                 initial="initial"
                 animate="animate"
                 exit={{ opacity: 0, transition: transition.fast }}
-                className="flex flex-col gap-6"
+                className="flex flex-col gap-5"
               >
-                <motion.header variants={staggerChild} className="flex items-start gap-3 pt-0.5">
+                <motion.header variants={staggerChild} className="flex items-center gap-3">
                   <span
-                    className="tone-tile grid size-10 shrink-0 place-items-center rounded-xl"
+                    className="tone-tile grid size-9 shrink-0 place-items-center rounded-md"
                     style={toneStyle(section.tone)}
                   >
-                    <HugeiconsIcon icon={section.icon} size={19} strokeWidth={1.9} />
+                    <HugeiconsIcon icon={section.icon} size={18} strokeWidth={1.9} />
                   </span>
-                  <span className="flex min-w-0 flex-col gap-1">
-                    <h2 className="font-heading text-lg font-semibold">{section.label}</h2>
-                    <p className="text-sm leading-relaxed text-muted-foreground">
+                  <span className="flex min-w-0 flex-col">
+                    <h2 className="font-heading text-base font-semibold">{section.label}</h2>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
                       {section.description}
                     </p>
                   </span>
@@ -278,7 +279,7 @@ function ServersSection() {
   const customServers = servers.filter((server) => server.tags.includes('custom'))
 
   return (
-    <motion.div variants={staggerChild} className="panel flex flex-col gap-4 rounded-2xl p-4">
+    <motion.div variants={staggerChild} className="panel flex flex-col gap-4 rounded-lg p-4">
       <ServerImportField />
 
       {customServers.length > 0 && (

@@ -7,7 +7,7 @@
  * the theme is - it applies before first paint.
  */
 
-export type ChartPaletteId = 'signal' | 'glacier' | 'citrus' | 'ember'
+export type ChartPaletteId = 'classic' | 'signal' | 'glacier' | 'citrus' | 'ember'
 
 export interface ChartPaletteOption {
   id: ChartPaletteId
@@ -17,15 +17,21 @@ export interface ChartPaletteOption {
 }
 
 export const CHART_PALETTES: readonly ChartPaletteOption[] = [
+  { id: 'classic', label: 'Classic', description: 'Gold & magenta' },
   { id: 'signal', label: 'Signal', description: 'Blue & orange' },
   { id: 'glacier', label: 'Glacier', description: 'Sky & coral' },
   { id: 'citrus', label: 'Citrus', description: 'Lime & indigo' },
   { id: 'ember', label: 'Ember', description: 'Orange & violet' },
 ]
 
-export const DEFAULT_CHART_PALETTE: ChartPaletteId = 'signal'
+export const DEFAULT_CHART_PALETTE: ChartPaletteId = 'classic'
 
-const STORAGE_KEY = 'maizy.chartPalette'
+/**
+ * Versioned: v1 was saved while Signal was the default, so most stored values
+ * there record the old default rather than a deliberate pick. Starting a new
+ * key moves everyone onto Classic once, and from then on the choice sticks.
+ */
+const STORAGE_KEY = 'maizy.chartPalette.v2'
 
 function isChartPaletteId(value: unknown): value is ChartPaletteId {
   return CHART_PALETTES.some((palette) => palette.id === value)

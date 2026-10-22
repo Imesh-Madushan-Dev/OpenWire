@@ -169,7 +169,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
       {/* Ambient halo. Sits behind everything and never intercepts the pointer. */}
       <motion.div
         aria-hidden
-        className="pointer-events-none absolute size-85 rounded-full blur-3xl"
+        className="pointer-events-none absolute size-64 rounded-full blur-3xl"
         style={{
           background: `radial-gradient(circle, color-mix(in oklab, ${treatment.halo} 55%, transparent), transparent 65%)`,
         }}
@@ -190,7 +190,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
           <motion.div
             aria-hidden
             key="pulse"
-            className="pointer-events-none absolute size-49 rounded-full border border-protected/40"
+            className="pointer-events-none absolute size-34 rounded-full border border-protected/40"
             initial={{ opacity: 0, scale: 1 }}
             animate={{ opacity: [0.5, 0], scale: [1, 1.45] }}
             exit={{ opacity: 0 }}
@@ -207,7 +207,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
         aria-busy={busy}
         aria-pressed={phase === 'connected'}
         className={cn(
-          'group relative grid size-49 place-items-center rounded-full border-2',
+          'group relative grid size-34 place-items-center rounded-full border-2',
           'orb-surface',
           'outline-none transition-colors duration-300',
           'focus-visible:ring-4 focus-visible:ring-primary/40',
@@ -238,7 +238,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
         <span
           aria-hidden
           className={cn(
-            'absolute inset-3 rounded-full border transition-colors duration-300',
+            'absolute inset-2.5 rounded-full border transition-colors duration-300',
             treatment.rim,
           )}
         />
@@ -312,7 +312,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
               exit={{ opacity: 0, scale: 1.05 }}
               transition={transition.fast}
               className={cn(
-                'numeric text-4xl font-semibold tabular-nums transition-colors duration-300',
+                'numeric text-3xl font-semibold tabular-nums transition-colors duration-300',
                 phase === 'connected' ? 'text-protected' : 'text-primary',
               )}
             >
@@ -329,7 +329,7 @@ export function PowerOrb({ phase, onToggle, disabled = false }: PowerOrbProps) {
             >
               <HugeiconsIcon
                 icon={PowerIcon}
-                size={56}
+                size={46}
                 strokeWidth={1.6}
                 className={cn('transition-colors duration-300', treatment.icon)}
               />

@@ -12,18 +12,6 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { GlobalIcon } from '@hugeicons/core-free-icons'
 import { cn } from 'cn'
 
-/** Localised country names, for tooltips: "SG" -> "Singapore". */
-const REGION_NAMES = new Intl.DisplayNames(undefined, { type: 'region' })
-
-export function countryName(code: string | undefined): string | undefined {
-  if (!code) return undefined
-  try {
-    return REGION_NAMES.of(code.toUpperCase())
-  } catch {
-    return undefined
-  }
-}
-
 export function Flag({ code, className }: { code?: string; className?: string }) {
   // A code the folder has no file for falls back to the globe, once.
   const [missing, setMissing] = useState<string | null>(null)

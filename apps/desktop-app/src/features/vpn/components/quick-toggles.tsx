@@ -1,25 +1,26 @@
 /**
- * The two protections worth reaching without a trip to Settings. Changing one
- * mid-session takes effect on the next connect; the backend says so.
+ * The two protections worth reaching without a trip to Settings, as toolbar
+ * toggles. Changing one mid-session takes effect on the next connect; the
+ * backend says so.
  */
 
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
-import { Settings01Icon, Shield01Icon, Wifi01Icon } from '@hugeicons/core-free-icons'
+import { Shield01Icon, Wifi01Icon } from '@hugeicons/core-free-icons'
 import { cn } from 'cn'
 
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toneStyle, type Tone } from '@/lib/tone'
 import { useVpn } from '@/features/vpn/vpn-context'
 
-export function QuickToggles({ onOpenSettings }: { onOpenSettings: () => void }) {
+export function QuickToggles() {
   const { settings, platform, updateSettings } = useVpn()
   if (!settings) return null
 
   const proxyUnsupported = platform ? !platform.systemProxySupported : false
 
   return (
-    <div className="flex items-center justify-center gap-2">
-      <Chip
+    <div className="flex items-center gap-0.5">
+      <Toggle
         icon={Shield01Icon}
         tone="rose"
         label="Kill switch"
@@ -27,7 +28,7 @@ export function QuickToggles({ onOpenSettings }: { onOpenSettings: () => void })
         on={settings.killSwitch}
         onToggle={() => void updateSettings({ killSwitch: !settings.killSwitch })}
       />
-      <Chip
+      <Toggle
         icon={Wifi01Icon}
         tone="sky"
         label="All apps"
@@ -40,27 +41,11 @@ export function QuickToggles({ onOpenSettings }: { onOpenSettings: () => void })
         disabled={proxyUnsupported}
         onToggle={() => void updateSettings({ systemProxy: !settings.systemProxy })}
       />
-
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <button
-              type="button"
-              aria-label="All settings"
-              onClick={onOpenSettings}
-              className="grid size-9 place-items-center rounded-full border border-tint/8 text-muted-foreground transition-colors outline-none hover:bg-tint/6 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/50"
-            />
-          }
-        >
-          <HugeiconsIcon icon={Settings01Icon} size={14} strokeWidth={2} />
-        </TooltipTrigger>
-        <TooltipContent>All settings</TooltipContent>
-      </Tooltip>
     </div>
   )
 }
 
-function Chip({
+function Toggle({
   icon,
   tone,
   label,
@@ -70,7 +55,7 @@ function Chip({
   onToggle,
 }: {
   icon: IconSvgElement
-  /** The feature's identity colour, on its icon tile. */
+  /** The feature's identity colour, on its icon. */
   tone: Tone
   label: string
   tip: string
@@ -87,35 +72,35 @@ function Chip({
             aria-pressed={on}
             disabled={disabled}
             onClick={onToggle}
-            // On reads as lit, off as dim, and the dot says which; the tile's
-            // colour names the feature and stays put either way.
+            // The icon's colour names the feature and stays put; on and off
+            // are told apart by the lit chip, the switch and the brightness.
             className={cn(
-              'flex h-9 items-center gap-2 rounded-full border py-1 pr-3 pl-1 text-xs font-medium transition-colors duration-200 outline-none',
+              'flex h-6 items-center gap-1.5 rounded-[3px] pr-1.5 pl-1.5 text-xs font-medium transition-colors duration-150 outline-none',
               'focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-50',
-              on
-                ? 'border-tint/14 bg-tint/8 text-foreground'
-                : 'border-tint/8 bg-transparent text-muted-foreground hover:text-foreground',
+              on ? 'bg-tint/12 text-foreground' : 'text-foreground/70 hover:bg-tint/6 hover:text-foreground',
             )}
           />
         }
       >
-        <span
-          className={cn(
-            'tone-tile grid size-7 place-items-center rounded-full transition-opacity duration-200',
-            !on && 'opacity-60',
-          )}
-          style={toneStyle(tone)}
-        >
-          <HugeiconsIcon icon={icon} size={14} strokeWidth={2} />
+        <span className="tone-tile grid size-4.5 place-items-center rounded-[3px]" style={toneStyle(tone)}>
+          <HugeiconsIcon icon={icon} size={11} strokeWidth={2.2} />
         </span>
         {label}
+        {/* A miniature switch: shape, not just colour, says which state. */}
         <span
           aria-hidden
           className={cn(
-            'size-1.5 rounded-full transition-colors',
-            on ? 'bg-success' : 'bg-tint/25',
+            'relative ml-0.5 h-3 w-5 rounded-full transition-colors duration-200',
+            on ? 'bg-success' : 'bg-tint/20',
           )}
-        />
+        >
+          <span
+            className={cn(
+              'absolute top-0.5 size-2 rounded-full bg-background transition-[left] duration-200',
+              on ? 'left-2.5' : 'left-0.5',
+            )}
+          />
+        </span>
       </TooltipTrigger>
       <TooltipContent>{tip}</TooltipContent>
     </Tooltip>

@@ -1,20 +1,16 @@
 /**
- * Live session readout. Replaces the "Tap to connect" hint once a tunnel is up,
- * occupying the same slot so the layout never jumps.
+ * The session readout along the bottom of the connect pane, in GlassWire's
+ * banded style: four cells divided by grooves. Always present, so the pane
+ * never reflows on connect; the figures read as dashes while the tunnel is
+ * down.
  */
 
 import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  ArrowDown01Icon,
-  ArrowUp01Icon,
-  FlashIcon,
-  Time01Icon,
-} from '@hugeicons/core-free-icons'
-import { motion } from 'motion/react'
+import { FlashIcon, Time01Icon } from '@hugeicons/core-free-icons'
 import { cn } from 'cn'
 
+import { SeriesIcon } from '@/components/series-icon'
 import { formatDuration, formatLatency, formatSpeed, latencyQuality } from '@/lib/format'
-import { staggerChild, staggerParent } from '@/lib/motion'
 import type { StatsSnapshot } from '@/lib/types'
 
 const QUALITY_TONE = {
@@ -24,70 +20,54 @@ const QUALITY_TONE = {
   unknown: 'text-muted-foreground',
 } as const
 
-export function StatsStrip({ stats }: { stats: StatsSnapshot }) {
+export function StatsStrip({ stats, live }: { stats: StatsSnapshot; live: boolean }) {
   const quality = latencyQuality(stats.latencyMs)
 
   return (
-    <motion.dl
-      variants={staggerParent}
-      initial="initial"
-      animate="animate"
-      className="flex items-stretch gap-2"
-    >
+    <dl className="grid h-12 shrink-0 grid-cols-4 divide-x divide-hairline border-t border-hairline bg-rail/60">
       {/* Arrows in the chart colours, so a direction reads the same here as
-          on the Network and Usage graphs. Only the arrows: those colours are
-          tuned for 3:1 as graphics, not 4.5:1 as text. */}
-      <Stat
-        icon={ArrowDown01Icon}
-        label="Download"
-        value={formatSpeed(stats.downBps)}
-        tone="text-foreground"
-        iconTone="text-chart-down"
-      />
-      <Stat
-        icon={ArrowUp01Icon}
-        label="Upload"
-        value={formatSpeed(stats.upBps)}
-        tone="text-foreground"
-        iconTone="text-chart-up"
-      />
-      <Stat
-        icon={FlashIcon}
+          on the Network and Usage graphs. */}
+      <Cell label="Download" icon={<SeriesIcon direction="down" size={12} />}>
+        {live ? formatSpeed(stats.downBps) : '—'}
+      </Cell>
+      <Cell label="Upload" icon={<SeriesIcon direction="up" size={12} />}>
+        {live ? formatSpeed(stats.upBps) : '—'}
+      </Cell>
+      <Cell
         label="Latency"
-        value={formatLatency(stats.latencyMs)}
-        tone={QUALITY_TONE[quality]}
-      />
-      <Stat
-        icon={Time01Icon}
+        icon={<HugeiconsIcon icon={FlashIcon} size={12} strokeWidth={2.2} className={QUALITY_TONE[quality]} />}
+        className={live ? QUALITY_TONE[quality] : undefined}
+      >
+        {live ? formatLatency(stats.latencyMs) : '—'}
+      </Cell>
+      <Cell
         label="Session"
-        value={formatDuration(stats.uptimeSecs)}
-        tone="text-foreground"
-        iconTone="text-muted-foreground"
-      />
-    </motion.dl>
+        icon={<HugeiconsIcon icon={Time01Icon} size={12} strokeWidth={2.2} className="text-muted-foreground" />}
+      >
+        {live ? formatDuration(stats.uptimeSecs) : '—'}
+      </Cell>
+    </dl>
   )
 }
 
-interface StatProps {
-  icon: typeof FlashIcon
+function Cell({
+  label,
+  icon,
+  className,
+  children,
+}: {
   label: string
-  value: string
-  tone: string
-  /** The icon's colour, when it differs from the value's. */
-  iconTone?: string
-}
-
-function Stat({ icon, label, value, tone, iconTone = tone }: StatProps) {
+  icon: React.ReactNode
+  className?: string
+  children: React.ReactNode
+}) {
   return (
-    <motion.div
-      variants={staggerChild}
-      className="panel flex min-w-[104px] flex-col gap-1 rounded-2xl px-4 py-3"
-    >
-      <dt className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-        <HugeiconsIcon icon={icon} size={13} strokeWidth={2} className={iconTone} />
+    <div className="flex min-w-0 flex-col justify-center gap-0.5 px-4">
+      <dt className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        {icon}
         {label}
       </dt>
-      <dd className={cn('numeric text-sm font-semibold', tone)}>{value}</dd>
-    </motion.div>
+      <dd className={cn('numeric truncate text-[13px] font-semibold', className)}>{children}</dd>
+    </div>
   )
 }

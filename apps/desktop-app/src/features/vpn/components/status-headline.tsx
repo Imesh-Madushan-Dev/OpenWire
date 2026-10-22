@@ -37,7 +37,7 @@ export function StatusHeadline({ connection }: { connection: ConnectionState }) 
   return (
     <div className="flex flex-col items-center gap-2 text-center">
       {/* Fixed height: the headline swap must not nudge the orb. */}
-      <div className="grid h-7 place-items-center">
+      <div className="grid h-8 place-items-center">
         <AnimatePresence mode="wait" initial={false}>
           <motion.p
             key={phase}
@@ -45,7 +45,7 @@ export function StatusHeadline({ connection }: { connection: ConnectionState }) 
             initial="initial"
             animate="animate"
             exit="exit"
-            className={cn('text-glow text-[17px] font-semibold', TONE[phase])}
+            className={cn('text-glow text-xl font-semibold', TONE[phase])}
           >
             {HEADLINE[phase]}
           </motion.p>

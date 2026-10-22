@@ -35,7 +35,7 @@ export function QrCode({ value, className }: { value: string; className?: string
       aria-label="QR code for this server's link"
       viewBox={`${-margin} ${-margin} ${size + margin * 2} ${size + margin * 2}`}
       shapeRendering="crispEdges"
-      className={cn('rounded-2xl bg-white', className)}
+      className={cn('rounded-lg bg-white', className)}
     >
       <path d={path} fill="#0b0f0d" />
     </svg>

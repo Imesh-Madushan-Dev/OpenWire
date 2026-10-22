@@ -57,6 +57,15 @@ impl Sample {
     }
 }
 
+/// A timeline for an explicit span of time, with the resolution it came at.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpanTimeline {
+    /// Seconds each sample covers: 60 from the minute tier, 3600 from hours.
+    pub bucket_secs: u32,
+    pub samples: Vec<Sample>,
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Pair {
     pub up: u64,
@@ -449,6 +458,44 @@ impl History {
         out
     }
 
+    /// Samples whose buckets overlap `[from, to)`, read from the minute tier
+    /// while it still reaches back to `from` and from the hour tier otherwise
+    /// - so today draws minute by minute, and any older span hour by hour.
+    /// Like [`Self::timeline`], the bucket still being filled is included, so
+    /// the newest point is never missing.
+    ///
+    /// Overlap rather than start, because hour buckets are cut on UTC hours:
+    /// in a half-hour timezone like +5:30, a local day's first hour sits in a
+    /// bucket that began the evening before.
+    pub fn timeline_between(&self, from: i64, to: i64) -> SpanTimeline {
+        let minutes_reach = self
+            .minutes
+            .front()
+            .or(self.minute_acc.as_ref())
+            .map(|s| s.t);
+        let (series, in_progress, bucket_secs) = match minutes_reach {
+            Some(first) if first <= from => (&self.minutes, self.minute_acc, 60_u32),
+            _ => (&self.hours, self.hour_acc, 3600_u32),
+        };
+        let span = i64::from(bucket_secs);
+
+        let samples = if to <= from {
+            Vec::new()
+        } else {
+            series
+                .iter()
+                .copied()
+                .chain(in_progress)
+                .filter(|sample| sample.t + span > from && sample.t < to)
+                .collect()
+        };
+
+        SpanTimeline {
+            bucket_secs,
+            samples,
+        }
+    }
+
     /// Merged breakdown across the last `range.days()` local days.
     pub fn summary(&self, range: Range, today: i64) -> DayBreakdown {
         self.summary_between(today - range.days() as i64 + 1, today)
@@ -601,6 +648,74 @@ mod tests {
         let hours = history.timeline(Range::Week);
         assert_eq!(hours.len(), 1);
         assert_eq!(hours[0].down, 120_000);
+    }
+
+    #[test]
+    fn timeline_between_reads_minutes_while_they_reach_back() {
+        let mut history = History::default();
+        // Two hours from t = 0: the minute tier reaches all the way back.
+        for second in 0..7_200 {
+            history.push(sample(second, 10));
+        }
+
+        let first_hour = history.timeline_between(0, 3_600);
+        assert_eq!(first_hour.bucket_secs, 60);
+        assert_eq!(
+            first_hour.samples.len(),
+            60,
+            "one sample per minute of the hour"
+        );
+        assert!(first_hour.samples.iter().all(|s| (0..3_600).contains(&s.t)));
+        assert_eq!(first_hour.samples[0].down, 600, "a minute sums its seconds");
+
+        // The open minute is part of the newest span.
+        let tail = history.timeline_between(7_140, 7_200);
+        assert_eq!(tail.samples.len(), 1);
+        assert_eq!(tail.samples[0].t, 7_140);
+    }
+
+    #[test]
+    fn timeline_between_falls_back_to_hours_for_older_spans() {
+        let mut history = History::default();
+        for second in 0..7_200 {
+            history.push(sample(second, 10));
+        }
+
+        // Starts before the first minute bucket, so only hours can cover it.
+        let span = history.timeline_between(-3_600, 7_200);
+        assert_eq!(span.bucket_secs, 3_600);
+        let starts: Vec<i64> = span.samples.iter().map(|s| s.t).collect();
+        assert_eq!(starts, vec![0, 3_600], "the closed hour, then the open one");
+        assert_eq!(span.samples[0].down, 36_000);
+    }
+
+    #[test]
+    fn timeline_between_keeps_a_bucket_straddling_the_start() {
+        let mut history = History::default();
+        for second in 0..10_800 {
+            history.push(sample(second, 10));
+        }
+
+        // A day starting on the half hour, as local days do at +5:30: the
+        // bucket from 0 to 3600 covers its first half hour, so it belongs.
+        let span = history.timeline_between(-1_800, 1_800);
+        assert_eq!(span.bucket_secs, 3_600);
+        let starts: Vec<i64> = span.samples.iter().map(|s| s.t).collect();
+        assert_eq!(starts, vec![0]);
+    }
+
+    #[test]
+    fn timeline_between_an_empty_span_is_empty() {
+        let mut history = History::default();
+        for second in 0..120 {
+            history.push(sample(second, 10));
+        }
+        assert!(history.timeline_between(60, 60).samples.is_empty());
+        assert!(history.timeline_between(90, 30).samples.is_empty());
+        assert!(History::default()
+            .timeline_between(0, 3_600)
+            .samples
+            .is_empty());
     }
 
     #[test]

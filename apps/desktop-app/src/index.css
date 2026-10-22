@@ -7,8 +7,10 @@
  * Maizy design system
  *
  * Three colour themes - Graphite (the default), Aurora and Neon - each with a
- * light and a dark mode. Colour is everywhere, but every hue has a job, and
- * no one hue is sprayed across unrelated things:
+ * light and a dark mode. The layout follows GlassWire: a raised chrome band
+ * (title bar plus each page's toolbar), flat content panels divided by
+ * grooves, and tight corners. Colour is everywhere, but every hue has a job,
+ * and no one hue is sprayed across unrelated things:
  *
  * - `primary` and `--action` mark what you can act on or have selected.
  * - `exposed` and `protected` say whether traffic is covered, and tint the
@@ -57,6 +59,7 @@
     --color-rail: var(--rail);
     --color-surface: var(--surface);
     --color-surface-hover: var(--surface-hover);
+    --color-well: var(--well);
     --color-hairline: var(--hairline);
     --color-tint: var(--tint);
     --color-success: var(--success);
@@ -68,7 +71,7 @@
     --color-chart-down: var(--chart-down);
     --color-chart-up: var(--chart-up);
 
-    /* Generous radii: nothing in this UI has a corner tighter than 12px. */
+    /* GlassWire-tight radii: controls sit at 4-6px, overlays at 11-14px. */
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -82,118 +85,124 @@
  * swatch can carry `data-theme` and `data-mode` and render in that pair's
  * colours. Both attributes always travel together. */
 :root {
-    --radius: 1rem;
+    --radius: 0.5rem;
 }
 
-/* Graphite - charcoal rather than black, so panels, header and text sit in
- * a comfortable middle range. The header is the raised layer; dividers are
- * dark grooves cut into the surface, not light lines drawn on top of it.
- * Graphite dark is also the fallback before `lib/theme.ts` has run. */
+/* Graphite - GlassWire's charcoal: a #333 chrome band over a #2b2b2b
+ * content field, dark grooves between panels, and one sky-blue accent for
+ * the active tab and selections. Graphite dark is also the fallback before
+ * `lib/theme.ts` has run. */
 :root,
 [data-theme='graphite'][data-mode='dark'] {
     color-scheme: dark;
 
-    --background: #2a2a2c;
-    --foreground: #dedee1;
+    --background: #2b2b2b;
+    --foreground: #dcdcdc;
     /* Painted over the background by the shell; Graphite keeps it flat. */
     --canvas: none;
 
-    --rail: #333336;
-    --surface: rgba(255, 255, 255, 0.035);
-    --surface-hover: rgba(255, 255, 255, 0.06);
-    --hairline: rgba(0, 0, 0, 0.2);
+    --rail: #333333;
+    /* Recessed strips, e.g. a graph's overview timeline. */
+    --well: #232323;
+    --surface: rgba(255, 255, 255, 0.03);
+    --surface-hover: rgba(255, 255, 255, 0.055);
+    --hairline: #222222;
 
     /* Opaque surfaces for overlays, which cannot rely on what is behind them. */
-    --card: #333336;
-    --card-foreground: #dedee1;
-    --popover: #36363a;
-    --popover-foreground: #dedee1;
+    --card: #333333;
+    --card-foreground: #dcdcdc;
+    --popover: #383838;
+    --popover-foreground: #dcdcdc;
 
-    /* One step lighter than the brand blue, which falls under 3:1 on charcoal;
-     * white text on it still clears 4.5:1. */
-    --primary: #3c69f7;
+    /* The accent is bright enough to read as text and icons on the chrome;
+     * filled buttons use a deeper gradient so white text on them still
+     * clears 4.5:1. */
+    --primary: #47a3ff;
     --primary-foreground: #ffffff;
-    --action: linear-gradient(180deg, #3c69f7, #2d58e3);
-    --action-glow: rgba(60, 105, 247, 0.32);
+    --action: linear-gradient(180deg, #1c72d4, #1662c0);
+    --action-glow: rgba(71, 163, 255, 0.26);
 
-    --secondary: #38383c;
-    --secondary-foreground: #dedee1;
+    --secondary: #3a3a3a;
+    --secondary-foreground: #dcdcdc;
 
-    --muted: #313134;
-    --muted-foreground: #9a9aa2;
+    --muted: #353535;
+    --muted-foreground: #a0a0a0;
 
-    --accent: #3a3a3e;
-    --accent-foreground: #dedee1;
+    --accent: #404040;
+    --accent-foreground: #e6e6e6;
 
-    --success: #4cc47a;
+    --success: #46d673;
     --warning: #f2b84b;
     --destructive: #f98c8c;
 
-    --exposed: #f2b84b;
-    --protected: #4cc47a;
-    --protected-ring: linear-gradient(#4cc47a, #4cc47a);
+    /* Coral rather than amber, so it never reads as the incoming series. */
+    --exposed: #ff8a65;
+    --protected: #46d673;
+    --protected-ring: linear-gradient(#46d673, #46d673);
 
-    --selected: rgba(60, 105, 247, 0.12);
-    --selected-border: rgba(107, 147, 255, 0.45);
+    --selected: rgba(71, 163, 255, 0.12);
+    --selected-border: rgba(71, 163, 255, 0.45);
 
     --tone-rose: #f38b9b;
     --tone-amber: #f2b84b;
-    --tone-green: #4cc47a;
+    --tone-green: #46d673;
     --tone-teal: #3fc1b0;
     --tone-sky: #5bb8f2;
     --tone-violet: #a58bf5;
 
-    --border: rgba(255, 255, 255, 0.09);
-    --input: rgba(255, 255, 255, 0.12);
-    --ring: #3c69f7;
+    --border: rgba(255, 255, 255, 0.08);
+    --input: rgba(255, 255, 255, 0.11);
+    --ring: #47a3ff;
 
     --tint: #ffffff;
     --orb-shade: rgba(0, 0, 0, 0.16);
     --text-glow: 0px;
 }
 
-/* Light Graphite - panels sit as white cards on a soft grey field. */
+/* Light Graphite - GlassWire's light skin: a white field under a pale grey
+ * chrome band, with the same blue accent deepened for contrast. */
 [data-theme='graphite'][data-mode='light'] {
     color-scheme: light;
 
-    --background: #f4f4f5;
-    --foreground: #111113;
+    --background: #ffffff;
+    --foreground: #1b1b1d;
     --canvas: none;
 
-    --rail: #fcfcfd;
-    --surface: #ffffff;
-    --surface-hover: #f9f9fa;
-    --hairline: rgba(17, 17, 19, 0.08);
+    --rail: #f1f1f2;
+    --well: #ececee;
+    --surface: #fafafa;
+    --surface-hover: #f4f4f5;
+    --hairline: #dedee1;
 
     --card: #ffffff;
-    --card-foreground: #111113;
+    --card-foreground: #1b1b1d;
     --popover: #ffffff;
-    --popover-foreground: #111113;
+    --popover-foreground: #1b1b1d;
 
-    --primary: #2d5bf6;
+    --primary: #1769c9;
     --primary-foreground: #ffffff;
-    --action: linear-gradient(180deg, #3d68f7, #2552ec);
-    --action-glow: rgba(45, 91, 246, 0.25);
+    --action: linear-gradient(180deg, #1a6fd1, #1460bb);
+    --action-glow: rgba(23, 105, 201, 0.22);
 
     --secondary: #ececee;
-    --secondary-foreground: #111113;
+    --secondary-foreground: #1b1b1d;
 
     --muted: #ececee;
     --muted-foreground: #5f5f66;
 
-    --accent: #e9e9ec;
-    --accent-foreground: #111113;
+    --accent: #e6e6e9;
+    --accent-foreground: #1b1b1d;
 
     --success: #15803d;
     --warning: #9a6200;
     --destructive: #c53030;
 
-    --exposed: #a85a00;
+    --exposed: #c2410c;
     --protected: #15803d;
     --protected-ring: linear-gradient(#16a34a, #16a34a);
 
-    --selected: rgba(45, 91, 246, 0.08);
-    --selected-border: rgba(45, 91, 246, 0.35);
+    --selected: rgba(23, 105, 201, 0.08);
+    --selected-border: rgba(23, 105, 201, 0.35);
 
     --tone-rose: #e11d48;
     --tone-amber: #d97706;
@@ -204,7 +213,7 @@
 
     --border: rgba(17, 17, 19, 0.1);
     --input: rgba(17, 17, 19, 0.14);
-    --ring: #2d5bf6;
+    --ring: #1769c9;
 
     --tint: #111113;
     --orb-shade: rgba(17, 17, 19, 0.06);
@@ -223,6 +232,7 @@
         radial-gradient(90% 80% at 100% 100%, rgba(139, 92, 246, 0.12), transparent 60%);
 
     --rail: rgba(255, 255, 255, 0.03);
+    --well: rgba(0, 0, 0, 0.2);
     --surface: rgba(255, 255, 255, 0.04);
     --surface-hover: rgba(255, 255, 255, 0.07);
     --hairline: rgba(255, 255, 255, 0.07);
@@ -284,6 +294,7 @@
         radial-gradient(90% 80% at 100% 100%, rgba(139, 92, 246, 0.08), transparent 60%);
 
     --rail: rgba(255, 255, 255, 0.55);
+    --well: rgba(21, 23, 38, 0.05);
     --surface: rgba(255, 255, 255, 0.78);
     --surface-hover: #ffffff;
     --hairline: rgba(21, 23, 38, 0.08);
@@ -346,6 +357,7 @@
         radial-gradient(70% 60% at 0% 100%, rgba(34, 211, 238, 0.11), transparent 60%);
 
     --rail: rgba(255, 255, 255, 0.025);
+    --well: rgba(0, 0, 0, 0.35);
     --surface: rgba(255, 255, 255, 0.035);
     --surface-hover: rgba(255, 255, 255, 0.065);
     --hairline: rgba(255, 255, 255, 0.07);
@@ -407,6 +419,7 @@
         radial-gradient(70% 60% at 0% 100%, rgba(6, 182, 212, 0.09), transparent 60%);
 
     --rail: rgba(255, 255, 255, 0.6);
+    --well: rgba(11, 13, 23, 0.05);
     --surface: rgba(255, 255, 255, 0.8);
     --surface-hover: #ffffff;
     --hairline: rgba(11, 13, 23, 0.08);
@@ -466,15 +479,25 @@
  * pinning every colour to a narrow lightness band, only a warm/cool split
  * survives colour-blind vision, so each pair is one of each. Download comes
  * first because it is almost always the larger series. No pair uses the
- * status green, amber or red, so a series never reads as a state.
+ * status green or red, so a series never reads as a state; Classic's gold
+ * sits near the warning amber, which is why the exposed colour is coral.
  *
  * `lib/chart-palette.ts` puts the chosen `data-chart` on <html>; a palette
  * preview carries its own, and the mapping below re-reads the pair for
  * whichever mode is active.
  * ------------------------------------------------------------------------ */
 
-/* Signal - blue and orange, the most colour-blind-safe pairing. */
+/* Classic - GlassWire's gold and magenta, the default. Light mode deepens
+ * the gold, which is too pale to hold 3:1 on white. */
 :root,
+[data-chart='classic'] {
+    --chart-down-dark: #f3c900;
+    --chart-up-dark: #d7397f;
+    --chart-down-light: #b88a00;
+    --chart-up-light: #c2185b;
+}
+
+/* Signal - blue and orange, the most colour-blind-safe pairing. */
 [data-chart='signal'] {
     --chart-down-dark: #5a8ff3;
     --chart-up-dark: #dc7702;

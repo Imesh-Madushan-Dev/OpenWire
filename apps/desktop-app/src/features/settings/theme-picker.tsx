@@ -54,7 +54,7 @@ export function ThemePicker() {
           aria-label="Light or dark"
         />
       </div>
-      <div role="radiogroup" aria-label="Theme" className="grid grid-cols-3 gap-3">
+      <div role="radiogroup" aria-label="Theme" className="grid grid-cols-3 gap-2">
         {THEMES.map((option) => {
           const selected = option.id === theme
           return (
@@ -66,14 +66,14 @@ export function ThemePicker() {
               aria-checked={selected}
               onClick={() => chooseTheme(option.id)}
               className={cn(
-                'panel-interactive flex flex-col gap-2.5 rounded-2xl p-2 text-left outline-none',
+                'panel-interactive flex flex-col gap-2 rounded-lg p-1.5 text-left outline-none',
                 'focus-visible:ring-2 focus-visible:ring-primary/50',
                 selected && 'border-primary/60',
               )}
             >
               <span
                 aria-hidden
-                className="relative block h-22 overflow-hidden rounded-xl border border-hairline"
+                className="relative block h-20 overflow-hidden rounded-md border border-hairline"
               >
                 <MiniShell theme={option.id} mode="dark" />
                 <MiniShell
@@ -84,7 +84,7 @@ export function ThemePicker() {
               </span>
               <span className="flex items-start gap-2 px-1.5 pb-1">
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium">{option.label}</span>
+                  <span className="block text-[13px] font-medium">{option.label}</span>
                   <span className="block text-xs leading-relaxed text-muted-foreground">
                     {option.description}
                   </span>
@@ -103,7 +103,7 @@ export function ThemePicker() {
   )
 }
 
-/** A miniature of the shell: tabbed header, connected orb, and the server column. */
+/** A miniature of the shell: the tab band, the toolbar, the connected orb and the server column. */
 function MiniShell({
   theme,
   mode,
@@ -119,28 +119,35 @@ function MiniShell({
       data-mode={mode}
       className={cn('shell-canvas absolute inset-0 flex flex-col bg-background', className)}
     >
-      <span className="flex h-4 shrink-0 items-center justify-center gap-1.5 border-b border-hairline bg-rail">
-        <span className="relative h-1 w-3 rounded-full bg-primary">
-          <span className="action-fill absolute inset-x-0.5 -bottom-1 h-px rounded-full bg-primary" />
+      <span className="flex h-5 shrink-0 items-end justify-center gap-2 bg-rail">
+        <span className="relative mb-1 size-1.5 rounded-full bg-primary">
+          <span className="absolute -inset-x-1 -bottom-1 h-px bg-primary" />
         </span>
-        <span className="h-1 w-3 rounded-full bg-tint/20" />
-        <span className="h-1 w-3 rounded-full bg-tint/20" />
-        <span className="h-1 w-3 rounded-full bg-tint/20" />
+        <span className="mb-1 size-1.5 rounded-full bg-tint/25" />
+        <span className="mb-1 size-1.5 rounded-full bg-tint/25" />
+        <span className="mb-1 size-1.5 rounded-full bg-tint/25" />
+      </span>
+      <span className="flex h-2.5 shrink-0 items-center gap-1 border-y border-hairline bg-rail px-1.5">
+        <span className="h-1 w-3 rounded-[1px] bg-tint/20" />
+        <span className="h-1 w-3 rounded-[1px] bg-tint/10" />
       </span>
 
       <span className="flex min-h-0 flex-1">
         <span className="relative grid flex-1 place-items-center">
           <span className="ambient-field absolute inset-0" />
-          <span className="orb-surface relative size-8 rounded-full">
+          <span className="orb-surface relative size-7 rounded-full">
             <span className="orb-ring absolute inset-0 rounded-full" />
           </span>
         </span>
-        <span className="flex w-11 flex-col gap-1 border-l border-hairline bg-rail/50 p-1.5">
-          <span className="action-fill h-2 w-5 self-end rounded-full bg-primary" />
-          <span className="h-2.5 rounded-sm border border-selected-border bg-selected" />
-          <span className="flex h-2.5 items-center gap-0.5 rounded-sm bg-tint/5 px-0.5">
+        <span className="flex w-11 flex-col border-l border-hairline">
+          <span className="h-2.5 border-l-2 border-primary bg-selected" />
+          <span className="flex h-2.5 items-center gap-0.5 px-1">
             <span className="size-1.5 rounded-xs bg-(--tone-amber)" />
+            <span className="h-0.5 w-4 bg-chart-down" />
+          </span>
+          <span className="flex h-2.5 items-center gap-0.5 px-1">
             <span className="size-1.5 rounded-xs bg-(--tone-violet)" />
+            <span className="h-0.5 w-3 bg-chart-up" />
           </span>
         </span>
       </span>

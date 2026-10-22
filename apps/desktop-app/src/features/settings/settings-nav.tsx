@@ -1,4 +1,7 @@
-/** Section list for the settings page. */
+/**
+ * Section list for the settings page: a full-height column of flat rows, the
+ * open one lit and marked with an accent bar, as in GlassWire's own settings.
+ */
 
 import { Fragment } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -16,14 +19,14 @@ interface SettingsNavProps {
 
 export function SettingsNav({ active, onChange }: SettingsNavProps) {
   return (
-    // Sticky inside the page's scroller, so the list stays put on long sections.
-    <nav aria-label="Settings sections" className="sticky top-4 flex w-44 shrink-0 flex-col self-start">
-      <h1 className="px-3 pb-4 font-heading text-xl font-semibold">Settings</h1>
-
-      <div role="tablist" aria-orientation="vertical" className="flex flex-col gap-0.5">
+    <nav
+      aria-label="Settings sections"
+      className="flex w-48 shrink-0 flex-col overflow-y-auto border-r border-hairline bg-rail/40 py-2"
+    >
+      <div role="tablist" aria-orientation="vertical" className="flex flex-col">
         {SECTION_GROUPS.map((group, index) => (
           <Fragment key={group[0].id}>
-            {index > 0 && <span aria-hidden className="mx-3 my-2 h-px bg-hairline" />}
+            {index > 0 && <span aria-hidden className="mx-3 my-1.5 h-px bg-hairline" />}
             {group.map((section) => (
               <NavButton
                 key={section.id}
@@ -56,14 +59,18 @@ function NavButton({
       aria-selected={active}
       aria-controls="settings-panel"
       onClick={onClick}
-      className="group relative flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      className={cn(
+        'group relative flex h-8 items-center gap-2.5 px-3 text-left outline-none transition-colors duration-150',
+        'focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset',
+        active ? 'bg-tint/9' : 'hover:bg-tint/5',
+      )}
     >
-      {/* One shared element slides between items instead of fading per button. */}
+      {/* One shared bar slides between items instead of fading per button. */}
       {active && (
         <motion.span
           layoutId="settings-nav-active"
           aria-hidden
-          className="absolute inset-0 rounded-xl bg-tint/7"
+          className="absolute inset-y-0 left-0 w-0.5 bg-primary"
           transition={spring.soft}
         />
       )}
@@ -71,17 +78,17 @@ function NavButton({
       {/* The section's colour, dimmed until it is the one open. */}
       <span
         className={cn(
-          'tone-tile relative grid size-7 shrink-0 place-items-center rounded-md transition-opacity duration-200',
-          active ? 'opacity-100' : 'opacity-70 group-hover:opacity-100',
+          'tone-tile grid size-5.5 shrink-0 place-items-center rounded-sm transition-opacity duration-200',
+          active ? 'opacity-100' : 'opacity-75 group-hover:opacity-100',
         )}
         style={toneStyle(section.tone)}
       >
-        <HugeiconsIcon icon={section.icon} size={15} strokeWidth={1.9} />
+        <HugeiconsIcon icon={section.icon} size={13} strokeWidth={2} />
       </span>
       <span
         className={cn(
-          'relative truncate text-sm font-medium transition-colors duration-200',
-          active ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground/80',
+          'truncate text-[13px] transition-colors duration-150',
+          active ? 'font-semibold text-foreground' : 'font-medium text-foreground/80 group-hover:text-foreground',
         )}
       >
         {section.label}

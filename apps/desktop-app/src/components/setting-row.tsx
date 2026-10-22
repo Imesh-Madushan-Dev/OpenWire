@@ -52,24 +52,24 @@ export function SettingRow({
   return (
     <motion.div
       variants={staggerChild}
-      className={cn('flex flex-col gap-2 px-4 py-3.5', disabled && 'opacity-55')}
+      className={cn('flex flex-col gap-1.5 px-3.5 py-3', disabled && 'opacity-55')}
     >
       <div className="flex items-center gap-3">
         {tone ? (
           <span
-            className="tone-tile grid size-9 shrink-0 place-items-center rounded-xl"
+            className="tone-tile grid size-8 shrink-0 place-items-center rounded-md"
             style={toneStyle(tone)}
           >
-            <HugeiconsIcon icon={icon} size={17} strokeWidth={1.8} />
+            <HugeiconsIcon icon={icon} size={16} strokeWidth={1.8} />
           </span>
         ) : (
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-tint/5">
-            <HugeiconsIcon icon={icon} size={17} strokeWidth={1.8} className="text-foreground/70" />
+          <span className="grid size-8 shrink-0 place-items-center rounded-md bg-tint/5">
+            <HugeiconsIcon icon={icon} size={16} strokeWidth={1.8} className="text-foreground/70" />
           </span>
         )}
 
         <label htmlFor={id} className="min-w-0 flex-1 cursor-default">
-          <span className="block text-sm font-medium">{title}</span>
+          <span className="block text-[13px] font-medium">{title}</span>
           <span className="block text-xs leading-relaxed text-muted-foreground">
             {description}
           </span>
@@ -89,7 +89,7 @@ export function SettingRow({
       {hint && (
         <p
           className={cn(
-            'pl-12 text-xs',
+            'pl-11 text-xs',
             hintTone === 'warning' ? 'text-warning' : 'text-muted-foreground',
           )}
         >
@@ -115,7 +115,7 @@ export function SettingGroup({
           {title}
         </h2>
       )}
-      <div className="panel divide-y divide-tint/6 overflow-hidden rounded-2xl">{children}</div>
+      <div className="panel divide-y divide-hairline overflow-hidden rounded-lg">{children}</div>
     </section>
   )
 }

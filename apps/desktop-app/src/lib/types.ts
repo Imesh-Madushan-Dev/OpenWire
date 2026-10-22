@@ -240,6 +240,13 @@ export interface UsageSample {
   tunnelDown: number
 }
 
+/** A timeline for a chosen span, with the resolution it came at. */
+export interface SpanTimeline {
+  /** Seconds each sample covers: 60 for a span inside the last day, else 3600. */
+  bucketSecs: number
+  samples: UsageSample[]
+}
+
 export interface UsageEntry {
   key: string
   up: number

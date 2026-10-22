@@ -1,11 +1,13 @@
 /**
  * Devices: everything else on this network - who it is, who made it, whether
- * it is here now, and which ones are new.
+ * it is here now, and which ones are new - as one flat table under the
+ * page's toolbar.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
+  ArrowDown01Icon,
   Radar01Icon,
   Search01Icon,
   Tick02Icon,
@@ -14,16 +16,16 @@ import {
 import { AnimatePresence, motion } from 'motion/react'
 import { cn } from 'cn'
 
-import { Segmented } from '@/components/segmented'
+import { Toolbar, ToolbarButton, ToolbarChoice } from '@/components/toolbar'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
 import { formatAgo } from '@/lib/format'
 import { staggerParent, transition } from '@/lib/motion'
 import type { Device } from '@/lib/types'
@@ -106,201 +108,187 @@ export function DevicesView() {
   }
 
   const network = snapshot?.network ?? null
+  const listed = network !== null && devices.length > 0
   const percent = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <header className="flex shrink-0 items-center justify-between gap-4 px-8 pt-1 pb-4">
-        <div className="min-w-0">
-          <h1 className="font-heading text-xl font-semibold">Devices</h1>
-          <p className="truncate text-xs text-muted-foreground">
-            {network ? (
-              <>
-                {network.adapter} <span className="text-muted-foreground/50">·</span>{' '}
-                <span className="numeric" data-selectable>
-                  {network.subnet}
-                </span>{' '}
-                <span className="text-muted-foreground/50">·</span> this PC is{' '}
-                <span className="numeric" data-selectable>
-                  {network.address}
-                </span>
-              </>
-            ) : (
-              'Everything else on your local network.'
-            )}
-          </p>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-3">
-          {snapshot?.lastScan && !scanning && (
-            <span className="text-xs text-muted-foreground">
-              Scanned {formatAgo(snapshot.lastScan)}
-            </span>
-          )}
-          <Button size="sm" onClick={() => void scan()} disabled={scanning || !network}>
-            <HugeiconsIcon
-              icon={Radar01Icon}
-              strokeWidth={2}
-              className={scanning ? 'animate-pulse' : undefined}
-            />
-            {scanning ? (progress?.total ? `Scanning ${percent}%` : 'Scanning…') : 'Scan now'}
-          </Button>
-        </div>
-      </header>
-
-      {network && devices.length > 0 && (
-        <div className="flex shrink-0 items-center gap-3 px-8 pb-3">
-          <Segmented
-            options={[
-              { value: 'all' as const, label: `All ${devices.length}` },
-              { value: 'online' as const, label: `Online ${online}` },
-            ]}
-            value={filter}
-            onChange={setFilter}
-            layoutId="devices-filter"
-            size="sm"
-            aria-label="Devices shown"
-          />
-          {newCount > 0 && (
-            <button
-              type="button"
-              onClick={() => void acknowledge(null)}
-              className="flex h-7 items-center gap-1.5 rounded-full bg-primary/12 px-2.5 text-[11px] font-semibold text-primary transition-colors outline-none hover:bg-primary/18 focus-visible:ring-2 focus-visible:ring-primary/50"
-            >
-              <HugeiconsIcon icon={Tick02Icon} size={12} strokeWidth={2.4} />
-              {newCount} new · mark as seen
-            </button>
-          )}
-
-          <div className="ml-auto flex items-center gap-2">
-            <Select items={SORTS} value={sort} onValueChange={(value) => setSort((value as Sort) ?? 'status')}>
-              <SelectTrigger size="sm" aria-label="Sort by" className="min-w-30 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(SORTS) as Sort[]).map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {SORTS[value]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="relative w-52">
-              <HugeiconsIcon
-                icon={Search01Icon}
-                size={14}
-                strokeWidth={2}
-                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Name, IP, MAC or maker"
-                aria-label="Search devices"
-                className="h-8 pl-8 text-xs"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-6">
-        <div className="panel relative overflow-hidden rounded-2xl">
-          {/* Sweep progress, along the top edge of the list it is filling. */}
-          <AnimatePresence>
-            {scanning && (
-              <motion.div
-                key="progress"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={transition.fast}
-                className="absolute inset-x-0 top-0 h-0.5 bg-tint/6"
-              >
-                <div
-                  className={cn(
-                    'h-full bg-primary transition-[width] duration-300 ease-out',
-                    !progress?.total && 'w-1/4 animate-pulse',
-                  )}
-                  style={progress?.total ? { width: `${Math.max(4, percent)}%` } : undefined}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {!snapshot ? (
-            <Empty title="Looking for your network…" />
-          ) : !snapshot.supported ? (
-            <Empty title="Device scanning needs Windows" body="This platform isn't supported yet." />
-          ) : !network ? (
-            <Empty
-              icon={WifiDisconnected02Icon}
-              title="No local network"
-              body="Connect to Wi-Fi or Ethernet to see what else is on it. A VPN or mobile-data link alone has no neighbours to find."
-            />
-          ) : devices.length === 0 ? (
-            <Empty
-              icon={Radar01Icon}
-              title={scanning ? `Scanning ${network.subnet}…` : 'Not scanned yet'}
-              body={
-                scanning
-                  ? 'Asking every address on the network who is there. This takes a few seconds.'
-                  : "Scan to find every device on this network - phones, TVs, printers, and anything you didn't know was there."
-              }
-            />
-          ) : (
+      <Toolbar
+        start={
+          listed ? (
             <>
-              <div
-                className={cn(
-                  ROW_GRID,
-                  'border-b border-hairline px-4 py-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase',
-                )}
-              >
-                <span>Device</span>
-                <span>Maker</span>
-                <span>Status</span>
-                <span>First seen</span>
-                <span />
-              </div>
-              {shown.length === 0 ? (
-                <Empty
-                  title={filter === 'online' && !query ? 'Nobody online right now' : 'No matches'}
-                  body={
-                    filter === 'online' && !query
-                      ? 'Scan again to check who is here, or show all devices.'
-                      : 'Try another name, address or maker.'
-                  }
-                />
-              ) : (
-                <motion.ol
-                  variants={staggerParent}
-                  initial="initial"
-                  animate="animate"
-                  className="divide-y divide-tint/5"
+              <ToolbarChoice
+                options={[
+                  { value: 'all' as const, label: `All ${devices.length}` },
+                  { value: 'online' as const, label: `Online ${online}` },
+                ]}
+                value={filter}
+                onChange={setFilter}
+                layoutId="devices-filter"
+                aria-label="Devices shown"
+              />
+              {newCount > 0 && (
+                <ToolbarButton
+                  onClick={() => void acknowledge(null)}
+                  className="text-primary hover:text-primary"
                 >
-                  {shown.map((device) => (
-                    <DeviceRow
-                      key={device.mac}
-                      device={device}
-                      onEdit={() => setEditing({ device, open: true })}
-                      onCopy={copy}
-                      onAcknowledge={() => void acknowledge(device.mac)}
-                      onForget={() => void forget(device.mac)}
-                    />
-                  ))}
-                </motion.ol>
+                  <HugeiconsIcon icon={Tick02Icon} size={12} strokeWidth={2.4} />
+                  {newCount} new · mark as seen
+                </ToolbarButton>
               )}
             </>
-          )}
-        </div>
+          ) : null
+        }
+        center={
+          network ? (
+            <span className="truncate text-xs text-muted-foreground" title={`Gateway ${network.gateway}`}>
+              {network.adapter} <span className="text-muted-foreground/50">·</span>{' '}
+              <span className="numeric" data-selectable>
+                {network.subnet}
+              </span>
+            </span>
+          ) : null
+        }
+        end={
+          <>
+            {listed && (
+              <>
+                <SortMenu sort={sort} onChange={setSort} />
+                <div className="relative w-36">
+                  <HugeiconsIcon
+                    icon={Search01Icon}
+                    size={13}
+                    strokeWidth={2}
+                    className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-muted-foreground"
+                  />
+                  <Input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search devices"
+                    aria-label="Search devices by name, IP, MAC or maker"
+                    className="h-6 rounded-[3px] pl-7 text-xs"
+                  />
+                </div>
+              </>
+            )}
+            <Button
+              size="xs"
+              className="ml-1"
+              onClick={() => void scan()}
+              disabled={scanning || !network}
+              title="Asks every address on the network who is there, with ARP. Nothing leaves your network."
+            >
+              <HugeiconsIcon
+                icon={Radar01Icon}
+                strokeWidth={2}
+                className={scanning ? 'animate-pulse' : undefined}
+              />
+              {scanning ? (progress?.total ? `Scanning ${percent}%` : 'Scanning…') : 'Scan'}
+            </Button>
+          </>
+        }
+      />
 
-        {network && devices.length > 0 && (
-          <p className="mt-3 px-1 text-xs leading-relaxed text-muted-foreground">
-            Found with ARP, which every device on the network has to answer, and named by asking
-            each one directly. Nothing leaves your network.
-          </p>
+      <div className="relative min-h-0 flex-1 overflow-y-auto">
+        {/* Sweep progress, along the top edge of the list it is filling. */}
+        <AnimatePresence>
+          {scanning && (
+            <motion.div
+              key="progress"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={transition.fast}
+              className="absolute inset-x-0 top-0 z-20 h-0.5 bg-tint/6"
+            >
+              <div
+                className={cn(
+                  'h-full bg-primary transition-[width] duration-300 ease-out',
+                  !progress?.total && 'w-1/4 animate-pulse',
+                )}
+                style={progress?.total ? { width: `${Math.max(4, percent)}%` } : undefined}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {!snapshot ? (
+          <Empty title="Looking for your network…" />
+        ) : !snapshot.supported ? (
+          <Empty title="Device scanning needs Windows" body="This platform isn't supported yet." />
+        ) : !network ? (
+          <Empty
+            icon={WifiDisconnected02Icon}
+            title="No local network"
+            body="Connect to Wi-Fi or Ethernet to see what else is on it. A VPN or mobile-data link alone has no neighbours to find."
+          />
+        ) : devices.length === 0 ? (
+          <Empty
+            icon={Radar01Icon}
+            title={scanning ? `Scanning ${network.subnet}…` : 'Not scanned yet'}
+            body={
+              scanning
+                ? 'Asking every address on the network who is there. This takes a few seconds.'
+                : "Scan to find every device on this network - phones, TVs, printers, and anything you didn't know was there. Found with ARP, which every device has to answer; nothing leaves your network."
+            }
+          />
+        ) : (
+          <>
+            <div
+              className={cn(
+                ROW_GRID,
+                'sticky top-0 z-10 h-7 border-b border-hairline bg-background px-3 text-[11px] font-medium text-muted-foreground',
+              )}
+            >
+              <span>Device</span>
+              <span>Maker</span>
+              <span>Status</span>
+              <span>First seen</span>
+              <span />
+            </div>
+            {shown.length === 0 ? (
+              <Empty
+                title={filter === 'online' && !query ? 'Nobody online right now' : 'No matches'}
+                body={
+                  filter === 'online' && !query
+                    ? 'Scan again to check who is here, or show all devices.'
+                    : 'Try another name, address or maker.'
+                }
+              />
+            ) : (
+              <motion.ol
+                variants={staggerParent}
+                initial="initial"
+                animate="animate"
+                className="divide-y divide-hairline"
+              >
+                {shown.map((device) => (
+                  <DeviceRow
+                    key={device.mac}
+                    device={device}
+                    onEdit={() => setEditing({ device, open: true })}
+                    onCopy={copy}
+                    onAcknowledge={() => void acknowledge(device.mac)}
+                    onForget={() => void forget(device.mac)}
+                  />
+                ))}
+              </motion.ol>
+            )}
+          </>
         )}
       </div>
+
+      {/* A status line along the foot, as GlassWire keeps its own. */}
+      {listed && (
+        <p className="h-6 shrink-0 truncate border-t border-hairline bg-rail/60 px-3 text-[11px] leading-6 text-muted-foreground">
+          {snapshot?.lastScan && !scanning ? `Last scanned ${formatAgo(snapshot.lastScan)}` : 'Scanning'}
+          <span className="text-muted-foreground/50"> · </span>
+          this PC is{' '}
+          <span className="numeric" data-selectable>
+            {network.address}
+          </span>
+        </p>
+      )}
 
       <DeviceDialog
         device={editing?.device ?? null}
@@ -309,6 +297,27 @@ export function DevicesView() {
         onOpenChange={(open) => setEditing((current) => (current ? { ...current, open } : null))}
       />
     </div>
+  )
+}
+
+function SortMenu({ sort, onChange }: { sort: Sort; onChange: (sort: Sort) => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<ToolbarButton aria-label={`Sort by ${SORTS[sort]}`} />}>
+        <span className="text-muted-foreground">Sort:</span>
+        {SORTS[sort]}
+        <HugeiconsIcon icon={ArrowDown01Icon} size={12} strokeWidth={2} className="text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-40 min-w-40">
+        <DropdownMenuRadioGroup value={sort} onValueChange={(value: Sort) => onChange(value)}>
+          {(Object.keys(SORTS) as Sort[]).map((value) => (
+            <DropdownMenuRadioItem closeOnClick key={value} value={value}>
+              {SORTS[value]}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -322,8 +331,8 @@ function Empty({
   body?: string
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 px-10 py-16 text-center">
-      <span className="grid size-12 place-items-center rounded-2xl bg-tint/7 text-muted-foreground">
+    <div className="flex flex-col items-center justify-center gap-3 px-10 py-14 text-center">
+      <span className="grid size-11 place-items-center rounded-lg bg-tint/7 text-muted-foreground">
         <HugeiconsIcon icon={icon} size={22} strokeWidth={1.8} />
       </span>
       <p className="text-sm font-semibold">{title}</p>

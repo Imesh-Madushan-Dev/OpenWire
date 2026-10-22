@@ -13,13 +13,14 @@ import {
   EMPTY_RANKED,
   EMPTY_SUMMARY,
   type Ranked,
+  type SpanTimeline,
   type UsageRange,
   type UsageSample,
   type UsageSpan,
   type UsageSummary,
 } from '@/lib/types'
 
-import { periodKey, type Period } from './periods'
+import { periodBounds, periodKey, type Period } from './periods'
 
 /** Matches `SECONDS_KEPT` in the backend's history tiers. */
 const LIVE_POINTS = 300
@@ -27,8 +28,15 @@ const LIVE_POINTS = 300
 const REFETCH_MS = 15_000
 const SUMMARY_REFETCH_MS = 10_000
 
+const NO_SAMPLES: UsageSample[] = []
+
 export function useTimeline(range: UsageRange, paused: boolean) {
-  const [points, setPoints] = useState<UsageSample[]>([])
+  // Tagged with the range they belong to: until the new range's series lands,
+  // the old one must not be drawn at the new range's bucket size.
+  const [loaded, setLoaded] = useState<{ range: UsageRange; points: UsageSample[] }>({
+    range,
+    points: NO_SAMPLES,
+  })
 
   const live = range === 'fiveMinutes'
 
@@ -38,7 +46,7 @@ export function useTimeline(range: UsageRange, paused: boolean) {
     const load = async () => {
       try {
         const series = await api.usageTimeline(range)
-        if (!cancelled) setPoints(series)
+        if (!cancelled) setLoaded({ range, points: series })
       } catch {
         // Keep the last good series rather than blanking the graph on a blip.
       }
@@ -60,9 +68,13 @@ export function useTimeline(range: UsageRange, paused: boolean) {
     if (!live || paused) return
 
     const subscription = onUsageSample((sample) => {
-      setPoints((previous) => {
-        const next = [...previous, sample]
-        return next.length > LIVE_POINTS ? next.slice(next.length - LIVE_POINTS) : next
+      setLoaded((previous) => {
+        if (previous.range !== 'fiveMinutes') return previous
+        const next = [...previous.points, sample]
+        return {
+          range: previous.range,
+          points: next.length > LIVE_POINTS ? next.slice(next.length - LIVE_POINTS) : next,
+        }
       })
     })
     return () => {
@@ -70,7 +82,12 @@ export function useTimeline(range: UsageRange, paused: boolean) {
     }
   }, [live, paused])
 
-  return points
+  return loaded.range === range ? loaded.points : NO_SAMPLES
+}
+
+/** A closed period in the past cannot change; only one reaching today does. */
+function reachesToday(toTs: number): boolean {
+  return toTs >= Date.now() / 1000 - 86_400
 }
 
 export function useSummary(period: Period) {
@@ -79,16 +96,14 @@ export function useSummary(period: Period) {
   // Keyed on the period's identity rather than the object, so a re-render that
   // rebuilds an equal period does not refetch.
   const key = periodKey(period)
+  const { fromTs, toTs } = period
 
   useEffect(() => {
     let cancelled = false
 
     const load = async () => {
       try {
-        const next =
-          period.kind === 'rolling'
-            ? await api.usageSummary(period.range)
-            : await api.usageSummaryBetween(period.fromTs, period.toTs)
+        const next = await api.usageSummaryBetween(fromTs, toTs)
         if (!cancelled) setSummary(next)
       } catch {
         // Same reasoning as the timeline: stale numbers beat empty ones.
@@ -97,17 +112,59 @@ export function useSummary(period: Period) {
 
     void load()
 
-    // A closed period in the past cannot change; only one ending today does.
-    const live = period.kind === 'rolling' || period.toTs >= Date.now() / 1000 - 86_400
-    const timer = live ? window.setInterval(load, SUMMARY_REFETCH_MS) : undefined
+    const timer = reachesToday(toTs)
+      ? window.setInterval(load, SUMMARY_REFETCH_MS)
+      : undefined
     return () => {
       cancelled = true
       if (timer) window.clearInterval(timer)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key])
+  }, [key, fromTs, toTs])
 
   return summary
+}
+
+const EMPTY_SPAN_TIMELINE: SpanTimeline = { bucketSecs: 3600, samples: [] }
+
+/**
+ * The traffic shape of a whole period, for the strip under the Usage columns.
+ * Polled only while the period reaches today; a past one is fetched once.
+ */
+export function usePeriodTimeline(period: Period) {
+  const [loaded, setLoaded] = useState<{ key: string; timeline: SpanTimeline }>({
+    key: '',
+    timeline: EMPTY_SPAN_TIMELINE,
+  })
+
+  const key = periodKey(period)
+  const { fromTs, toTs } = period
+
+  useEffect(() => {
+    let cancelled = false
+    const [from, to] = periodBounds({ fromTs, toTs })
+
+    const load = async () => {
+      try {
+        const timeline = await api.usageTimelineBetween(from, to)
+        if (!cancelled) setLoaded({ key, timeline })
+      } catch {
+        // An empty strip is the honest answer to a failed read.
+        if (!cancelled) setLoaded({ key, timeline: EMPTY_SPAN_TIMELINE })
+      }
+    }
+
+    void load()
+    const timer = reachesToday(toTs)
+      ? window.setInterval(load, REFETCH_MS)
+      : undefined
+    return () => {
+      cancelled = true
+      if (timer) window.clearInterval(timer)
+    }
+  }, [key, fromTs, toTs])
+
+  // A different period's strip is never shown under this one's columns.
+  return loaded.key === key ? loaded.timeline : EMPTY_SPAN_TIMELINE
 }
 
 /** The stored period, for building the month list and bounding the pickers. */

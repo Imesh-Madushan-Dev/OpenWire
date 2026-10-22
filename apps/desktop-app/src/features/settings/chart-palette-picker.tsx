@@ -33,7 +33,7 @@ export function ChartPalettePicker() {
       <h2 className="px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         Chart colours
       </h2>
-      <div role="radiogroup" aria-label="Chart colours" className="grid grid-cols-3 gap-3">
+      <div role="radiogroup" aria-label="Chart colours" className="grid grid-cols-5 gap-2">
         {CHART_PALETTES.map((palette) => {
           const selected = palette.id === current
           return (
@@ -45,7 +45,7 @@ export function ChartPalettePicker() {
               aria-checked={selected}
               onClick={() => choose(palette.id)}
               className={cn(
-                'panel-interactive flex flex-col gap-2.5 rounded-2xl p-2 text-left outline-none',
+                'panel-interactive flex flex-col gap-2 rounded-lg p-1.5 text-left outline-none',
                 'focus-visible:ring-2 focus-visible:ring-primary/50',
                 selected && 'border-primary/60',
               )}
@@ -53,13 +53,13 @@ export function ChartPalettePicker() {
               <PalettePreview id={palette.id} />
               <span className="flex items-start gap-2 px-1.5 pb-1">
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium">{palette.label}</span>
+                  <span className="block text-[13px] font-medium">{palette.label}</span>
                   <span className="block text-xs leading-relaxed text-muted-foreground">
                     {palette.description}
                   </span>
                 </span>
                 {selected && (
-                  <span className="mt-0.5 grid size-4.5 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
+                  <span className="action-fill mt-0.5 grid size-4.5 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
                     <HugeiconsIcon icon={Tick02Icon} size={11} strokeWidth={2.8} />
                   </span>
                 )}
@@ -83,7 +83,7 @@ function PalettePreview({ id }: { id: ChartPaletteId }) {
     <span
       aria-hidden
       data-chart={id}
-      className="block h-22 overflow-hidden rounded-xl border border-hairline bg-background px-2 pt-3"
+      className="block h-16 overflow-hidden rounded-md border border-hairline bg-background px-2 pt-2.5"
     >
       <svg viewBox="0 0 120 48" preserveAspectRatio="none" className="size-full overflow-visible">
         <path d={toArea(DOWN_LINE)} fill="var(--chart-down)" fillOpacity={0.25} />

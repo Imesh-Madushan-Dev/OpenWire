@@ -24,6 +24,7 @@ import type {
   ServerSummary,
   Settings,
   SettingsPatch,
+  SpanTimeline,
   StatsSnapshot,
   UsageRange,
   UsageSample,
@@ -93,6 +94,9 @@ export const api = {
   optimalServer: () => call<ServerSummary | null>('servers_optimal'),
 
   usageTimeline: (range: UsageRange) => call<UsageSample[]>('usage_timeline', { range }),
+  /** Throughput between two instants, at the finest tier that covers the start. */
+  usageTimelineBetween: (fromTs: number, toTs: number) =>
+    call<SpanTimeline>('usage_timeline_between', { fromTs, toTs }),
   usageSummary: (range: UsageRange) => call<UsageSummary>('usage_summary', { range }),
   usageSummaryBetween: (fromTs: number, toTs: number) =>
     call<UsageSummary>('usage_summary_between', { fromTs, toTs }),

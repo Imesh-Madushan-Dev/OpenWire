@@ -1,12 +1,12 @@
 /**
- * The server list beside the connect control.
+ * The server list beside the connect control, as a flat GlassWire column.
  *
  * Every way of adding a server lands in the same backend importer: the Add
  * dialog, the Import menu (clipboard, link file, QR image), a file or image
  * dropped on the panel, and Ctrl+V anywhere on the page.
  */
 
-import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type DragEvent } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ClipboardIcon,
@@ -40,7 +40,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { staggerParent } from '@/lib/motion'
-import type { ServerSummary } from '@/lib/types'
+import { isActive, type ServerSummary } from '@/lib/types'
 import { useVpn } from '@/features/vpn/vpn-context'
 
 import { AddServerDialog } from './add-server-dialog'
@@ -62,6 +62,8 @@ export function ServerPanel() {
     connection,
     optimal,
     chooseServer,
+    connect,
+    disconnect,
     probeServers,
     probing,
     removeServer,
@@ -97,6 +99,19 @@ export function ServerPanel() {
   const total = servers.filter((server) => server.protocol !== 'direct').length
   const preferred = settings?.preferredServer ?? null
 
+  // Choosing moves a live session over by itself; otherwise connect as well.
+  // The server already in use is reconnected, and the saved choice - which
+  // may be Automatic - is left as it was.
+  const connectTo = async (id: string | null) => {
+    if (isActive(connection.phase) && id !== null && id === connection.serverId) {
+      await disconnect()
+      await connect(id)
+      return
+    }
+    await chooseServer(id)
+    if (!isActive(connection.phase)) await connect(id)
+  }
+
   const importFile = async (file: File) => {
     try {
       const text = file.type.startsWith('image/') ? await readQrImage(file) : await readTextFile(file)
@@ -113,25 +128,29 @@ export function ServerPanel() {
   // field. The paste event hands over the clipboard without the permission
   // prompt a programmatic read would raise - and it carries pasted
   // screenshots too, so a copied QR code works as well as a copied link.
+  // An effect event, so the listener is attached once yet always sees the
+  // latest importers.
+  const onPaste = useEffectEvent((event: ClipboardEvent) => {
+    const target = event.target as HTMLElement | null
+    if (target?.closest('input, textarea, [contenteditable="true"]')) return
+    // A dialog is open; its own fields own the paste.
+    if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return
+
+    const image = [...(event.clipboardData?.files ?? [])].find((file) =>
+      file.type.startsWith('image/'),
+    )
+    const text = event.clipboardData?.getData('text') ?? ''
+    if (!image && !text.trim()) return
+
+    event.preventDefault()
+    void (image ? importFile(image) : importLinks(text))
+  })
+
   useEffect(() => {
-    const onPaste = (event: ClipboardEvent) => {
-      const target = event.target as HTMLElement | null
-      if (target?.closest('input, textarea, [contenteditable="true"]')) return
-      // A dialog is open; its own fields own the paste.
-      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return
-
-      const image = [...(event.clipboardData?.files ?? [])].find((file) =>
-        file.type.startsWith('image/'),
-      )
-      const text = event.clipboardData?.getData('text') ?? ''
-      if (!image && !text.trim()) return
-
-      event.preventDefault()
-      void (image ? importFile(image) : importLinks(text))
-    }
-    window.addEventListener('paste', onPaste)
-    return () => window.removeEventListener('paste', onPaste)
-  }, [importFile, importLinks])
+    const listener = (event: ClipboardEvent) => onPaste(event)
+    window.addEventListener('paste', listener)
+    return () => window.removeEventListener('paste', listener)
+  }, [])
 
   const onDrop = (event: DragEvent) => {
     event.preventDefault()
@@ -155,14 +174,14 @@ export function ServerPanel() {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false)
       }}
       onDrop={onDrop}
-      className="relative flex h-full w-85 shrink-0 flex-col border-l border-hairline bg-rail/50"
+      className="relative flex h-full w-72 shrink-0 flex-col border-l border-hairline"
     >
-      <header className="flex items-center gap-1.5 px-5 pt-1 pb-3">
+      <header className="flex h-10 shrink-0 items-center gap-1 pr-2 pl-3">
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold">Servers</h2>
-          <p className="truncate text-[11px] text-muted-foreground">
-            {total === 0 ? 'None yet' : `${total} saved · Ctrl+V to add a link`}
-          </p>
+          <h2 className="text-xs font-medium text-muted-foreground">
+            Servers{total > 0 && <span className="numeric ml-1.5 text-muted-foreground/70">{total}</span>}
+          </h2>
+          <p className="truncate text-[10px] text-muted-foreground/70">Ctrl+V adds a copied link</p>
         </div>
 
         <Tooltip>
@@ -170,7 +189,7 @@ export function ServerPanel() {
             render={
               <Button
                 variant="ghost"
-                size="icon-sm"
+                size="icon-xs"
                 aria-label="Ping all servers"
                 disabled={probing || total === 0}
                 onClick={() => void probeServers()}
@@ -188,7 +207,7 @@ export function ServerPanel() {
 
         <DropdownMenu>
           <DropdownMenuTrigger
-            render={<Button variant="ghost" size="icon-sm" aria-label="Import servers" />}
+            render={<Button variant="ghost" size="icon-xs" aria-label="Import servers" />}
           >
             <HugeiconsIcon icon={FileImportIcon} strokeWidth={2} />
           </DropdownMenuTrigger>
@@ -209,27 +228,27 @@ export function ServerPanel() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button size="sm" className="ml-1" onClick={() => setAdding(true)}>
+        <Button size="xs" className="ml-0.5" onClick={() => setAdding(true)}>
           <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2.2} />
           Add
         </Button>
       </header>
 
       {total >= SEARCH_FROM && (
-        <div className="px-5 pb-3">
+        <div className="px-3 pb-2">
           <div className="relative">
             <HugeiconsIcon
               icon={Search01Icon}
               size={14}
               strokeWidth={2}
-              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+              className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
             />
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search servers"
               aria-label="Search servers"
-              className="h-9 pl-9 text-xs"
+              className="h-7 pl-8 text-xs"
             />
           </div>
         </div>
@@ -244,13 +263,14 @@ export function ServerPanel() {
           variants={staggerParent}
           initial="initial"
           animate="animate"
-          className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-4"
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto border-t border-hairline pb-2"
         >
           {!query && (
             <AutomaticRow
               selected={preferred === null}
               fastest={optimal}
               onSelect={() => void chooseServer(null)}
+              onConnect={() => void connectTo(null)}
             />
           )}
           <AnimatePresence initial={false}>
@@ -261,6 +281,7 @@ export function ServerPanel() {
                 selected={server.id === preferred}
                 inUse={server.id === connection.serverId}
                 onSelect={() => void chooseServer(server.id)}
+                onConnect={() => void connectTo(server.id)}
                 onShare={() => setDialog({ kind: 'share', server, open: true })}
                 onEdit={() => setDialog({ kind: 'edit', server, open: true })}
                 onRemove={() => setDialog({ kind: 'delete', server, open: true })}
@@ -282,7 +303,7 @@ export function ServerPanel() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="pointer-events-none absolute inset-3 grid place-items-center rounded-2xl border-2 border-dashed border-primary/50 bg-background/80 backdrop-blur-sm"
+            className="pointer-events-none absolute inset-2 grid place-items-center rounded-lg border-2 border-dashed border-primary/50 bg-background/80 backdrop-blur-sm"
           >
             <span className="flex flex-col items-center gap-2 text-center text-sm font-medium">
               <HugeiconsIcon icon={ImageUpload01Icon} size={22} strokeWidth={1.8} className="text-primary" />
@@ -341,8 +362,8 @@ export function ServerPanel() {
 
 function EmptyState({ onPaste, onAdd }: { onPaste: () => void; onAdd: () => void }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-10 pb-10 text-center">
-      <span className="grid size-12 place-items-center rounded-2xl bg-tint/7 text-muted-foreground">
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 border-t border-hairline px-6 pb-8 text-center">
+      <span className="grid size-11 place-items-center rounded-lg bg-tint/7 text-muted-foreground">
         <HugeiconsIcon icon={ServerStack01Icon} size={22} strokeWidth={1.8} />
       </span>
       <div className="flex flex-col gap-1">

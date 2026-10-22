@@ -25,7 +25,7 @@ use crate::core::netmon;
 use crate::core::store;
 use crate::error::AppResult;
 
-use history::{rank, Attributed, DayBreakdown, History, Pair, Range, Sample};
+use history::{rank, Attributed, DayBreakdown, History, Pair, Range, Sample, SpanTimeline};
 use netstat::InterfaceCounters;
 use process::ProcessResolver;
 use srum::AppBytes;
@@ -357,6 +357,15 @@ impl UsageTracker {
         self.history
             .lock()
             .map(|history| history.timeline(range))
+            .unwrap_or_default()
+    }
+
+    /// The timeline between two instants, for drawing a chosen day, week or
+    /// month rather than a span counted back from now.
+    pub fn timeline_between(&self, from_ts: i64, to_ts: i64) -> SpanTimeline {
+        self.history
+            .lock()
+            .map(|history| history.timeline_between(from_ts, to_ts))
             .unwrap_or_default()
     }
 

@@ -91,11 +91,11 @@ export function ShareDialog({ server, open, onOpenChange }: ShareDialogProps) {
           {value ? (
             <QrCode value={value} className="size-60 p-1 shadow-lg" />
           ) : (
-            <Skeleton className="size-60 rounded-2xl" />
+            <Skeleton className="size-60 rounded-lg" />
           )}
         </div>
 
-        <div className="flex items-center gap-2 rounded-2xl bg-tint/5 py-1.5 pr-1.5 pl-3">
+        <div className="flex items-center gap-2 rounded-lg bg-tint/5 py-1.5 pr-1.5 pl-3">
           {/* The secret is masked on screen; Copy still copies the real link. */}
           <code className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
             {value ? maskSecret(value) : 'Building link…'}

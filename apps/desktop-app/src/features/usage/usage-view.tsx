@@ -1,47 +1,60 @@
 /**
- * Usage: totals for a period and the ranked breakdown behind them, for the
- * whole device or only what went through Maizy.
+ * Usage: GlassWire's Usage tab. Totals for a day, week, month or custom run of
+ * days, the ranked apps, hosts and traffic types behind them, and the
+ * period's traffic along the bottom - for the whole device or only what went
+ * through Maizy.
  */
 
 import { useMemo, useState } from 'react'
-import { ComputerIcon, GlobalIcon, Route01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { ArrowDown01Icon, InformationCircleIcon, Route01Icon } from '@hugeicons/core-free-icons'
 import { motion } from 'motion/react'
 import { cn } from 'cn'
 
-import { Segmented } from '@/components/segmented'
+import { Toolbar, ToolbarButton, ToolbarChoice } from '@/components/toolbar'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { staggerParent } from '@/lib/motion'
 
 import { BreakdownColumn } from './components/breakdown-column'
 import { MonitorPrompt } from './components/monitor-prompt'
+import { PeriodPicker } from './components/period-picker'
+import { TimelineStrip } from './components/timeline-strip'
 import { UsageDonut, type UsageScope } from './components/usage-donut'
 import {
-  currentMonth,
-  fromDateInput,
-  monthPeriods,
-  periodKey,
-  ROLLING,
-  spanLabel,
-  toDateInput,
+  customPeriod,
+  firstDayOfWeek,
+  periodBounds,
+  periodDays,
+  periodFor,
+  startOfDay,
+  subPeriod,
   type Period,
+  type PeriodMode,
 } from './periods'
+import { withGaps } from './tiers'
 import { useMonitor } from './use-monitor'
-import { useAppIcons, useSummary, useUsageSpan, useWindowsApps } from './use-usage'
-
-const DAY = 86_400
+import { useAppIcons, usePeriodTimeline, useSummary, useUsageSpan, useWindowsApps } from './use-usage'
 
 const SCOPES = [
   { value: 'all' as const, label: 'All traffic' },
   { value: 'maizy' as const, label: 'Through Maizy' },
 ]
+
+const MODE_LABELS: Record<PeriodMode, string> = {
+  day: 'Day',
+  week: 'Week',
+  month: 'Month',
+  custom: 'Custom',
+}
 
 /** Remembered per viewer: someone who checks only their VPN traffic should
  *  not have to switch every visit. Storage can be blocked; the default holds. */
@@ -63,86 +76,58 @@ function saveScope(scope: UsageScope) {
   }
 }
 
-/**
- * What the right-hand picker chooses. `month` and `custom` are modes rather
- * than periods: each hands the actual choice to its own control in the centre
- * of the header, so one dropdown never has to hold both presets and a calendar.
- */
-type Mode = 'today' | 'week' | 'rolling30' | 'month' | 'custom'
-
-const MODE_LABELS: Record<Mode, string> = {
-  today: 'Today',
-  week: 'Last 7 days',
-  rolling30: 'Last 30 days',
-  month: 'Month',
-  custom: 'Custom range',
-}
-
-const MODE_ORDER: Mode[] = ['today', 'week', 'rolling30', 'month', 'custom']
-
-const ROLLING_FOR: Record<'today' | 'week' | 'rolling30', Period> = {
-  today: ROLLING[0],
-  week: ROLLING[1],
-  rolling30: ROLLING[2],
-}
-
 export function UsageView() {
   const span = useUsageSpan()
-  // Opens on the current month, the way GlassWire does.
-  const [mode, setMode] = useState<Mode>('month')
-  const [month, setMonth] = useState<string | null>(null)
+  // Read once per mount: the pickers only need it for their bounds.
+  // ponytail: a session left open past midnight keeps yesterday as "today".
+  // The backend clamps anyway; revisit if anyone actually trips over it.
+  const [today] = useState(() => startOfDay(new Date()))
+  const [weekStartsOn] = useState(() => firstDayOfWeek())
 
-  // Read once per mount rather than per render: the date pickers only need it
-  // for their bounds and their initial value.
-  // ponytail: a session left open past midnight keeps yesterday's `max`. The
-  // backend clamps anyway; revisit if anyone actually trips over it.
-  const [today] = useState(() => Math.floor(Date.now() / 1000))
+  // Opens on today, the way GlassWire does.
+  const [mode, setMode] = useState<PeriodMode>('day')
+  const [anchor, setAnchor] = useState<Date>(today)
+  // Defaults to the last week, so opening Custom shows real figures at once.
+  const [custom, setCustom] = useState<{ from: Date; to: Date }>(() => ({
+    from: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6),
+    to: today,
+  }))
 
-  // Defaults to the last week, so opening Custom shows real figures rather
-  // than an empty panel waiting on two inputs.
-  const [customFrom, setCustomFrom] = useState(() => toDateInput(today - 6 * DAY))
-  const [customTo, setCustomTo] = useState(() => toDateInput(today))
-
-  // The current month is always present, so Month mode works before any
-  // history exists and lands on this month by default.
-  const months = useMemo(
-    () => (span ? monthPeriods(span) : [currentMonth()]),
-    [span],
+  const period = useMemo<Period>(
+    () =>
+      mode === 'custom'
+        ? customPeriod(custom.from, custom.to, today)
+        : periodFor(mode, anchor, weekStartsOn, today),
+    [mode, anchor, custom, today, weekStartsOn],
   )
 
-  // Key -> label, so the trigger reads "September 2026" rather than the
-  // `span:...:...` value its items are addressed by.
-  const monthLabels = useMemo(() => {
-    const map: Record<string, string> = {}
-    for (const entry of months) map[periodKey(entry)] = entry.label
-    return map
-  }, [months])
+  // The scrubber narrows a multi-day period to some of its days. `null` is
+  // all of them, and every way of choosing another period resets it.
+  const days = useMemo(() => periodDays(period), [period])
+  const [bracket, setBracket] = useState<{ draft: Bracket; committed: Bracket } | null>(null)
+  const whole: Bracket = [0, days.length]
+  const current = bracket ?? { draft: whole, committed: whole }
 
-  // `months` is newest-first with the current month at its head, so the
-  // fallback is this month without having to search for it.
-  const activeMonth = months.find((entry) => periodKey(entry) === month) ?? months[0]
+  const chooseMode = (next: PeriodMode) => {
+    setMode(next)
+    setBracket(null)
+  }
+  const chooseAnchor = (next: Date) => {
+    setAnchor(next)
+    setBracket(null)
+  }
+  const chooseCustom = (from: Date, to: Date) => {
+    setCustom({ from, to })
+    setBracket(null)
+  }
 
-  const period = useMemo<Period>(() => {
-    if (mode === 'month') return activeMonth
+  const shown = useMemo<Period>(() => {
+    const [from, to] = current.committed
+    return from === 0 && to === days.length ? period : subPeriod(days, from, to - 1, today)
+  }, [current.committed, days, period, today])
 
-    if (mode === 'custom') {
-      const fromTs = fromDateInput(customFrom)
-      const toTs = fromDateInput(customTo)
-      // An incomplete pair falls back to today rather than querying a nonsense
-      // window; an inverted one is simply read in the order it makes sense.
-      if (fromTs === null || toTs === null) return ROLLING[0]
-      return {
-        kind: 'span',
-        fromTs: Math.min(fromTs, toTs),
-        toTs: Math.max(fromTs, toTs),
-        label: MODE_LABELS.custom,
-      }
-    }
-
-    return ROLLING_FOR[mode]
-  }, [mode, activeMonth, customFrom, customTo])
-
-  const summary = useSummary(period)
+  const summary = useSummary(shown)
+  const timeline = usePeriodTimeline(period)
   const monitor = useMonitor()
 
   const [scope, setScopeState] = useState<UsageScope>(readScope)
@@ -175,170 +160,197 @@ export function UsageView() {
           ? 'No traffic went through Maizy in this period. Connect, or turn on "Measure usage while disconnected" in Settings.'
           : 'Recorded while the VPN is connected.'
 
-  // The dates the backend actually covered, which is not always what was asked
-  // for: a range reaching past retention comes back trimmed.
-  const covered = summary.fromTs > 0 ? spanLabel(summary.fromTs, summary.toTs) : null
+  const strip = useMemo(
+    () =>
+      withGaps(
+        timeline.samples.map((sample) => ({
+          t: sample.t,
+          down: scope === 'all' ? sample.down : sample.tunnelDown,
+          up: scope === 'all' ? sample.up : sample.tunnelUp,
+        })),
+        timeline.bucketSecs,
+      ),
+    [timeline, scope],
+  )
 
-  const earliest = span?.firstTs ? toDateInput(span.firstTs) : undefined
-  const latest = toDateInput(today)
+  const earliest = span?.firstTs ? startOfDay(new Date(span.firstTs * 1000)) : null
+
+  const dayLabel = (position: number) => {
+    const index = Math.min(days.length - 1, Math.max(0, position))
+    return new Date(days[index] * 1000).toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    })
+  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      {/* Three zones: the centre one stays centred on the page regardless of
-          how wide the title or the right-hand picker are. */}
-      <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 px-8 pt-1 pb-4">
-        <div className="min-w-0">
-          <h1 className="font-heading text-xl font-semibold">Usage</h1>
-          <p className="truncate text-xs text-muted-foreground">
-            {covered ?? 'Where your bandwidth went.'}
-          </p>
-        </div>
+      <Toolbar
+        start={
+          <ToolbarChoice
+            options={SCOPES}
+            value={scope}
+            onChange={setScope}
+            layoutId="usage-scope"
+            aria-label="Traffic shown"
+          />
+        }
+        center={
+          <PeriodPicker
+            mode={mode}
+            period={period}
+            anchor={anchor}
+            onAnchorChange={chooseAnchor}
+            onCustomChange={chooseCustom}
+            earliest={earliest}
+            today={today}
+            weekStartsOn={weekStartsOn}
+          />
+        }
+        end={
+          <>
+            {scope === 'all' && <MonitorBadge monitor={monitor} />}
+            <ModeMenu mode={mode} onChange={chooseMode} />
+          </>
+        }
+      />
 
-        <div className="flex items-center justify-center gap-1.5">
-          {mode === 'month' && (
-            <Select
-              items={monthLabels}
-              value={periodKey(activeMonth)}
-              onValueChange={(value) => setMonth(value)}
-            >
-              <SelectTrigger
-                size="sm"
-                aria-label="Month"
-                className="min-w-40 justify-center text-xs"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {months.map((entry) => (
-                  <SelectItem key={periodKey(entry)} value={periodKey(entry)}>
-                    {entry.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          {mode === 'custom' && (
-            <>
-              <DateField
-                label="From"
-                value={customFrom}
-                min={earliest}
-                max={latest}
-                onChange={setCustomFrom}
-              />
-              <span aria-hidden className="text-xs text-muted-foreground">
-                &ndash;
-              </span>
-              <DateField
-                label="To"
-                value={customTo}
-                min={earliest}
-                max={latest}
-                onChange={setCustomTo}
-              />
-            </>
-          )}
-        </div>
-
-        <div className="flex justify-end">
-          <Select
-            items={MODE_LABELS}
-            value={mode}
-            onValueChange={(value) => setMode((value as Mode | null) ?? 'today')}
-          >
-            <SelectTrigger size="sm" aria-label="Usage period" className="min-w-30 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MODE_ORDER.map((value) => (
-                <SelectItem key={value} value={value}>
-                  {MODE_LABELS[value]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </header>
-
-      <div className="flex shrink-0 items-center justify-between gap-4 px-8 pb-3">
-        <Segmented
-          options={SCOPES}
-          value={scope}
-          onChange={setScope}
-          layoutId="usage-scope"
-          size="sm"
-          aria-label="Traffic shown"
-        />
-        <div className="flex items-center gap-4">
-          {scope === 'all' && <MonitorBadge monitor={monitor} />}
-          <Legend />
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-8">
-        {/* Keyed by scope so a switch replays the entrance and every column
-            starts collapsed again, instead of morphing one list into another. */}
-        <motion.div
-          key={scope}
-          variants={staggerParent}
-          initial="initial"
-          animate="animate"
-          className="flex flex-col gap-4"
-        >
-          {/* One surface, four zones side by side at every window size - the
-              ring, then the three rankings - divided by grooves rather than
-              split into cards. Stacking them pushed the figures out of view. */}
-          <div className="panel grid grid-cols-[14rem_repeat(3,minmax(0,1fr))] divide-x divide-hairline overflow-hidden rounded-2xl">
-            <UsageDonut summary={summary} scope={scope} />
-
-            <BreakdownColumn
-              title="Apps"
-              icon={ComputerIcon}
-              tone="violet"
-              ranked={apps}
-              loading={fallback && windows.loading}
-              note={fallback ? "From Windows' per-app records" : undefined}
-              emptyHint={emptyHint}
-              iconFor={iconFor}
+      {/* Keyed by scope so a switch replays the entrance and every column
+          starts folded again, instead of morphing one list into another. */}
+      <motion.div
+        key={scope}
+        variants={staggerParent}
+        initial="initial"
+        animate="animate"
+        className="grid min-h-0 flex-1 grid-cols-[12.5rem_repeat(3,minmax(0,1fr))] divide-x divide-hairline"
+      >
+        <UsageDonut
+          summary={summary}
+          scope={scope}
+          // Says so when the scrubber has narrowed the period: the toolbar
+          // still names the whole of it.
+          caption={shown === period ? undefined : shown.label}
+          corner={
+            <AboutFigures
+              scope={scope}
+              fromTs={summary.fromTs}
+              monitoredFromTs={summary.monitoredFromTs}
+              hasDevice={Boolean(device)}
+              retentionDays={span?.retentionDays ?? 90}
             />
+          }
+        />
 
-            {columns ? (
-              <>
-                <BreakdownColumn
-                  title="Hosts"
-                  icon={GlobalIcon}
-                  tone="sky"
-                  ranked={columns.hosts}
-                  emptyHint={emptyHint}
-                  flags
-                />
-                <BreakdownColumn
-                  title="Traffic type"
-                  icon={Route01Icon}
-                  tone="teal"
-                  ranked={columns.kinds}
-                  emptyHint={emptyHint}
-                />
-              </>
-            ) : (
-              <MonitorPrompt
-                state={monitor.state}
-                error={monitor.status?.error ?? null}
-                busy={monitor.busy}
-                onEnable={() => void monitor.enable()}
-                className="col-span-2"
-              />
-            )}
-          </div>
+        <BreakdownColumn
+          title="Apps"
+          ranked={apps}
+          loading={fallback && windows.loading}
+          note={fallback ? "From Windows' records" : undefined}
+          emptyHint={emptyHint}
+          iconFor={iconFor}
+        />
 
-          <p className="px-1 text-xs leading-relaxed text-muted-foreground">
-            {footnote(scope, summary.fromTs, summary.monitoredFromTs, Boolean(device))} History
-            is kept for {span?.retentionDays ?? 90} days.
-          </p>
-        </motion.div>
-      </div>
+        {columns ? (
+          <>
+            <BreakdownColumn title="Hosts" ranked={columns.hosts} emptyHint={emptyHint} flags />
+            <BreakdownColumn
+              title="Traffic Type"
+              ranked={columns.kinds}
+              emptyHint={emptyHint}
+              rowIcon={Route01Icon}
+            />
+          </>
+        ) : (
+          <MonitorPrompt
+            state={monitor.state}
+            error={monitor.status?.error ?? null}
+            busy={monitor.busy}
+            onEnable={() => void monitor.enable()}
+            className="col-span-2"
+          />
+        )}
+      </motion.div>
+
+      <TimelineStrip
+        points={strip}
+        domain={periodBounds(period)}
+        emptyLabel="No timeline kept for this period"
+        // One day has no days to choose between.
+        selection={
+          days.length > 1
+            ? {
+                steps: days.length,
+                value: current.draft,
+                onChange: (value) => setBracket({ draft: value, committed: current.committed }),
+                onCommit: (value) => setBracket({ draft: value, committed: value }),
+                label: 'Days counted',
+                // The end knob sits on the boundary after the last day it counts.
+                formatValue: (position, thumb) => dayLabel(thumb === 0 ? position : position - 1),
+              }
+            : undefined
+        }
+      />
     </div>
+  )
+}
+
+/** Start and end positions on the period's day boundaries: `[0, days]` is all of it. */
+type Bracket = readonly [number, number]
+
+/** GlassWire's "Day ▾": the presets, then Custom below a rule. */
+function ModeMenu({ mode, onChange }: { mode: PeriodMode; onChange: (mode: PeriodMode) => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<ToolbarButton aria-label={`Period: ${MODE_LABELS[mode]}`} />}>
+        {MODE_LABELS[mode]}
+        <HugeiconsIcon icon={ArrowDown01Icon} size={13} strokeWidth={2} className="text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-36 min-w-36">
+        <DropdownMenuRadioGroup value={mode} onValueChange={(value: PeriodMode) => onChange(value)}>
+          <DropdownMenuRadioItem closeOnClick value="day">Day</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem closeOnClick value="week">Week</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem closeOnClick value="month">Month</DropdownMenuRadioItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuRadioItem closeOnClick value="custom">Custom</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** Where the figures come from, behind the panel's corner button. */
+function AboutFigures({
+  scope,
+  fromTs,
+  monitoredFromTs,
+  hasDevice,
+  retentionDays,
+}: {
+  scope: UsageScope
+  fromTs: number
+  monitoredFromTs: number | null
+  hasDevice: boolean
+  retentionDays: number
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            aria-label="Where these figures come from"
+            className="grid size-6 place-items-center rounded-[3px] border border-tint/10 text-muted-foreground outline-none transition-colors hover:bg-tint/8 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/50 data-popup-open:bg-tint/10"
+          />
+        }
+      >
+        <HugeiconsIcon icon={InformationCircleIcon} size={13} strokeWidth={2} />
+      </PopoverTrigger>
+      <PopoverContent align="start" side="right" className="w-72 gap-2 p-3 text-xs leading-relaxed">
+        <p>{footnote(scope, fromTs, monitoredFromTs, hasDevice)}</p>
+        <p className="text-muted-foreground">History is kept for {retentionDays} days.</p>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -383,17 +395,14 @@ function MonitorBadge({ monitor }: { monitor: ReturnType<typeof useMonitor> }) {
   if (!tone) return null
 
   return (
-    <span className={cn('flex items-center gap-1.5 text-[11px] font-medium', tone.text)}>
-      <span className="relative flex size-1.5">
+    <span className={cn('mr-1 flex min-w-0 items-center gap-1.5 text-[11px] font-medium', tone.text)}>
+      <span className="relative flex size-1.5 shrink-0">
         {state === 'active' && (
-          <span
-            aria-hidden
-            className="absolute inset-0 animate-ping rounded-full bg-success opacity-60"
-          />
+          <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-success opacity-60" />
         )}
         <span className={cn('relative size-1.5 rounded-full', tone.dot)} />
       </span>
-      {tone.label}
+      <span className="truncate">{tone.label}</span>
       {troubled && (
         <Button
           variant="outline"
@@ -402,52 +411,9 @@ function MonitorBadge({ monitor }: { monitor: ReturnType<typeof useMonitor> }) {
           disabled={busy}
           onClick={() => void monitor.enable()}
         >
-          {busy ? 'Waiting for Windows…' : state === 'outdated' ? 'Update' : 'Repair'}
+          {busy ? 'Waiting…' : state === 'outdated' ? 'Update' : 'Repair'}
         </Button>
       )}
     </span>
-  )
-}
-
-function Legend() {
-  return (
-    <span className="flex items-center gap-3 text-[11px] text-muted-foreground">
-      <span className="flex items-center gap-1.5">
-        <span aria-hidden className="h-1.5 w-3 rounded-full bg-chart-down" />
-        Incoming
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span aria-hidden className="h-1.5 w-3 rounded-full bg-chart-up" />
-        Outgoing
-      </span>
-    </span>
-  )
-}
-
-function DateField({
-  label,
-  value,
-  min,
-  max,
-  onChange,
-}: {
-  label: string
-  value: string
-  min?: string
-  max: string
-  onChange: (value: string) => void
-}) {
-  return (
-    <Input
-      type="date"
-      aria-label={label}
-      value={value}
-      min={min}
-      max={max}
-      onChange={(event) => onChange(event.target.value)}
-      // `color-scheme` is what makes the native picker and its calendar icon
-      // match the theme; without it Chromium paints a white widget on the panel.
-      className="h-8 w-33 px-2.5 text-xs scheme-light dark:scheme-dark"
-    />
   )
 }

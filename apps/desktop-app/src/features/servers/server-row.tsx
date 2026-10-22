@@ -1,4 +1,10 @@
-/** One server in the list: pick it, see how it is reached, act on it. */
+/**
+ * One server in the list: pick it, see how it is reached, act on it.
+ *
+ * Flat rows in GlassWire's manner - the chosen one lit and marked with an
+ * accent bar down its left edge. Click chooses; double-click chooses and
+ * connects.
+ */
 
 import type { ReactNode } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -34,6 +40,7 @@ interface ServerRowProps {
   selected: boolean
   inUse: boolean
   onSelect: () => void
+  onConnect: () => void
   onShare: () => void
   onEdit: () => void
   onRemove: () => void
@@ -44,75 +51,84 @@ export function ServerRow({
   selected,
   inUse,
   onSelect,
+  onConnect,
   onShare,
   onEdit,
   onRemove,
 }: ServerRowProps) {
   const chips = protocolChips(server)
-
   const country = regionCode(server.countryCode)
 
   return (
-    <RowFrame selected={selected} label={`Use ${server.name}`} onSelect={onSelect}>
+    <RowFrame
+      selected={selected}
+      label={`Use ${server.name}`}
+      onSelect={onSelect}
+      onConnect={onConnect}
+    >
       {/* Where it is, when known; otherwise a server tile in the same slot. */}
       {country ? (
-        <span className="pointer-events-none grid size-8 shrink-0 place-items-center rounded-xl bg-tint/6">
+        <span className="pointer-events-none grid w-6 shrink-0 place-items-center">
           <Flag code={country} className="h-3.5 w-5" />
         </span>
       ) : (
         <span
-          className="tone-tile pointer-events-none grid size-8 shrink-0 place-items-center rounded-xl"
+          className="tone-tile pointer-events-none grid size-6 shrink-0 place-items-center rounded-sm"
           style={toneStyle('violet')}
         >
-          <HugeiconsIcon icon={ServerStack01Icon} size={16} strokeWidth={2} />
+          <HugeiconsIcon icon={ServerStack01Icon} size={13} strokeWidth={2} />
         </span>
       )}
       <div className="pointer-events-none min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate text-sm font-medium">{server.name}</span>
-          {/* One pill, the full stack on hover: every supported server is
-              TCP + TLS today, so three chips would only crowd the address. */}
-          <span
-            title={chips.join(' · ')}
-            className="pointer-events-auto shrink-0 rounded-md bg-tint/7 px-1.5 py-px text-[9px] font-semibold tracking-wide text-muted-foreground uppercase"
-          >
-            {chips[0]}
+          <span className={cn('truncate text-[13px]', selected ? 'font-semibold' : 'font-medium')}>
+            {server.name}
           </span>
+          {inUse && (
+            <span className="shrink-0 rounded-[3px] bg-protected/16 px-1 text-[10px] font-semibold text-protected">
+              Connected
+            </span>
+          )}
           {server.allowInsecure && (
             <span
               title="Certificate checks are off for this server"
-              className="pointer-events-auto shrink-0 rounded-md bg-warning/12 px-1.5 py-px text-[9px] font-semibold tracking-wide text-warning uppercase"
+              className="pointer-events-auto shrink-0 rounded-[3px] bg-warning/14 px-1 text-[10px] font-semibold text-warning"
             >
               Unverified
             </span>
           )}
-          {inUse && (
-            <span className="shrink-0 rounded-full bg-protected/14 px-1.5 py-px text-[10px] font-semibold text-protected">
-              Connected
-            </span>
-          )}
         </div>
-        <span className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground">
-          {server.host}:{server.port}
+        {/* The full stack on hover: every supported server is TCP + TLS
+            today, so chips would only crowd the address. */}
+        <span
+          title={chips.join(' · ')}
+          className="pointer-events-auto block truncate font-mono text-[11px] text-muted-foreground"
+        >
+          {server.host}
         </span>
       </div>
 
-      <LatencyBadge ms={server.latencyMs} />
+      <Latency ms={server.latencyMs} />
 
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
             <Button
               variant="ghost"
-              size="icon-sm"
+              size="icon-xs"
               aria-label={`More actions for ${server.name}`}
-              className="relative z-10 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
+              className="relative z-10 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
             />
           }
         >
           <HugeiconsIcon icon={MoreVerticalIcon} strokeWidth={2} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem onClick={onConnect}>
+            <HugeiconsIcon icon={FlashIcon} strokeWidth={2} />
+            {inUse ? 'Reconnect' : 'Connect'}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onShare}>
             <HugeiconsIcon icon={QrCodeIcon} strokeWidth={2} />
             Share
@@ -137,28 +153,37 @@ export function AutomaticRow({
   selected,
   fastest,
   onSelect,
+  onConnect,
 }: {
   selected: boolean
   fastest: ServerSummary | null
   onSelect: () => void
+  onConnect: () => void
 }) {
   return (
-    <RowFrame selected={selected} label="Choose the fastest server automatically" onSelect={onSelect}>
+    <RowFrame
+      selected={selected}
+      label="Choose the fastest server automatically"
+      onSelect={onSelect}
+      onConnect={onConnect}
+    >
       <span
-        className="tone-tile pointer-events-none grid size-8 shrink-0 place-items-center rounded-xl"
+        className="tone-tile pointer-events-none grid size-6 shrink-0 place-items-center rounded-sm"
         style={toneStyle('amber')}
       >
-        <HugeiconsIcon icon={FlashIcon} size={16} strokeWidth={2} />
+        <HugeiconsIcon icon={FlashIcon} size={13} strokeWidth={2} />
       </span>
       <div className="pointer-events-none min-w-0 flex-1">
-        <span className="block text-sm font-medium">Automatic</span>
+        <span className={cn('block text-[13px]', selected ? 'font-semibold' : 'font-medium')}>
+          Fastest server
+        </span>
         <span className="block truncate text-[11px] text-muted-foreground">
-          {fastest ? `Fastest right now: ${fastest.name}` : 'Picks the fastest server when you connect'}
+          {fastest ? `Right now: ${fastest.name}` : 'Picked when you connect'}
         </span>
       </div>
-      {fastest && <LatencyBadge ms={fastest.latencyMs} />}
-      {/* Keeps the badge column aligned with the rows' menu buttons. */}
-      <span aria-hidden className="size-8 shrink-0" />
+      {fastest && <Latency ms={fastest.latencyMs} />}
+      {/* Keeps the latency column aligned with the rows' menu buttons. */}
+      <span aria-hidden className="size-6 shrink-0" />
     </RowFrame>
   )
 }
@@ -171,20 +196,21 @@ function RowFrame({
   selected,
   label,
   onSelect,
+  onConnect,
   children,
 }: {
   selected: boolean
   label: string
   onSelect: () => void
+  onConnect: () => void
   children: ReactNode
 }) {
   return (
     <motion.li variants={staggerChild} layout="position" transition={spring.soft}>
       <div
         className={cn(
-          'group relative flex items-center gap-3 rounded-2xl border py-2.5 pr-1.5 pl-3 transition-colors duration-200',
-          // The radio says which; the tint repeats it at a glance down the list.
-          selected ? 'border-selected-border bg-selected' : 'border-transparent hover:bg-tint/4',
+          'group relative flex h-11 items-center gap-2.5 pr-1.5 pl-3 transition-colors duration-150',
+          selected ? 'bg-selected' : 'hover:bg-tint/4',
         )}
       >
         <button
@@ -192,24 +218,19 @@ function RowFrame({
           role="radio"
           aria-checked={selected}
           aria-label={label}
+          title="Double-click to connect"
           onClick={onSelect}
-          className="absolute inset-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          onDoubleClick={onConnect}
+          className="absolute inset-0 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset"
         />
-        <span
-          aria-hidden
-          className={cn(
-            'pointer-events-none grid size-4 shrink-0 place-items-center rounded-full border-2 transition-colors duration-200',
-            selected ? 'border-primary' : 'border-tint/20 group-hover:border-tint/35',
-          )}
-        >
-          {selected && (
-            <motion.span
-              layoutId="server-selected"
-              className="size-1.5 rounded-full bg-primary"
-              transition={spring.soft}
-            />
-          )}
-        </span>
+        {selected && (
+          <motion.span
+            layoutId="server-selected"
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 left-0 w-0.5 bg-primary"
+            transition={spring.soft}
+          />
+        )}
         {children}
       </div>
     </motion.li>
@@ -218,17 +239,17 @@ function RowFrame({
 
 // Traffic-light tones: the number alone does not tell you whether 140 ms is good.
 const LATENCY_TONE = {
-  good: 'bg-success/12 text-success',
-  fair: 'bg-warning/12 text-warning',
-  poor: 'bg-destructive/12 text-destructive',
-  unknown: 'bg-tint/6 text-muted-foreground',
+  good: 'text-success',
+  fair: 'text-warning',
+  poor: 'text-destructive',
+  unknown: 'text-muted-foreground',
 } as const
 
-function LatencyBadge({ ms }: { ms: number | null }) {
+function Latency({ ms }: { ms: number | null }) {
   return (
     <span
       className={cn(
-        'numeric pointer-events-none w-14 shrink-0 rounded-full px-2 py-0.5 text-center text-[11px] font-semibold',
+        'numeric pointer-events-none w-12 shrink-0 text-right text-[11px] font-semibold',
         LATENCY_TONE[latencyQuality(ms)],
       )}
     >

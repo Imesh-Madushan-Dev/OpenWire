@@ -37,7 +37,7 @@ export function ToggleField({
   tone?: 'default' | 'warning'
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-2xl bg-tint/4 px-3 py-2.5">
+    <div className="flex items-start gap-3 rounded-lg bg-tint/4 px-3 py-2.5">
       <div className="min-w-0 flex-1">
         <p className="text-xs font-medium">{label}</p>
         <p

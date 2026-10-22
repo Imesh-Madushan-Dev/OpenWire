@@ -39,17 +39,17 @@ export function MonitorPrompt({ state, error, busy, onEnable, className }: Monit
         />
       )}
 
-      <div className="flex h-full flex-col items-center justify-center gap-3 px-8 py-10 text-center">
+      <div className="flex h-full flex-col items-center justify-center gap-2.5 px-8 py-6 text-center">
         <span
           className={cn(
-            'relative grid size-11 place-items-center rounded-2xl',
+            'relative grid size-10 place-items-center rounded-lg',
             troubled ? 'bg-warning/12 text-warning' : 'bg-tint/7 text-foreground/80',
           )}
         >
           {state === 'starting' && (
             <span
               aria-hidden
-              className="absolute inset-0 animate-ping rounded-2xl bg-tint/15"
+              className="absolute inset-0 animate-ping rounded-lg bg-tint/15"
             />
           )}
           <HugeiconsIcon icon={troubled ? Alert02Icon : Radar01Icon} size={20} strokeWidth={1.8} />

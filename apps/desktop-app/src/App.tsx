@@ -12,6 +12,7 @@ import { useMaximized } from '@/lib/use-maximized'
 import { useDevices } from '@/features/devices/devices-context'
 import { DevicesProvider } from '@/features/devices/devices-provider'
 import { DevicesView } from '@/features/devices/devices-view'
+import type { SectionId } from '@/features/settings/sections'
 import { SettingsView } from '@/features/settings/settings-view'
 import { NetworkView } from '@/features/usage/network-view'
 import { UsageView } from '@/features/usage/usage-view'
@@ -30,27 +31,48 @@ export default function App() {
 }
 
 function Shell() {
-  const { connection, notice, notify, dismissNotice } = useVpn()
+  const { connection, notice, notify, dismissNotice, toggle, ready } = useVpn()
   const [view, setView] = useState<ViewId>('vpn')
+  // Where Settings opens when something links into it; a new request
+  // remounts the view on that section.
+  const [settingsEntry, setSettingsEntry] = useState<{ section: SectionId; seq: number }>({
+    section: 'protection',
+    seq: 0,
+  })
   const maximized = useMaximized()
   const { newCount } = useDevices()
 
+  const openSettings = (section: SectionId = 'protection') => {
+    setSettingsEntry((current) => ({ section, seq: current.seq + 1 }))
+    setView('settings')
+  }
+
+  // Arriving on Settings from its tab starts on Protection again, rather than
+  // wherever the last deep link left it.
+  const navigate = (next: ViewId) => {
+    if (next === 'settings' && view !== 'settings') openSettings()
+    else setView(next)
+  }
+
   return (
     // The window is transparent and shadowless (tauri.conf.json), so these
-    // corners and this border are the window's real edge - Windows caps its
-    // own rounding at 8px. Maximised, the window meets the screen edges, so
-    // it squares off.
+    // corners and this border are the window's real edge, matching the 8px
+    // Windows 11 gives its own windows. Maximised, the window meets the
+    // screen edges, so it squares off.
     <div
       className={cn(
         'shell-canvas relative flex h-full flex-col overflow-hidden bg-background',
-        !maximized && 'rounded-[12px] border border-tint/12',
+        !maximized && 'rounded-[8px] border border-tint/12',
       )}
     >
       <TitleBar
         view={view}
-        onNavigate={setView}
+        onNavigate={navigate}
+        onOpenSettings={openSettings}
         badges={{ devices: newCount }}
         phase={connection.phase}
+        ready={ready}
+        onToggleVpn={() => void toggle()}
         onFeedback={(message) => notify({ level: 'info', message })}
       />
 
@@ -64,11 +86,13 @@ function Shell() {
             exit="exit"
             className="absolute inset-0"
           >
-            {view === 'vpn' && <VpnView onOpenSettings={() => setView('settings')} />}
+            {view === 'vpn' && <VpnView onOpenSettings={openSettings} />}
             {view === 'network' && <NetworkView />}
             {view === 'usage' && <UsageView />}
             {view === 'devices' && <DevicesView />}
-            {view === 'settings' && <SettingsView />}
+            {view === 'settings' && (
+              <SettingsView key={settingsEntry.seq} initialSection={settingsEntry.section} />
+            )}
           </motion.div>
         </AnimatePresence>
       </main>

@@ -53,7 +53,7 @@ export function NoticeBar({
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={transition.base}
             className={cn(
-              'pointer-events-auto flex max-w-md items-start gap-2.5 rounded-2xl border bg-card/95 px-4 py-3 shadow-xl backdrop-blur',
+              'pointer-events-auto flex max-w-md items-start gap-2.5 rounded-lg border bg-card/95 px-4 py-3 shadow-xl backdrop-blur',
               TONE[notice.level],
             )}
           >

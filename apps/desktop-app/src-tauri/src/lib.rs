@@ -70,6 +70,7 @@ pub fn run() {
             commands::settings::platform_info,
             commands::settings::network_restore,
             commands::usage::usage_timeline,
+            commands::usage::usage_timeline_between,
             commands::usage::usage_summary,
             commands::usage::usage_summary_between,
             commands::usage::usage_span,

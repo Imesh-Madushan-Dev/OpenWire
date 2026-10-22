@@ -1,15 +1,17 @@
 /**
- * Main navigation: icon-over-label tabs centred in the title bar.
+ * Main navigation: GlassWire's big icon-over-label tabs, centred in the title
+ * band.
  *
- * The active tab is told apart by brightness first - a lit label against
- * muted ones - then by its icon taking the theme's accent and the underline,
- * so it never rests on colour alone.
+ * The active tab's icon takes the accent and an underline runs along the
+ * band's bottom edge beneath it - two signals, so it never rests on colour
+ * alone. Labels stay equally bright either way, as GlassWire's do; only their
+ * weight changes.
  */
 
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import {
+  ChartAreaIcon,
   ChartRingIcon,
-  DashboardSpeed02Icon,
   LaptopPhoneSyncIcon,
   Settings01Icon,
   ShieldEnergyIcon,
@@ -27,11 +29,11 @@ interface NavItem {
   icon: IconSvgElement
 }
 
-// Distinct silhouettes - shield, gauge, ring, screens, gear - so each item
-// reads at a glance without the label.
+// Distinct silhouettes - shield, mountain graph, ring, screens, gear - so each
+// item reads at a glance without the label.
 const ITEMS: NavItem[] = [
   { id: 'vpn', label: 'VPN', icon: ShieldEnergyIcon },
-  { id: 'network', label: 'Network', icon: DashboardSpeed02Icon },
+  { id: 'network', label: 'Network', icon: ChartAreaIcon },
   { id: 'usage', label: 'Usage', icon: ChartRingIcon },
   { id: 'devices', label: 'Devices', icon: LaptopPhoneSyncIcon },
   { id: 'settings', label: 'Settings', icon: Settings01Icon },
@@ -59,28 +61,35 @@ export function NavTabs({ active, onChange, badges, className }: NavTabsProps) {
             aria-current={selected ? 'page' : undefined}
             aria-label={badge > 0 ? `${item.label}, ${badge} new` : undefined}
             className={cn(
-              'group relative flex w-18 flex-col items-center justify-center gap-1 outline-none',
+              'group relative flex w-19 flex-col items-center justify-end gap-1.5 pb-3.5 outline-none',
               'transition-colors duration-200 focus-visible:bg-tint/6',
-              selected ? 'text-foreground' : 'text-muted-foreground hover:text-foreground/85',
             )}
           >
             <span className="relative flex">
               <HugeiconsIcon
                 icon={item.icon}
-                size={19}
-                strokeWidth={selected ? 2 : 1.7}
-                className={cn('transition-colors duration-200', selected && 'text-primary')}
+                size={26}
+                strokeWidth={selected ? 1.9 : 1.6}
+                className={cn(
+                  'transition-colors duration-200',
+                  selected ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground/90',
+                )}
               />
               {badge > 0 && (
                 <span
                   aria-hidden
-                  className="numeric action-fill absolute -top-1.5 left-3.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-primary px-1 text-[9px] leading-none font-semibold text-primary-foreground ring-2 ring-background"
+                  className="numeric action-fill absolute -top-1 left-4.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-primary px-1 text-[9px] leading-none font-semibold text-primary-foreground ring-2 ring-rail"
                 >
                   {badge > 99 ? '99+' : badge}
                 </span>
               )}
             </span>
-            <span className={cn('text-[11px] leading-none', selected ? 'font-semibold' : 'font-medium')}>
+            <span
+              className={cn(
+                'text-xs leading-none text-foreground/90',
+                selected ? 'font-semibold' : 'font-medium',
+              )}
+            >
               {item.label}
             </span>
 
@@ -89,7 +98,7 @@ export function NavTabs({ active, onChange, badges, className }: NavTabsProps) {
               <motion.span
                 layoutId="nav-underline"
                 aria-hidden
-                className="action-fill absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-primary"
+                className="absolute inset-x-0 -bottom-px h-0.5 bg-primary"
                 transition={spring.soft}
               />
             )}

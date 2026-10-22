@@ -110,7 +110,7 @@ function DeviceForm({ device, onDone }: { device: Device; onDone: () => void }) 
           </div>
         </div>
 
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-2xl bg-tint/4 px-3 py-2.5 text-xs">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-lg bg-tint/4 px-3 py-2.5 text-xs">
           <dt className="text-muted-foreground">Maker</dt>
           <dd>{device.vendor ?? (device.privateAddress ? 'Hidden (private address)' : 'Unknown')}</dd>
           <dt className="text-muted-foreground">First seen</dt>
