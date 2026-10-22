@@ -3,8 +3,8 @@ name = "app"
 version = "0.1.0"
 description = "OpenWire desktop client"
 authors = ["OpenWire"]
-license = ""
-repository = ""
+license = "GPL-3.0-only"
+repository = "https://github.com/Imesh-Madushan-Dev/OpenWire"
 edition = "2021"
 rust-version = "1.77.2"
 

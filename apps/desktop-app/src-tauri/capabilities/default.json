@@ -20,7 +20,11 @@
     "autostart:default",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://github.com/Imesh-Madushan-Dev" }]
+      "allow": [
+        { "url": "https://github.com/Imesh-Madushan-Dev" },
+        { "url": "https://github.com/Imesh-Madushan-Dev/OpenWire" },
+        { "url": "https://github.com/Imesh-Madushan-Dev/OpenWire/blob/main/LICENSE" }
+      ]
     }
   ]
 }

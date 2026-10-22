@@ -13,18 +13,21 @@ import {
   Delete02Icon,
   GithubIcon,
   InformationCircleIcon,
+  JusticeScale01Icon,
   LaptopPhoneSyncIcon,
   Radar01Icon,
   Rocket01Icon,
   Route01Icon,
   ServerIcon,
   Shield01Icon,
+  SourceCodeIcon,
   Wifi01Icon,
 } from '@hugeicons/core-free-icons'
 import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { AnimatePresence, motion } from 'motion/react'
 
+import { LogoMark } from '@/components/logo-mark'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -43,6 +46,10 @@ import { ThemePicker } from './theme-picker'
 
 // Must match the opener scope in src-tauri/capabilities/default.json.
 const DEVELOPER_URL = 'https://github.com/Imesh-Madushan-Dev'
+// Each URL the About page opens must also be allowed in capabilities/default.json.
+const REPO_URL = `${DEVELOPER_URL}/OpenWire`
+const LICENSE_URL = `${REPO_URL}/blob/main/LICENSE`
+const COPYRIGHT_YEAR = 2026
 
 const RESTART_HINT = 'Reconnect to apply this change.'
 
@@ -379,29 +386,54 @@ function DiagnosticsSection() {
 }
 
 function AboutSection() {
-  const { notify } = useVpn()
+  const { platform, notify } = useVpn()
+
+  const linkButton = (label: string, url: string) => (
+    <Button
+      variant="outline"
+      size="sm"
+      className="shrink-0"
+      onClick={() =>
+        void openUrl(url).catch(() =>
+          notify({ level: 'error', message: 'Could not open the browser.' }),
+        )
+      }
+    >
+      {label}
+    </Button>
+  )
 
   return (
     <>
+      <motion.div variants={staggerChild} className="flex flex-col items-center gap-2 py-2 text-center">
+        <LogoMark size={64} className="rounded-[14px]" />
+        <div>
+          <h2 className="text-base font-semibold">OpenWire</h2>
+          <p className="numeric text-xs text-muted-foreground" data-selectable>
+            Version {platform?.version ?? '--'}
+          </p>
+        </div>
+        <p className="text-xs text-muted-foreground">Open-source network monitor and secure tunnel.</p>
+      </motion.div>
+
       <SettingGroup>
         <SettingRow
           icon={GithubIcon}
           title="Developer"
           description="Imesh Madushan"
-          control={
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0"
-              onClick={() =>
-                void openUrl(DEVELOPER_URL).catch(() =>
-                  notify({ level: 'error', message: 'Could not open the browser.' }),
-                )
-              }
-            >
-              GitHub
-            </Button>
-          }
+          control={linkButton('GitHub', DEVELOPER_URL)}
+        />
+        <SettingRow
+          icon={SourceCodeIcon}
+          title="Source code"
+          description="Open source on GitHub - issues and contributions welcome."
+          control={linkButton('View', REPO_URL)}
+        />
+        <SettingRow
+          icon={JusticeScale01Icon}
+          title="Licence"
+          description="GNU General Public License v3.0 - free to use, study, share and change."
+          control={linkButton('Read', LICENSE_URL)}
         />
       </SettingGroup>
 
@@ -424,6 +456,7 @@ function AboutSection() {
         </p>
         <p className="text-center text-xs text-muted-foreground">
           Built with ❤️ for Sri Lanka 🇱🇰
+          <br />© {COPYRIGHT_YEAR} Imesh Madushan · Licensed under GPL-3.0
         </p>
       </motion.div>
     </>
