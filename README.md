@@ -198,15 +198,6 @@ bunx tsc -b && bun test tests && bun run lint
 cd src-tauri && cargo test && cargo clippy
 ```
 
-## Contributors
-
-| | Role |
-| --- | --- |
-| [**Imesh Madushan**](https://github.com/Imesh-Madushan-Dev) | Creator and maintainer |
-| [**Claude**](https://www.anthropic.com/claude) by Anthropic | AI pair programmer, through [Claude Code](https://claude.com/claude-code) |
-
-Want to see your name here? See [Contributing](#contributing).
-
 ## Acknowledgements
 
 - IP geolocation by [DB-IP](https://db-ip.com), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
