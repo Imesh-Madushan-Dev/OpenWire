@@ -69,6 +69,7 @@ pub fn run() {
             commands::settings::settings_update,
             commands::settings::platform_info,
             commands::settings::network_restore,
+            commands::settings::app_icon_set,
             commands::usage::usage_timeline,
             commands::usage::usage_timeline_between,
             commands::usage::usage_summary,

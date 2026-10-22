@@ -128,6 +128,8 @@ export const api = {
   settings: () => call<Settings>('settings_get'),
   updateSettings: (patch: SettingsPatch) => call<Settings>('settings_update', { patch }),
   platform: () => call<PlatformInfo>('platform_info'),
+  /** Swaps the window and tray icons to the light or dark logo. */
+  setAppIcon: (dark: boolean) => call<void>('app_icon_set', { dark }),
 
   restoreNetwork: () => call<string>('network_restore'),
 }

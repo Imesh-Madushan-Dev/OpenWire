@@ -5,8 +5,11 @@
  * `[data-theme='…'][data-mode='…']`; this module picks which pair `<html>`
  * carries. Both are pure UI preferences, so they live in local storage rather
  * than the Rust settings - which also lets them apply before first paint,
- * with no IPC round trip and no flash of the wrong palette.
+ * with no IPC round trip and no flash of the wrong palette. The only IPC is
+ * after the fact: the window and tray icons follow the mode.
  */
+
+import { api } from './ipc'
 
 export type ThemeId = 'graphite' | 'aurora' | 'neon'
 
@@ -89,6 +92,8 @@ export function applyAppearance(theme: ThemeId, mode: ThemeMode) {
   root.dataset.mode = resolved
   // shadcn's `dark:` variants key off this class.
   root.classList.toggle('dark', resolved === 'dark')
+  // Cosmetic: a failed swap leaves the previous icon, which still works.
+  api.setAppIcon(resolved === 'dark').catch(() => {})
 }
 
 /** Applies and remembers a theme, keeping the current mode. */

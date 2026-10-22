@@ -32,7 +32,7 @@ export default function App() {
 }
 
 function Shell() {
-  const { connection, notice, notify, dismissNotice, toggle, ready } = useVpn()
+  const { connection, notice, notify, dismissNotice } = useVpn()
   const [view, setView] = useState<ViewId>('vpn')
   // Where Settings opens when something links into it; a new request
   // remounts the view on that section.
@@ -72,8 +72,6 @@ function Shell() {
         onOpenSettings={openSettings}
         badges={{ devices: newCount }}
         phase={connection.phase}
-        ready={ready}
-        onToggleVpn={() => void toggle()}
         onFeedback={(message) => notify({ level: 'info', message })}
       />
 

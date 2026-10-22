@@ -1,6 +1,7 @@
 //! Settings commands.
 
-use tauri::{AppHandle, State};
+use tauri::image::Image;
+use tauri::{AppHandle, Manager, State};
 
 use crate::core::models::{ConnectionState, Settings, SettingsPatch};
 use crate::core::sysproxy::{self, Recovery};
@@ -61,6 +62,30 @@ pub fn platform_info() -> serde_json::Value {
         "platform": std::env::consts::OS,
         "version": env!("CARGO_PKG_VERSION"),
     })
+}
+
+/// Matches the window and tray icons to the app's light or dark mode. The
+/// icon baked into the executable (taskbar pin, Start menu, installer) stays
+/// the dark one, which reads on either taskbar.
+#[tauri::command]
+pub fn app_icon_set(app: AppHandle, dark: bool) -> AppResult<()> {
+    let bytes: &[u8] = if dark {
+        include_bytes!("../../icons/128x128@2x.png")
+    } else {
+        include_bytes!("../../icons/light/256x256.png")
+    };
+    let icon = Image::from_bytes(bytes).map_err(|err| AppError::Internal(format!("app icon: {err}")))?;
+
+    if let Some(window) = app.get_webview_window("main") {
+        window
+            .set_icon(icon.clone())
+            .map_err(|err| AppError::Internal(format!("window icon: {err}")))?;
+    }
+    if let Some(tray) = app.tray_by_id("main") {
+        tray.set_icon(Some(icon))
+            .map_err(|err| AppError::Internal(format!("tray icon: {err}")))?;
+    }
+    Ok(())
 }
 
 /// Manual escape hatch for a stranded system proxy.

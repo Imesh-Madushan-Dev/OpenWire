@@ -1,12 +1,14 @@
 /** Segmented control with a single sliding indicator. */
 
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { motion } from 'motion/react'
 import { cn } from 'cn'
 
 import { spring } from '@/lib/motion'
 
 interface SegmentedProps<T extends string> {
-  options: readonly { value: T; label: string }[]
+  /** An icon, when given, sits before the label. */
+  options: readonly { value: T; label: string; icon?: IconSvgElement }[]
   value: T
   onChange: (value: T) => void
   /** Distinguishes indicators when several controls share a page. */
@@ -54,7 +56,12 @@ export function Segmented<T extends string>({
                 transition={spring.soft}
               />
             )}
-            <span className="relative">{option.label}</span>
+            <span className="relative flex items-center gap-1">
+              {option.icon && (
+                <HugeiconsIcon icon={option.icon} size={size === 'sm' ? 13 : 14} strokeWidth={2} />
+              )}
+              {option.label}
+            </span>
           </button>
         )
       })}

@@ -8,8 +8,8 @@
  */
 
 import { useState } from 'react'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { Tick02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
+import { ComputerIcon, Moon02Icon, Sun03Icon, Tick02Icon } from '@hugeicons/core-free-icons'
 import { motion } from 'motion/react'
 import { cn } from 'cn'
 
@@ -26,6 +26,14 @@ import {
   type ThemeId,
   type ThemeMode,
 } from '@/lib/theme'
+
+const MODE_ICONS: Record<ThemeMode, IconSvgElement> = {
+  system: ComputerIcon,
+  light: Sun03Icon,
+  dark: Moon02Icon,
+}
+
+const MODE_OPTIONS = MODES.map((mode) => ({ ...mode, icon: MODE_ICONS[mode.value] }))
 
 export function ThemePicker() {
   const [theme, setTheme] = useState<ThemeId>(readTheme)
@@ -46,7 +54,7 @@ export function ThemePicker() {
       <div className="flex items-center justify-between gap-3 px-1">
         <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Theme</h2>
         <Segmented
-          options={MODES}
+          options={MODE_OPTIONS}
           value={mode}
           onChange={chooseMode}
           layoutId="appearance-mode"

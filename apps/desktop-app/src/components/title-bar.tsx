@@ -17,10 +17,7 @@ import {
   InformationCircleIcon,
   Mail01Icon,
   MinusSignIcon,
-  PowerIcon,
-  Settings01Icon,
   SquareIcon,
-  ViewOffSlashIcon,
 } from '@hugeicons/core-free-icons'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { cn } from 'cn'
@@ -29,11 +26,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { isActive, isBusy, type Phase } from '@/lib/types'
+import { isBusy, type Phase } from '@/lib/types'
 
+import { LogoMark } from './logo-mark'
 import { NavTabs, type ViewId } from './nav-tabs'
 
 const FEEDBACK_MESSAGE =
@@ -66,22 +63,10 @@ interface TitleBarProps {
   onOpenSettings: (section?: 'about') => void
   badges?: Partial<Record<ViewId, number>>
   phase: Phase
-  /** False until the real connection state has loaded. */
-  ready: boolean
-  onToggleVpn: () => void
   onFeedback: (message: string) => void
 }
 
-export function TitleBar({
-  view,
-  onNavigate,
-  onOpenSettings,
-  badges,
-  phase,
-  ready,
-  onToggleVpn,
-  onFeedback,
-}: TitleBarProps) {
+export function TitleBar({ view, onNavigate, onOpenSettings, badges, phase, onFeedback }: TitleBarProps) {
   const minimize = useCallback(() => void getCurrentWindow().minimize(), [])
   const toggleMaximize = useCallback(() => void getCurrentWindow().toggleMaximize(), [])
   // Intercepted in Rust: hides the window, leaves the tunnel running.
@@ -94,14 +79,7 @@ export function TitleBar({
       data-tauri-drag-region
       className="relative z-20 h-20 shrink-0 border-b border-hairline bg-rail"
     >
-      <AppMenu
-        phase={phase}
-        ready={ready}
-        onToggleVpn={onToggleVpn}
-        onOpenSettings={onOpenSettings}
-        onFeedback={() => onFeedback(FEEDBACK_MESSAGE)}
-        onHide={hide}
-      />
+      <AppMenu onOpenSettings={onOpenSettings} onFeedback={() => onFeedback(FEEDBACK_MESSAGE)} />
 
       {/* Centred on the window, not on the space between the side clusters. */}
       <NavTabs
@@ -145,47 +123,32 @@ export function TitleBar({
   )
 }
 
-/** GlassWire's top-left product menu: the app's name, and what it can do. */
+/**
+ * GlassWire's top-left product menu: the app's mark, and the two things about
+ * the app itself. Connecting, Settings and hiding all have their own controls.
+ */
 function AppMenu({
-  phase,
-  ready,
-  onToggleVpn,
   onOpenSettings,
   onFeedback,
-  onHide,
 }: {
-  phase: Phase
-  ready: boolean
-  onToggleVpn: () => void
   onOpenSettings: (section?: 'about') => void
   onFeedback: () => void
-  onHide: () => void
 }) {
-  const live = isActive(phase)
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
           <button
             type="button"
-            className="absolute top-2 left-2.5 flex h-6 items-center gap-1 rounded-[3px] bg-tint/8 pr-1.5 pl-2 text-xs font-semibold tracking-wide text-foreground/90 transition-colors outline-none hover:bg-tint/12 focus-visible:ring-2 focus-visible:ring-primary/50 data-popup-open:bg-tint/14"
+            className="absolute top-2 left-2.5 flex h-6 items-center gap-1 rounded-[3px] bg-tint/8 pr-1 pl-0.5 text-xs font-semibold tracking-wide text-foreground/90 transition-colors outline-none hover:bg-tint/12 focus-visible:ring-2 focus-visible:ring-primary/50 data-popup-open:bg-tint/14"
           />
         }
       >
-        openwire
+        <LogoMark size={20} />
+        <span className="ml-0.5">OpenWire</span>
         <HugeiconsIcon icon={ArrowDown01Icon} size={13} strokeWidth={2} className="text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-52">
-        <DropdownMenuItem disabled={!ready || isBusy(phase)} onClick={onToggleVpn}>
-          <HugeiconsIcon icon={PowerIcon} strokeWidth={2} />
-          {live ? 'Disconnect' : 'Connect'}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => onOpenSettings()}>
-          <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />
-          Settings
-        </DropdownMenuItem>
         <DropdownMenuItem onClick={onFeedback}>
           <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} />
           Send feedback
@@ -193,11 +156,6 @@ function AppMenu({
         <DropdownMenuItem onClick={() => onOpenSettings('about')}>
           <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} />
           About OpenWire
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onHide}>
-          <HugeiconsIcon icon={ViewOffSlashIcon} strokeWidth={2} />
-          Hide to tray
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
