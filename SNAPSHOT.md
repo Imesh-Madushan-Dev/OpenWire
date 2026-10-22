@@ -1,4 +1,4 @@
-# Maizy VPN — project snapshot
+# OpenWire — project snapshot
 
 State of the repository as of **2026-09-12**. Written for whoever picks this up
 next. Records what works, what is broken, and the things that cost time to
@@ -185,7 +185,7 @@ whether or not the tunnel is up).
 `vpn_disconnect` and `settings_update` take an `AppHandle` so they can start or
 stop monitor mode; the wire signatures the UI sees are unchanged.
 
-### On-disk state — `%APPDATA%/com.maizy.vpn/`
+### On-disk state — `%APPDATA%/com.openwire.desktop/`
 
 | File | Contents |
 |---|---|
@@ -226,7 +226,7 @@ settings still pointing at us, so a user-configured proxy is never clobbered.
 
 ### 5.3 Registry tests are `#[ignore]`d on purpose
 
-They mutate machine-global WinINET settings that a *running* Maizy session also
+They mutate machine-global WinINET settings that a *running* OpenWire session also
 owns. During development a routine `cargo test` switched off a live session's
 proxy. Run deliberately with `cargo test -- --ignored`.
 
@@ -277,7 +277,7 @@ only. An ETW kernel trace would give both halves at once, but needs
 Administrator or *Performance Log Users*.
 
 **Monitor mode** widens what the relay sees, for the columns SRUM cannot fill:
-`monitorWhenIdle` keeps the `maizy-direct` route up while no VPN is connected,
+`monitorWhenIdle` keeps the `openwire-direct` route up while no VPN is connected,
 so the system proxy still points at us and the same per-connection accounting
 runs with the outbound hop missing. `Phase::Monitoring` exists to keep that
 visibly distinct from `Connected` - the orb stays off and the headline says the

@@ -37,14 +37,14 @@ import { isActive, isBusy, type Phase } from '@/lib/types'
 import { NavTabs, type ViewId } from './nav-tabs'
 
 const FEEDBACK_MESSAGE =
-  'Found a bug or want a feature? Open an issue in the Maizy repository - include the version from Settings.'
+  'Found a bug or want a feature? Open an issue in the OpenWire repository - include the version from Settings.'
 
 /**
  * The state badge, in GlassWire's upgrade-badge slot. A solid fill in the
  * state's own colour, with the page colour as ink: dark on the bright dark-mode
  * hues, white on the deep light-mode ones, 4.5:1 or better either way.
  *
- * Worded as a tunnel, which is what Maizy is - it disguises traffic rather
+ * Worded as a tunnel, which is what OpenWire is - it disguises traffic rather
  * than promising privacy - so "off" means traffic is going out directly, not
  * that the user is in danger. It still wears the warm `exposed` colour: the
  * tunnel not doing its job is worth a glance.
@@ -173,7 +173,7 @@ function AppMenu({
           />
         }
       >
-        maizy
+        openwire
         <HugeiconsIcon icon={ArrowDown01Icon} size={13} strokeWidth={2} className="text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-52">
@@ -192,7 +192,7 @@ function AppMenu({
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onOpenSettings('about')}>
           <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} />
-          About Maizy
+          About OpenWire
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onHide}>

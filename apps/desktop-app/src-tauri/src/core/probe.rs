@@ -7,7 +7,7 @@
 //! then dials out, so every server read 0 ms. A ClientHello has to reach
 //! whatever really answers.
 //!
-//! Every server Maizy speaks to is behind TLS, so a ClientHello is a message
+//! Every server OpenWire speaks to is behind TLS, so a ClientHello is a message
 //! it answers - and it is sent with the same SNI and ALPN as the real
 //! connection, so a network that treats the two differently cannot make the
 //! probe lie about the tunnel. Nothing past the first byte back is read: no

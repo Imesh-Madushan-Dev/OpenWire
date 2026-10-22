@@ -16,7 +16,7 @@ use crate::error::{AppError, AppResult};
 /// deliberately NOT seeded into the user's catalog - nothing ships pre-added,
 /// and this is resolved by id when something needs it.
 pub const DIRECT_NODE: &str = r#"{
-  "id": "maizy-direct",
+  "id": "openwire-direct",
   "name": "Direct (diagnostic)",
   "country": "Local",
   "countryCode": "xx",
@@ -96,7 +96,7 @@ pub fn parse_share_link(uri: &str) -> AppResult<ServerNode> {
             "That isn't a server link. Links start with vless:// or trojan://.".into(),
         )),
         other => Err(AppError::Invalid(format!(
-            "{other}:// links aren't supported yet. Maizy speaks VLESS and Trojan."
+            "{other}:// links aren't supported yet. OpenWire speaks VLESS and Trojan."
         ))),
     }
 }

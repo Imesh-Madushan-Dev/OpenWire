@@ -1,5 +1,5 @@
 {
-  "name": "maizy-vpn",
+  "name": "openwire",
   "private": true,
   "packageManager": "bun@1.2.0",
   "workspaces": ["apps/*", "packages/*"],

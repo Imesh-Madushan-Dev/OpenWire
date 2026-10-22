@@ -24,7 +24,7 @@ use super::flows::{AppName, FlowTable};
 use super::parse::{self, DNS_QUERY_COMPLETED, KERNEL_NETWORK_EVENTS, KERNEL_NETWORK_KEYWORDS};
 use super::sys::wide;
 
-const SESSION_NAME: &str = "Maizy-NetMon";
+const SESSION_NAME: &str = "OpenWire-NetMon";
 
 const KERNEL_NETWORK: GUID = GUID::from_u128(0x7dd42a49_5329_4832_8dfd_43d979153a88);
 const DNS_CLIENT: GUID = GUID::from_u128(0x1c95126e_7eea_49a9_a3fe_a378b03ddb4d);

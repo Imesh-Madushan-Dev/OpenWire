@@ -91,11 +91,11 @@ pub fn program_files() -> Option<PathBuf> {
 
 /// Where the service's copy of the binary lives.
 pub fn service_dir() -> Option<PathBuf> {
-    program_files().map(|root| root.join("Maizy Network Monitor"))
+    program_files().map(|root| root.join("OpenWire Network Monitor"))
 }
 
 pub fn service_exe() -> Option<PathBuf> {
-    service_dir().map(|dir| dir.join("maizy-netmon.exe"))
+    service_dir().map(|dir| dir.join("openwire-netmon.exe"))
 }
 
 // ---------------------------------------------------------------------------
@@ -172,7 +172,7 @@ mod tests {
 
         let exe = service_exe().expect("known folder resolves");
         assert!(exe.starts_with(program_files().unwrap()));
-        assert!(exe.ends_with("Maizy Network Monitor/maizy-netmon.exe"));
+        assert!(exe.ends_with("OpenWire Network Monitor/openwire-netmon.exe"));
     }
 
     #[test]

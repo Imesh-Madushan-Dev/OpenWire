@@ -35,9 +35,9 @@ export const MODES: readonly { value: ThemeMode; label: string }[] = [
 export const DEFAULT_THEME: ThemeId = 'graphite'
 export const DEFAULT_MODE: ThemeMode = 'system'
 
-const THEME_KEY = 'maizy.colorTheme'
+const THEME_KEY = 'openwire.colorTheme'
 // Named before colour themes existed; it has always held the mode.
-const MODE_KEY = 'maizy.theme'
+const MODE_KEY = 'openwire.theme'
 
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
 

@@ -24,7 +24,7 @@ export type MonitorState =
   | 'failing'
   /** Installed, but the service is not running. */
   | 'stopped'
-  /** Installed by an older Maizy; needs reinstalling. */
+  /** Installed by an older OpenWire; needs reinstalling. */
   | 'outdated'
 
 export function monitorState(status: MonitorStatus | null): MonitorState {
@@ -43,7 +43,7 @@ export function monitorSummary(state: MonitorState, error: string | null): strin
   switch (state) {
     case 'loading':
     case 'off':
-      return 'Off. Usage names apps for all traffic, but hosts and traffic types only for what passes through Maizy.'
+      return 'Off. Usage names apps for all traffic, but hosts and traffic types only for what passes through OpenWire.'
     case 'unsupported':
       return 'Detailed monitoring needs Windows.'
     case 'starting':
@@ -55,7 +55,7 @@ export function monitorSummary(state: MonitorState, error: string | null): strin
     case 'stopped':
       return 'Installed, but the service is not running. Repair restarts it.'
     case 'outdated':
-      return 'Installed by an older version of Maizy. Repair updates it.'
+      return 'Installed by an older version of OpenWire. Repair updates it.'
   }
 }
 

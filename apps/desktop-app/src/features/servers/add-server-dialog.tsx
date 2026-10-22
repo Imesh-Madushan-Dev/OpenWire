@@ -47,7 +47,7 @@ export function AddServerDialog({ open, onOpenChange }: AddServerDialogProps) {
         <DialogHeader>
           <DialogTitle>Add a server</DialogTitle>
           <DialogDescription>
-            Maizy speaks VLESS and Trojan over TLS. Links from your server panel or provider
+            OpenWire speaks VLESS and Trojan over TLS. Links from your server panel or provider
             work as they are.
           </DialogDescription>
         </DialogHeader>

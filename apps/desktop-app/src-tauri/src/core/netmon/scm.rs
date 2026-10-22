@@ -284,7 +284,7 @@ fn install() -> Result<(), i32> {
 /// missing its description still works.
 fn configure(service: &Handle) {
     let mut description = wide(
-        "Counts network traffic by app, host and traffic type for Maizy VPN's Usage page. \
+        "Counts network traffic by app, host and traffic type for OpenWire's Usage page. \
          Reads Windows' own network events; sends nothing off this device.",
     );
     let description = SERVICE_DESCRIPTIONW {
@@ -398,7 +398,7 @@ fn remove_files() {
         return;
     }
     // Still locked: leave it to the next reboot rather than fail the uninstall.
-    for path in [dir.join("maizy-netmon.exe"), dir.join("netmon.log"), dir] {
+    for path in [dir.join("openwire-netmon.exe"), dir.join("netmon.log"), dir] {
         let path = wide(&path);
         // SAFETY: a NUL-terminated path; a null target means "delete".
         unsafe { MoveFileExW(path.as_ptr(), std::ptr::null(), MOVEFILE_DELAY_UNTIL_REBOOT) };

@@ -173,13 +173,13 @@ mod tests {
     /// a dead port, and every site stops loading.
     #[test]
     // Ignored by default: this mutates the machine-global WinINET settings,
-    // which a running Maizy session (or any other proxy app) also owns. A
+    // which a running OpenWire session (or any other proxy app) also owns. A
     // routine `cargo test` must never switch a user's networking out from
     // under them. Run deliberately with `cargo test -- --ignored`.
     #[ignore]
     fn a_proxy_stranded_by_a_hard_kill_is_recovered() {
         let _serial = lock_registry();
-        let backup = std::env::temp_dir().join("maizy-test-proxy-backup.json");
+        let backup = std::env::temp_dir().join("openwire-test-proxy-backup.json");
         let _ = fs::remove_file(&backup);
 
         let guard = ProxyGuard::engage(65001, false, &backup).expect("engage");
@@ -207,13 +207,13 @@ mod tests {
     /// with no networking is never the better option.
     #[test]
     // Ignored by default: this mutates the machine-global WinINET settings,
-    // which a running Maizy session (or any other proxy app) also owns. A
+    // which a running OpenWire session (or any other proxy app) also owns. A
     // routine `cargo test` must never switch a user's networking out from
     // under them. Run deliberately with `cargo test -- --ignored`.
     #[ignore]
     fn a_stranded_proxy_with_no_backup_is_switched_off() {
         let _serial = lock_registry();
-        let backup = std::env::temp_dir().join("maizy-test-proxy-missing.json");
+        let backup = std::env::temp_dir().join("openwire-test-proxy-missing.json");
         let _ = fs::remove_file(&backup);
 
         let before = imp::capture().expect("capture");

@@ -64,7 +64,7 @@ impl FlowTable {
     /// event thread rather than at the next drain: a short-lived process may
     /// be gone a second from now, and with it any chance of naming it.
     pub fn add(&mut self, packet: &Packet, resolve: impl FnOnce(u32) -> AppName) {
-        // The proxy hop (app -> Maizy) is loopback, and counting it would put
+        // The proxy hop (app -> OpenWire) is loopback, and counting it would put
         // every tunnelled byte on the books twice.
         if packet.daddr.is_loopback() || packet.saddr.is_loopback() || packet.daddr.is_unspecified()
         {
@@ -127,7 +127,7 @@ type Extras<P, C> = (Option<P>, Option<C>);
 
 /// Folds drained flows into rows.
 ///
-/// - `excluded` is Maizy's own processes: their traffic is the tunnel and the
+/// - `excluded` is OpenWire's own processes: their traffic is the tunnel and the
 ///   direct relay, which the relay has already attributed to the real apps.
 /// - `local` is this machine's addresses, which decide the remote end. The
 ///   event fields are not relied on for that, so a provider that reports the
@@ -348,7 +348,7 @@ mod tests {
     }
 
     #[test]
-    fn loopback_and_maizy_itself_are_left_to_the_relay() {
+    fn loopback_and_openwire_itself_are_left_to_the_relay() {
         let mut table = FlowTable::default();
         table.add(
             &packet(
@@ -372,7 +372,7 @@ mod tests {
                 "10.0.0.2",
                 50002,
             ),
-            named("maizy.exe"),
+            named("openwire.exe"),
         );
 
         let rows = fold(

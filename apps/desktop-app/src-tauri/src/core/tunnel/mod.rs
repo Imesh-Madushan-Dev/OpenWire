@@ -513,10 +513,10 @@ mod tests {
         client.read_exact(&mut reply).await.unwrap();
         assert_eq!(reply[1], 0x00, "socks reply should report success");
 
-        client.write_all(b"maizy").await.unwrap();
+        client.write_all(b"hello").await.unwrap();
         let mut echoed = [0u8; 5];
         client.read_exact(&mut echoed).await.unwrap();
-        assert_eq!(&echoed, b"maizy");
+        assert_eq!(&echoed, b"hello");
 
         let snap = metrics.snapshot();
         assert_eq!(snap.up_bytes, 5);
@@ -531,14 +531,14 @@ mod tests {
         assert_eq!(summary.tunnel_up, 5);
         assert_eq!(summary.tunnel_down, 5);
 
-        let app = &summary.maizy.apps.entries[0].key;
+        let app = &summary.openwire.apps.entries[0].key;
         assert!(
             app.ends_with(".exe"),
             "expected the calling process to be named, got {app}"
         );
-        assert_eq!(summary.maizy.hosts.entries[0].key, "127.0.0.1");
+        assert_eq!(summary.openwire.hosts.entries[0].key, "127.0.0.1");
         // The echo server is on an ephemeral port, so it classifies as Other.
-        assert_eq!(summary.maizy.kinds.entries[0].key, "Other");
+        assert_eq!(summary.openwire.kinds.entries[0].key, "Other");
 
         tunnel.stop();
     }

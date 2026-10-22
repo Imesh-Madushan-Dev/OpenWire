@@ -57,16 +57,16 @@ pub async fn send_reply(stream: &mut TcpStream, protocol: Protocol, ok: bool) ->
         (Protocol::Socks5, true) => &[0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0],
         (Protocol::Socks5, false) => &[0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0],
         (Protocol::HttpConnect, true) => {
-            b"HTTP/1.1 200 Connection Established\r\nProxy-Agent: Maizy\r\n\r\n"
+            b"HTTP/1.1 200 Connection Established\r\nProxy-Agent: OpenWire\r\n\r\n"
         }
         (Protocol::HttpConnect, false) => {
-            b"HTTP/1.1 502 Bad Gateway\r\nProxy-Agent: Maizy\r\nContent-Length: 0\r\n\r\n"
+            b"HTTP/1.1 502 Bad Gateway\r\nProxy-Agent: OpenWire\r\nContent-Length: 0\r\n\r\n"
         }
         // Plain HTTP has no separate acknowledgement; the origin's own response
         // is the reply. On failure we still owe the client a status.
         (Protocol::HttpPlain, true) => return Ok(()),
         (Protocol::HttpPlain, false) => {
-            b"HTTP/1.1 502 Bad Gateway\r\nProxy-Agent: Maizy\r\nContent-Length: 0\r\n\r\n"
+            b"HTTP/1.1 502 Bad Gateway\r\nProxy-Agent: OpenWire\r\nContent-Length: 0\r\n\r\n"
         }
     };
 

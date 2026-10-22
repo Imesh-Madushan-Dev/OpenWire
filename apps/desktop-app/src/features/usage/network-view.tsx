@@ -27,11 +27,11 @@ import { TimelineStrip } from './components/timeline-strip'
 import { BUCKET_SECONDS, niceCeiling, RANGE_SECONDS, SCALE_OPTIONS, withGaps } from './tiers'
 import { useTimeline } from './use-usage'
 
-type Scope = 'all' | 'maizy'
+type Scope = 'all' | 'openwire'
 
 const SCOPES = [
   { value: 'all' as const, label: 'All traffic' },
-  { value: 'maizy' as const, label: 'Through Maizy' },
+  { value: 'openwire' as const, label: 'Through OpenWire' },
 ]
 
 // Longest first, right-aligned, the way GlassWire orders them.

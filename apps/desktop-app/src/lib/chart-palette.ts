@@ -31,7 +31,7 @@ export const DEFAULT_CHART_PALETTE: ChartPaletteId = 'classic'
  * there record the old default rather than a deliberate pick. Starting a new
  * key moves everyone onto Classic once, and from then on the choice sticks.
  */
-const STORAGE_KEY = 'maizy.chartPalette.v2'
+const STORAGE_KEY = 'openwire.chartPalette.v2'
 
 function isChartPaletteId(value: unknown): value is ChartPaletteId {
   return CHART_PALETTES.some((palette) => palette.id === value)

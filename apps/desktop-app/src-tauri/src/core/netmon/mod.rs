@@ -2,7 +2,7 @@
 //!
 //! Without elevation Windows will say how many bytes each *app* moved, but
 //! never where to - which is why the Hosts and Traffic-type columns used to
-//! cover only what passed through Maizy. The monitor closes that gap without a
+//! cover only what passed through OpenWire. The monitor closes that gap without a
 //! driver: a small service, installed once with the user's admin approval,
 //! reads the kernel's own per-packet network events through ETW, names each
 //! remote address from the DNS client's lookups, and streams per-second totals
@@ -36,9 +36,9 @@ mod sys;
 
 use serde::{Deserialize, Serialize};
 
-pub const SERVICE_NAME: &str = "MaizyNetMon";
-pub const SERVICE_DISPLAY_NAME: &str = "Maizy VPN Network Monitor";
-pub const PIPE_NAME: &str = r"\\.\pipe\maizy-netmon";
+pub const SERVICE_NAME: &str = "OpenWireNetMon";
+pub const SERVICE_DISPLAY_NAME: &str = "OpenWire Network Monitor";
+pub const PIPE_NAME: &str = r"\\.\pipe\openwire-netmon";
 
 /// Bumped whenever the wire format changes incompatibly. The service is a
 /// copy taken at install time, so after an app update the two can disagree;

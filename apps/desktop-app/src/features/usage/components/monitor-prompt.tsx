@@ -83,7 +83,7 @@ export function MonitorPrompt({ state, error, busy, onEnable, className }: Monit
 
 const OFF = {
   title: 'See where all your traffic goes',
-  body: "Maizy names hosts and traffic types only for what passes through it. Detailed monitoring reads Windows' own network events to cover every app on this device - no driver, and never the contents of your traffic.",
+  body: "OpenWire names hosts and traffic types only for what passes through it. Detailed monitoring reads Windows' own network events to cover every app on this device - no driver, and never the contents of your traffic.",
   action: 'Turn on detailed monitoring',
 }
 

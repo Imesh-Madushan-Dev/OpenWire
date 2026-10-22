@@ -82,7 +82,7 @@ export function ShareDialog({ server, open, onOpenChange }: ShareDialogProps) {
         <DialogHeader>
           <DialogTitle>Share {server.name}</DialogTitle>
           <DialogDescription>
-            Scan with Maizy on another device, or any client that speaks{' '}
+            Scan with OpenWire on another device, or any client that speaks{' '}
             {server.protocol === 'trojan-tls' ? 'Trojan' : 'VLESS'}.
           </DialogDescription>
         </DialogHeader>

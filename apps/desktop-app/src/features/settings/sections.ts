@@ -46,14 +46,14 @@ export const SECTION_GROUPS: readonly (readonly Section[])[] = [
     {
       id: 'routing',
       label: 'Routing',
-      description: 'Which traffic goes through Maizy, and where apps connect.',
+      description: 'Which traffic goes through OpenWire, and where apps connect.',
       icon: Route01Icon,
       tone: 'sky',
     },
     {
       id: 'monitoring',
       label: 'Monitoring',
-      description: 'How Maizy measures the traffic on this device.',
+      description: 'How OpenWire measures the traffic on this device.',
       icon: Radar01Icon,
       tone: 'teal',
     },
@@ -69,7 +69,7 @@ export const SECTION_GROUPS: readonly (readonly Section[])[] = [
     {
       id: 'general',
       label: 'General',
-      description: 'How Maizy starts and behaves on this machine.',
+      description: 'How OpenWire starts and behaves on this machine.',
       icon: ComputerSettingsIcon,
       tone: 'green',
     },
@@ -83,14 +83,14 @@ export const SECTION_GROUPS: readonly (readonly Section[])[] = [
     {
       id: 'diagnostics',
       label: 'Diagnostics',
-      description: 'What Maizy is running right now, and a fix for a stuck network.',
+      description: 'What OpenWire is running right now, and a fix for a stuck network.',
       icon: Stethoscope02Icon,
       tone: 'sky',
     },
     {
       id: 'about',
       label: 'About',
-      description: 'Who builds Maizy, and how your data is handled.',
+      description: 'Who builds OpenWire, and how your data is handled.',
       icon: InformationCircleIcon,
       tone: 'violet',
     },

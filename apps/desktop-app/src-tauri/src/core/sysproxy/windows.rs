@@ -147,7 +147,7 @@ mod tests {
     /// user's original settings came back byte-for-byte.
     #[test]
     // Ignored by default: this mutates the machine-global WinINET settings,
-    // which a running Maizy session (or any other proxy app) also owns. A
+    // which a running OpenWire session (or any other proxy app) also owns. A
     // routine `cargo test` must never switch a user's networking out from
     // under them. Run deliberately with `cargo test -- --ignored`.
     #[ignore]
@@ -173,7 +173,7 @@ mod tests {
     /// Recovery must never reach for a proxy the user set up themselves.
     #[test]
     // Ignored by default: this mutates the machine-global WinINET settings,
-    // which a running Maizy session (or any other proxy app) also owns. A
+    // which a running OpenWire session (or any other proxy app) also owns. A
     // routine `cargo test` must never switch a user's networking out from
     // under them. Run deliberately with `cargo test -- --ignored`.
     #[ignore]

@@ -8,7 +8,7 @@ import type { ConnectionState, Phase } from '@/lib/types'
 
 import { RegionChip } from './region-chip'
 
-// Tunnel words, not protection words: Maizy disguises where traffic goes,
+// Tunnel words, not protection words: OpenWire disguises where traffic goes,
 // it does not promise to keep anyone safe.
 const HEADLINE: Record<Phase, string> = {
   disconnected: 'Tunnel is off',
@@ -88,7 +88,7 @@ export function StatusHeadline({ connection }: { connection: ConnectionState }) 
               className="text-sm text-muted-foreground"
             >
               {phase === 'monitoring'
-                ? 'Traffic goes out directly; Maizy is only counting it'
+                ? 'Traffic goes out directly; OpenWire is only counting it'
                 : 'Traffic goes out directly, without the disguise'}
             </motion.p>
           )}

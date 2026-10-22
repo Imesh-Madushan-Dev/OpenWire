@@ -1,4 +1,4 @@
-# Maizy VPN — desktop client
+# OpenWire — desktop client
 
 Tauri 2 + React 19 + Rust. A local proxy that wraps outbound traffic in TLS with
 a camouflaged SNI, so deep packet inspection sees a connection to a whitelisted
@@ -40,7 +40,7 @@ cd src-tauri && cargo test -- --ignored   # OS proxy tests, see below
 ```
 
 The system-proxy tests are `#[ignore]`d on purpose: they mutate the
-machine-global WinINET settings that a running Maizy session also owns, so a
+machine-global WinINET settings that a running OpenWire session also owns, so a
 routine `cargo test` must not switch your networking out from under you.
 
 ## Adding a server
@@ -60,7 +60,7 @@ vless://<uuid>@<vps-host>:443?encryption=none&security=tls&sni=teams.microsoft.c
 | `sni`      | Name shown to the network — the camouflage                       |
 | `security` | Must be `tls`                                                    |
 
-Links are written to `%APPDATA%/com.maizy.vpn/servers.json` on this machine
+Links are written to `%APPDATA%/com.openwire.desktop/servers.json` on this machine
 only. They are never committed, bundled, or sent anywhere — and the UI never
 receives the key back from the backend, only the host.
 
@@ -132,7 +132,7 @@ Two different data sources feed it, and the difference matters:
 | Shown | Source | Scope |
 | --- | --- | --- |
 | Graph, and the ring's Total/Incoming/Outgoing | `GetIfTable2` interface counters | Everything this machine sends and receives |
-| Apps / Hosts / Traffic type, and "Through Maizy" | The relay's own per-connection counters | Only traffic that went through the tunnel |
+| Apps / Hosts / Traffic type, and "Through OpenWire" | The relay's own per-connection counters | Only traffic that went through the tunnel |
 
 Per-app names come from the OS TCP table: apps reach the proxy over loopback, so
 the client-side port identifies the owning process (`GetExtendedTcpTable` →

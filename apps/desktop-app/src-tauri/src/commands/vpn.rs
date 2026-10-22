@@ -13,7 +13,7 @@ use crate::state::{now_millis, AppState};
 
 /// The bundled node monitor mode routes through: no remote, so the local proxy
 /// dials destinations itself.
-const MONITOR_NODE_ID: &str = "maizy-direct";
+const MONITOR_NODE_ID: &str = "openwire-direct";
 
 #[tauri::command]
 pub async fn vpn_status(state: State<'_, AppState>) -> AppResult<ConnectionState> {

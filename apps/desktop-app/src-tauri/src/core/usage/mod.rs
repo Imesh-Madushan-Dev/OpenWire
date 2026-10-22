@@ -227,7 +227,7 @@ impl UsageTracker {
         }
     }
 
-    /// Records what the network monitor saw outside Maizy.
+    /// Records what the network monitor saw outside OpenWire.
     pub fn record_monitored(&self, rows: &[netmon::Row]) {
         // The monitor names apps from their full image path, so icons work
         // for apps that never touched the proxy.
@@ -438,7 +438,7 @@ impl UsageTracker {
         };
 
         // The device view is both sources together. They never overlap: the
-        // monitor leaves Maizy's own process out, and that process is exactly
+        // monitor leaves OpenWire's own process out, and that process is exactly
         // where the relay's traffic would otherwise appear.
         let device = (!merged.monitored.is_empty()).then(|| {
             let mut all = merged.monitored;
@@ -458,8 +458,8 @@ impl UsageTracker {
             columns
         });
 
-        let mut maizy = Columns::from(&relay);
-        maizy.hosts.locate(&merged.countries);
+        let mut openwire = Columns::from(&relay);
+        openwire.hosts.locate(&merged.countries);
 
         UsageSummary {
             from_ts: netstat::day_noon_unix(first_day),
@@ -468,7 +468,7 @@ impl UsageTracker {
             total_down: merged.down,
             tunnel_up: merged.tunnel_up,
             tunnel_down: merged.tunnel_down,
-            maizy,
+            openwire,
             device,
             monitored_from_ts: monitored_from.map(netstat::day_noon_unix),
             attribution_supported: cfg!(windows),
@@ -721,8 +721,8 @@ pub struct UsageSummary {
     pub total_down: u64,
     pub tunnel_up: u64,
     pub tunnel_down: u64,
-    /// Only what went through Maizy's proxy.
-    pub maizy: Columns,
+    /// Only what went through OpenWire's proxy.
+    pub openwire: Columns,
     /// Everything on this device: the network monitor's figures with the
     /// relay's folded in. `None` when the monitor recorded nothing in the
     /// period - it was not installed, or not yet.
@@ -782,10 +782,10 @@ mod tests {
         let summary = tracker.summary(Range::Day);
         assert_eq!(summary.tunnel_down, 900);
         assert_eq!(summary.tunnel_up, 100);
-        assert_eq!(summary.maizy.apps.entries[0].key, "edge.exe");
-        assert_eq!(summary.maizy.apps.entries[0].total, 1_000);
-        assert_eq!(summary.maizy.hosts.entries[0].key, "example.com");
-        assert_eq!(summary.maizy.kinds.entries[0].key, "HTTPS");
+        assert_eq!(summary.openwire.apps.entries[0].key, "edge.exe");
+        assert_eq!(summary.openwire.apps.entries[0].total, 1_000);
+        assert_eq!(summary.openwire.hosts.entries[0].key, "example.com");
+        assert_eq!(summary.openwire.kinds.entries[0].key, "HTTPS");
         assert!(summary.device.is_none(), "no monitor, no device view");
 
         // The global metrics must stay in step with per-connection accounting.
@@ -815,7 +815,7 @@ mod tests {
 
         let summary = tracker.summary(Range::Day);
         assert_eq!(summary.tunnel_down, 512, "residual bytes were dropped");
-        assert_eq!(summary.maizy.hosts.entries[0].key, "example.net");
+        assert_eq!(summary.openwire.hosts.entries[0].key, "example.net");
     }
 
     #[test]
@@ -860,9 +860,9 @@ mod tests {
             .unwrap();
         assert_eq!(edge.down, 500, "relay and monitor bytes add up for one app");
         assert_eq!(
-            summary.maizy.apps.entries.len(),
+            summary.openwire.apps.entries.len(),
             1,
-            "the Maizy view is untouched"
+            "the OpenWire view is untouched"
         );
         assert!(summary.monitored_from_ts.is_some());
 

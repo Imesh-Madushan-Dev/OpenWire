@@ -32,7 +32,7 @@ interface NavItem {
 
 // Distinct silhouettes - globe, line graph, pie, screens, flame, gear - so each
 // tab reads at a glance without its label. The tunnel gets a globe rather
-// than a shield or lock: Maizy disguises traffic, it does not promise
+// than a shield or lock: OpenWire disguises traffic, it does not promise
 // protection.
 const ITEMS: NavItem[] = [
   { id: 'vpn', label: 'VPN', icon: Globe02Icon },

@@ -1,4 +1,4 @@
-//! Maizy VPN - Tauri application entry point.
+//! OpenWire - Tauri application entry point.
 
 mod commands;
 mod core;
@@ -124,7 +124,7 @@ pub fn run() {
             }
         })
         .build(tauri::generate_context!())
-        .expect("failed to start Maizy VPN");
+        .expect("failed to start OpenWire");
 
     app.run(|handle, event| {
         if let RunEvent::Exit = event {

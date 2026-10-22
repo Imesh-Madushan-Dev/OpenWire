@@ -14,7 +14,7 @@ pub struct TrayHandles {
 
 pub fn build(app: &AppHandle) -> tauri::Result<()> {
     let toggle = MenuItem::with_id(app, "toggle", "Connect", true, None::<&str>)?;
-    let show = MenuItem::with_id(app, "show", "Open Maizy", true, None::<&str>)?;
+    let show = MenuItem::with_id(app, "show", "Open OpenWire", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
 
@@ -26,7 +26,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
                 .cloned()
                 .ok_or_else(|| tauri::Error::AssetNotFound("tray icon".into()))?,
         )
-        .tooltip("Maizy VPN - disconnected")
+        .tooltip("OpenWire - disconnected")
         .menu(&menu)
         // Left click opens the window; the menu stays on right click.
         .show_menu_on_left_click(false)
@@ -75,13 +75,13 @@ pub fn sync(app: &AppHandle, phase: Phase, server: Option<&str>) {
         .set_enabled(!matches!(phase, Phase::Connecting | Phase::Disconnecting));
 
     let tooltip = match (phase, server) {
-        (Phase::Connected, Some(name)) => format!("Maizy VPN - connected to {name}"),
-        (Phase::Connected, None) => "Maizy VPN - connected".to_string(),
-        (Phase::Reconnecting, _) => "Maizy VPN - reconnecting".to_string(),
-        (Phase::Connecting, _) => "Maizy VPN - connecting".to_string(),
-        (Phase::Disconnecting, _) => "Maizy VPN - disconnecting".to_string(),
-        (Phase::Monitoring, _) => "Maizy VPN - measuring usage only".to_string(),
-        (Phase::Disconnected, _) => "Maizy VPN - disconnected".to_string(),
+        (Phase::Connected, Some(name)) => format!("OpenWire - connected to {name}"),
+        (Phase::Connected, None) => "OpenWire - connected".to_string(),
+        (Phase::Reconnecting, _) => "OpenWire - reconnecting".to_string(),
+        (Phase::Connecting, _) => "OpenWire - connecting".to_string(),
+        (Phase::Disconnecting, _) => "OpenWire - disconnecting".to_string(),
+        (Phase::Monitoring, _) => "OpenWire - measuring usage only".to_string(),
+        (Phase::Disconnected, _) => "OpenWire - disconnected".to_string(),
     };
     if let Some(tray) = app.tray_by_id("main") {
         let _ = tray.set_tooltip(Some(tooltip));

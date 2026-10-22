@@ -1,8 +1,8 @@
 [package]
 name = "app"
 version = "0.1.0"
-description = "Maizy VPN desktop client"
-authors = ["Maizy"]
+description = "OpenWire desktop client"
+authors = ["OpenWire"]
 license = ""
 repository = ""
 edition = "2021"

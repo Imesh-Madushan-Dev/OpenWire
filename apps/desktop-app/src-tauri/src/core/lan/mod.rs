@@ -509,7 +509,7 @@ fn key_for(book: &mut Book, adapter: &Adapter, gateway_mac: Option<[u8; 6]>) -> 
 
 /// Folds one sweep into the book, returning the MACs of devices that are new
 /// to this network. On the first sweep nothing is "new": it was all there
-/// before Maizy looked.
+/// before OpenWire looked.
 fn merge(
     book: &mut Book,
     key: &str,
@@ -725,7 +725,7 @@ mod tests {
     #[test]
     #[ignore = "sends ARP requests on the local network"]
     fn live_sweep() {
-        let path = std::env::temp_dir().join(format!("maizy-devices-{}.json", std::process::id()));
+        let path = std::env::temp_dir().join(format!("openwire-devices-{}.json", std::process::id()));
         let lan = Lan::load(path.clone());
         let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
 

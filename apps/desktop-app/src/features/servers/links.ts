@@ -68,7 +68,7 @@ export async function readTextFile(file: File): Promise<string> {
  */
 export async function readQrImage(file: File): Promise<string> {
   const bitmap = await createImageBitmap(file).catch(() => {
-    throw new Error("That file isn't an image Maizy can read.")
+    throw new Error("That file isn't an image OpenWire can read.")
   })
 
   // Big screenshots are scaled down: QR modules survive it, and decoding a

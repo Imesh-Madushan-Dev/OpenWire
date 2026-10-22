@@ -119,13 +119,13 @@ pub struct DayBreakdown {
     pub counting: u8,
     pub tunnel_up: u64,
     pub tunnel_down: u64,
-    /// What went through Maizy's proxy, attributed by the relay.
+    /// What went through OpenWire's proxy, attributed by the relay.
     pub apps: HashMap<String, Pair>,
     pub hosts: HashMap<String, Pair>,
     pub kinds: HashMap<String, Pair>,
     /// Everything else on the device, attributed by the network monitor
     /// service. Empty on days the monitor was not running. Never overlaps the
-    /// relay maps: the monitor leaves out Maizy's own process, whose traffic
+    /// relay maps: the monitor leaves out OpenWire's own process, whose traffic
     /// the relay has already attributed to the apps behind it.
     #[serde(skip_serializing_if = "Attributed::is_empty")]
     pub monitored: Attributed,
@@ -297,7 +297,7 @@ impl History {
         DayBreakdown::compact(&mut day.hosts, MAX_HOSTS_PER_DAY);
     }
 
-    /// Attributes traffic the network monitor saw outside Maizy to a day.
+    /// Attributes traffic the network monitor saw outside OpenWire to a day.
     pub fn record_monitored(
         &mut self,
         local_day: i64,

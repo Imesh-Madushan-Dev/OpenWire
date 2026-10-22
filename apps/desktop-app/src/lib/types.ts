@@ -283,9 +283,9 @@ export interface UsageSummary {
   totalDown: number
   tunnelUp: number
   tunnelDown: number
-  /** Only what went through Maizy's proxy. */
-  maizy: UsageColumns
-  /** Everything on the device, from the network monitor with Maizy's own
+  /** Only what went through OpenWire's proxy. */
+  openwire: UsageColumns
+  /** Everything on the device, from the network monitor with OpenWire's own
    *  figures folded in. `null` when the monitor recorded nothing here. */
   device: UsageColumns | null
   /** Midday of the first day in the period the monitor has figures for. */
@@ -309,7 +309,7 @@ export const EMPTY_SUMMARY: UsageSummary = {
   totalDown: 0,
   tunnelUp: 0,
   tunnelDown: 0,
-  maizy: EMPTY_COLUMNS,
+  openwire: EMPTY_COLUMNS,
   device: null,
   monitoredFromTs: null,
   attributionSupported: true,
@@ -331,7 +331,7 @@ export interface MonitorStatus {
   /** Why it is not collecting, already written for a person. */
   error: string | null
   /**
-   * Installed by an older Maizy and needs reinstalling: it speaks another
+   * Installed by an older OpenWire and needs reinstalling: it speaks another
    * protocol, or still records but lacks something newer (host countries).
    */
   outdated: boolean

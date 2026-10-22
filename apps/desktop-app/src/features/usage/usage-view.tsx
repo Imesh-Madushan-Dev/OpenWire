@@ -2,7 +2,7 @@
  * Usage: GlassWire's Usage tab. Totals for a day, week, month or custom run of
  * days, the ranked apps, hosts and traffic types behind them, and the
  * period's traffic along the bottom - for the whole device or only what went
- * through Maizy.
+ * through OpenWire.
  */
 
 import { useMemo, useState } from 'react'
@@ -46,7 +46,7 @@ import { useAppIcons, usePeriodTimeline, useSummary, useUsageSpan, useWindowsApp
 
 const SCOPES = [
   { value: 'all' as const, label: 'All traffic' },
-  { value: 'maizy' as const, label: 'Through Maizy' },
+  { value: 'openwire' as const, label: 'Through OpenWire' },
 ]
 
 const MODE_LABELS: Record<PeriodMode, string> = {
@@ -58,11 +58,11 @@ const MODE_LABELS: Record<PeriodMode, string> = {
 
 /** Remembered per viewer: someone who checks only their VPN traffic should
  *  not have to switch every visit. Storage can be blocked; the default holds. */
-const SCOPE_KEY = 'maizy.usage.scope'
+const SCOPE_KEY = 'openwire.usage.scope'
 
 function readScope(): UsageScope {
   try {
-    return localStorage.getItem(SCOPE_KEY) === 'maizy' ? 'maizy' : 'all'
+    return localStorage.getItem(SCOPE_KEY) === 'openwire' ? 'openwire' : 'all'
   } catch {
     return 'all'
   }
@@ -140,7 +140,7 @@ export function UsageView() {
   // the network monitor recorded; without it, Apps falls back to Windows' own
   // per-app history and the other two columns explain what is missing.
   const device = summary.device
-  const columns = scope === 'maizy' ? summary.maizy : device
+  const columns = scope === 'openwire' ? summary.openwire : device
   const fallback = scope === 'all' && !device
 
   // Seconds to answer, so only asked for when it is actually what is shown.
@@ -148,16 +148,16 @@ export function UsageView() {
   const apps = columns?.apps ?? windows.ranked
   const iconFor = useAppIcons(apps.entries.map((entry) => entry.key))
 
-  // An empty Maizy column has two very different causes, and "nothing was
+  // An empty OpenWire column has two very different causes, and "nothing was
   // recorded" reads as a fault when the real answer is that nothing went
-  // through Maizy in this period.
+  // through OpenWire in this period.
   const emptyHint =
     scope === 'all'
       ? 'Nothing was recorded in this period.'
       : !summary.attributionSupported
         ? 'Per-app names need Windows.'
         : summary.tunnelUp + summary.tunnelDown === 0
-          ? 'No traffic went through Maizy in this period. Connect, or turn on "Measure usage while disconnected" in Settings.'
+          ? 'No traffic went through OpenWire in this period. Connect, or turn on "Measure usage while disconnected" in Settings.'
           : 'Recorded while the VPN is connected.'
 
   const strip = useMemo(
@@ -360,8 +360,8 @@ function footnote(
   monitoredFromTs: number | null,
   hasDevice: boolean,
 ): string {
-  if (scope === 'maizy') {
-    return 'Only traffic that went through Maizy: over the VPN, or routed for measuring while disconnected.'
+  if (scope === 'openwire') {
+    return 'Only traffic that went through OpenWire: over the VPN, or routed for measuring while disconnected.'
   }
   if (!hasDevice) {
     return "The ring covers all network activity on this device, and Apps comes from Windows' own per-app records. Hosts and traffic types need detailed monitoring."
@@ -371,7 +371,7 @@ function footnote(
   const since = partial
     ? ` since ${new Date(monitoredFromTs * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`
     : ''
-  return `Every app, host and traffic type on this device${since}, recorded by detailed monitoring. Traffic Maizy carried is credited to the app that sent it.`
+  return `Every app, host and traffic type on this device${since}, recorded by detailed monitoring. Traffic OpenWire carried is credited to the app that sent it.`
 }
 
 /**

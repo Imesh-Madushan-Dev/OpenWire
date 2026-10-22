@@ -1,7 +1,7 @@
 /**
  * The Usage page's left panel, after GlassWire's: a thin incoming/outgoing
  * ring around the total, the two directions in large type, and a pair of
- * mini bar charts splitting what went through Maizy from what went direct.
+ * mini bar charts splitting what went through OpenWire from what went direct.
  */
 
 import type { ReactNode } from 'react'
@@ -12,7 +12,7 @@ import { formatBytes } from '@/lib/format'
 import { staggerChild } from '@/lib/motion'
 import type { UsageSummary } from '@/lib/types'
 
-export type UsageScope = 'all' | 'maizy'
+export type UsageScope = 'all' | 'openwire'
 
 interface UsageDonutProps {
   summary: UsageSummary
@@ -78,7 +78,7 @@ export function UsageDonut({ summary, scope, corner, caption }: UsageDonutProps)
 
         {/* Overlaid rather than an SVG label, so it inherits app typography. */}
         <div className="pointer-events-none absolute inset-0 grid place-content-center text-center">
-          <p className="text-[11px] text-muted-foreground">{all ? 'Total' : 'Through Maizy'}</p>
+          <p className="text-[11px] text-muted-foreground">{all ? 'Total' : 'Through OpenWire'}</p>
           <p className="numeric text-lg leading-tight font-semibold">{formatBytes(total)}</p>
         </div>
       </div>
@@ -95,7 +95,7 @@ export function UsageDonut({ summary, scope, corner, caption }: UsageDonutProps)
       </div>
 
       <dl className="-mt-2 grid w-full grid-cols-2 gap-x-3">
-        <Figure label="Through Maizy" value={formatBytes(tunnel.down + tunnel.up)} small />
+        <Figure label="Through OpenWire" value={formatBytes(tunnel.down + tunnel.up)} small />
         <Figure label="Direct" value={formatBytes(direct.down + direct.up)} small />
       </dl>
     </motion.section>

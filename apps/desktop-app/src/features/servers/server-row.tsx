@@ -148,7 +148,7 @@ export function ServerRow({
   )
 }
 
-/** The list's first entry: let Maizy pick the fastest server at connect time. */
+/** The list's first entry: let OpenWire pick the fastest server at connect time. */
 export function AutomaticRow({
   selected,
   fastest,

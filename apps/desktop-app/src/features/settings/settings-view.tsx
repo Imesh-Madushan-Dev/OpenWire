@@ -201,7 +201,7 @@ function MonitoringSection({ settings }: { settings: Settings }) {
         <SettingRow
           icon={Radar01Icon}
           title="Detailed traffic monitoring"
-          description="Count every app, host and traffic type on this device, not just what passes through Maizy. Installs a small background service; Windows asks for admin approval to turn it on or off."
+          description="Count every app, host and traffic type on this device, not just what passes through OpenWire. Installs a small background service; Windows asks for admin approval to turn it on or off."
           disabled={state === 'unsupported'}
           control={
             <div className="flex shrink-0 items-center gap-2">
@@ -233,13 +233,13 @@ function MonitoringSection({ settings }: { settings: Settings }) {
         <SettingRow
           icon={ChartHistogramIcon}
           title="Measure usage while disconnected"
-          description="Keep routing through Maizy when no VPN is connected, so it can name the hosts proxy-aware apps reach. Your traffic is not masked - it goes straight out, exactly as it would without Maizy."
+          description="Keep routing through OpenWire when no VPN is connected, so it can name the hosts proxy-aware apps reach. Your traffic is not masked - it goes straight out, exactly as it would without OpenWire."
           checked={settings.monitorWhenIdle && settings.systemProxy && !proxyUnsupported}
           onChange={(next) => void updateSettings({ monitorWhenIdle: next })}
           disabled={proxyUnsupported || !settings.systemProxy}
           hint={
             proxyUnsupported || !settings.systemProxy
-              ? 'Needs "Route all apps" in Routing, which is how traffic reaches Maizy to be counted.'
+              ? 'Needs "Route all apps" in Routing, which is how traffic reaches OpenWire to be counted.'
               : state === 'active'
                 ? 'Detailed monitoring already covers every app, so this is optional.'
                 : 'Only apps that follow the Windows proxy are counted; the total on the ring always covers everything.'
@@ -328,14 +328,14 @@ function GeneralSection({ settings }: { settings: Settings }) {
       <SettingRow
         icon={Rocket01Icon}
         title="Connect on launch"
-        description="Reconnect to your last location as soon as Maizy starts."
+        description="Reconnect to your last location as soon as OpenWire starts."
         checked={settings.autoConnect}
         onChange={(next) => void updateSettings({ autoConnect: next })}
       />
       <SettingRow
         icon={ComputerIcon}
         title="Start in the tray"
-        description="Launch without opening the window. Maizy keeps running in the background."
+        description="Launch without opening the window. OpenWire keeps running in the background."
         checked={settings.launchMinimized}
         onChange={(next) => void updateSettings({ launchMinimized: next })}
       />
@@ -479,7 +479,7 @@ function PortRow({ port }: { port: number }) {
   )
 }
 
-/** Registers Maizy with the OS login items; the OS entry is the source of truth. */
+/** Registers OpenWire with the OS login items; the OS entry is the source of truth. */
 function StartWithWindowsRow() {
   const [on, setOn] = useState(false)
 
@@ -500,7 +500,7 @@ function StartWithWindowsRow() {
     <SettingRow
       icon={ComputerIcon}
       title="Start with Windows"
-      description="Open Maizy automatically when you sign in."
+      description="Open OpenWire automatically when you sign in."
       checked={on}
       onChange={(next) => void toggle(next)}
     />
