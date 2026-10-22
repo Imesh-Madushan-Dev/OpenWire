@@ -201,7 +201,7 @@ function MonitoringSection({ settings }: { settings: Settings }) {
         <SettingRow
           icon={Radar01Icon}
           title="Detailed traffic monitoring"
-          description="Count every app, host and traffic type on this device, not just what passes through OpenWire. Installs a small background service; Windows asks for admin approval to turn it on or off."
+          description="Count every app, host and traffic type on this device, not just what passes through OpenWire. Runs as a small background service, offered during setup; Windows asks for admin approval to turn it on or off here."
           disabled={state === 'unsupported'}
           control={
             <div className="flex shrink-0 items-center gap-2">
