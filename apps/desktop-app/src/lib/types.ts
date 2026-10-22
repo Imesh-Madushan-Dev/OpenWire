@@ -180,6 +180,18 @@ export interface Notice {
   message: string
 }
 
+/** A line of the connection log - mirrors `core/connlog.rs`. */
+export interface LogEntry {
+  /** Increasing; merges a fetched list with live events. */
+  id: number
+  /** Unix milliseconds. */
+  ts: number
+  level: 'info' | 'success' | 'warning' | 'error'
+  message: string
+  /** The first line of a connection attempt. */
+  sessionStart: boolean
+}
+
 export const INITIAL_CONNECTION: ConnectionState = {
   phase: 'disconnected',
   serverId: null,

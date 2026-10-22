@@ -12,6 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::core::catalog;
+use crate::core::connlog::{ConnLog, Level, LogEntry};
 use crate::core::lan::Lan;
 use crate::core::metrics::Metrics;
 use crate::core::models::{
@@ -27,6 +28,7 @@ use crate::error::{AppError, AppResult};
 pub const EVENT_STATE: &str = "vpn:state";
 pub const EVENT_STATS: &str = "vpn:stats";
 pub const EVENT_NOTICE: &str = "vpn:notice";
+pub const EVENT_LOG: &str = "vpn:log";
 
 pub struct AppState {
     app: AppHandle,
@@ -35,6 +37,8 @@ pub struct AppState {
     catalog: RwLock<Vec<ServerNode>>,
     latency: RwLock<HashMap<String, u32>>,
     connection: RwLock<ConnectionState>,
+    /// What the Logs window shows.
+    log: ConnLog,
     pub metrics: Arc<Metrics>,
     pub usage: Arc<UsageTracker>,
     /// The device-wide network monitor, if the user installed it.
@@ -102,6 +106,7 @@ impl AppState {
             catalog: RwLock::new(nodes),
             latency: RwLock::new(HashMap::new()),
             connection: RwLock::new(ConnectionState::default()),
+            log: ConnLog::default(),
             metrics: Arc::new(Metrics::new()),
             usage: Arc::new(UsageTracker::load(&usage_path)),
             netmon: Monitor::new(),
@@ -247,6 +252,35 @@ impl AppState {
 
     pub fn emit_stats(&self, stats: &StatsSnapshot) {
         let _ = self.app.emit(EVENT_STATS, stats);
+    }
+
+    /// Adds a line to the connection log and shows it live. User-facing,
+    /// like `notify`: the Logs window is read by people, not developers.
+    pub fn log(&self, level: Level, message: impl Into<String>) {
+        self.append_log(level, message.into(), false);
+    }
+
+    /// The first line of a connection attempt.
+    pub fn log_session(&self, message: impl Into<String>) {
+        self.append_log(Level::Info, message.into(), true);
+    }
+
+    fn append_log(&self, level: Level, message: String, session_start: bool) {
+        match level {
+            Level::Error => log::error!("{message}"),
+            Level::Warning => log::warn!("{message}"),
+            Level::Info | Level::Success => log::info!("{message}"),
+        }
+        let entry = self.log.push(now_millis(), level, message, session_start);
+        let _ = self.app.emit(EVENT_LOG, &entry);
+    }
+
+    pub fn logs(&self) -> Vec<LogEntry> {
+        self.log.entries()
+    }
+
+    pub fn clear_logs(&self) {
+        self.log.clear();
     }
 
     /// User-facing, already-friendly text. Never pass raw error strings here.

@@ -1,5 +1,6 @@
 pub mod catalog;
 pub mod clipboard;
+pub mod connlog;
 pub mod geo;
 pub mod lan;
 pub mod metrics;

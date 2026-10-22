@@ -197,6 +197,22 @@ impl Lan {
         *lock(&self.current) = found;
     }
 
+    /// The network this PC is on, in one line for the connection log, e.g.
+    /// "Wi-Fi, 192.168.1.2/24, gateway 192.168.1.1, DNS 192.168.1.1".
+    /// A fresh lookup, like `refresh_network`; `None` when offline.
+    pub fn describe_network() -> Option<String> {
+        let adapter = sys::primary_adapter()?;
+        let mut line = format!(
+            "{}, {}/{}, gateway {}",
+            adapter.name, adapter.ip, adapter.prefix, adapter.gateway
+        );
+        if !adapter.dns.is_empty() {
+            let dns: Vec<String> = adapter.dns.iter().map(ToString::to_string).collect();
+            line.push_str(&format!(", DNS {}", dns.join(", ")));
+        }
+        Some(line)
+    }
+
     pub fn snapshot(&self) -> DevicesSnapshot {
         let current = lock(&self.current).clone();
         let book = lock(&self.book);

@@ -15,6 +15,7 @@ import type {
   DeviceKind,
   DevicesSnapshot,
   ImportReport,
+  LogEntry,
   MonitorStatus,
   Notice,
   PlatformInfo,
@@ -78,6 +79,9 @@ export const api = {
   connect: (serverId?: string | null) =>
     call<ConnectionState>('vpn_connect', { serverId: serverId ?? null }),
   disconnect: () => call<ConnectionState>('vpn_disconnect'),
+  /** The connection log, oldest first. */
+  logs: () => call<LogEntry[]>('vpn_logs'),
+  clearLogs: () => call<void>('vpn_logs_clear'),
 
   servers: () => call<ServerSummary[]>('servers_list'),
   probeServers: () => call<ServerSummary[]>('servers_probe'),
@@ -140,6 +144,7 @@ export const EVENTS = {
   state: 'vpn:state',
   stats: 'vpn:stats',
   notice: 'vpn:notice',
+  log: 'vpn:log',
   usageSample: 'usage:sample',
   netmonStatus: 'netmon:status',
   devices: 'devices:changed',
@@ -156,6 +161,10 @@ export function onStats(handler: (stats: StatsSnapshot) => void) {
 
 export function onNotice(handler: (notice: Notice) => void) {
   return listen<Notice>(EVENTS.notice, (event) => handler(event.payload))
+}
+
+export function onLog(handler: (entry: LogEntry) => void) {
+  return listen<LogEntry>(EVENTS.log, (event) => handler(event.payload))
 }
 
 /** One tick per second, emitted whether or not the tunnel is up. */

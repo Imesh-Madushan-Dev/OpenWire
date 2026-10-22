@@ -10,6 +10,7 @@ import type {
   ConnectionState,
   Device,
   DevicesSnapshot,
+  LogEntry,
   MonitorStatus,
   PlatformInfo,
   Ranked,
@@ -129,6 +130,41 @@ export const monitor: MonitorStatus = {
   collecting: true,
   error: null,
   outdated: false,
+}
+
+/** An earlier session that hit trouble, then the current one. */
+export function logs(): LogEntry[] {
+  const start = (now() - 2 * 3600 - 17 * 60) * 1000
+  const lines: [offsetMs: number, LogEntry['level'], string, boolean?][] = [
+    [-640_000, 'info', 'Connecting to Tokyo', true],
+    [-639_900, 'info', 'OpenWire 0.1.0 on Windows 11 Pro 25H2 (build 26200), 64-bit'],
+    [-639_850, 'info', 'Network: Wi-Fi, 192.168.1.20/24, gateway 192.168.1.1, DNS 192.168.1.1'],
+    [-639_800, 'info', 'Server: Tokyo - VLESS over TLS to 203.0.113.24:443, SNI cdn.example.com'],
+    [-639_700, 'info', 'Local proxy listening on 127.0.0.1:10808 (SOCKS5 and HTTP)'],
+    [-639_650, 'info', 'Kill switch on, local network bypass on'],
+    [-639_600, 'info', 'System proxy set to 127.0.0.1:10808'],
+    [-639_550, 'success', 'Connected to Tokyo'],
+    [-636_500, 'warning', 'Server did not answer - traffic may not get through'],
+    [-560_000, 'warning', 'Server unreachable. Kill switch is blocking traffic.'],
+    [-12_000, 'info', 'Disconnecting'],
+    [-11_900, 'info', 'Disconnected - system proxy restored'],
+    [0, 'info', 'Connecting to Singapore', true],
+    [80, 'info', 'OpenWire 0.1.0 on Windows 11 Pro 25H2 (build 26200), 64-bit'],
+    [120, 'info', 'Network: Wi-Fi, 192.168.1.20/24, gateway 192.168.1.1, DNS 192.168.1.1'],
+    [160, 'info', 'Server: Singapore - VLESS over TLS to 198.51.100.17:443, SNI cdn.example.com'],
+    [240, 'info', 'Local proxy listening on 127.0.0.1:10808 (SOCKS5 and HTTP)'],
+    [260, 'info', 'Kill switch on, local network bypass on'],
+    [310, 'info', 'System proxy set to 127.0.0.1:10808'],
+    [330, 'success', 'Connected to Singapore'],
+    [420, 'success', 'Server answered in 41 ms'],
+  ]
+  return lines.map(([offset, level, message, sessionStart = false], index) => ({
+    id: index + 1,
+    ts: start + offset,
+    level,
+    message,
+    sessionStart,
+  }))
 }
 
 // ---------------------------------------------------------------------------

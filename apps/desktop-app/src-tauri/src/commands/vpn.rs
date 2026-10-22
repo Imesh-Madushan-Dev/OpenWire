@@ -1,11 +1,16 @@
 //! Connect / disconnect / status.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use tauri::{AppHandle, Manager, State};
 use tokio::sync::mpsc;
+use tokio::time::timeout;
 
+use crate::core::connlog::{self, Level, LogEntry};
+use crate::core::lan::Lan;
 use crate::core::models::{ConnectionState, Outbound, Phase, ServerNode, StatsSnapshot};
+use crate::core::probe;
 use crate::core::sysproxy::{self, ProxyGuard};
 use crate::core::tunnel::{Tunnel, TunnelConfig, TunnelEvent};
 use crate::error::{AppError, AppResult};
@@ -23,6 +28,16 @@ pub async fn vpn_status(state: State<'_, AppState>) -> AppResult<ConnectionState
 #[tauri::command]
 pub async fn vpn_stats(state: State<'_, AppState>) -> AppResult<StatsSnapshot> {
     Ok(snapshot_with_uptime(&state))
+}
+
+#[tauri::command]
+pub fn vpn_logs(state: State<'_, AppState>) -> Vec<LogEntry> {
+    state.logs()
+}
+
+#[tauri::command]
+pub fn vpn_logs_clear(state: State<'_, AppState>) {
+    state.clear_logs();
 }
 
 #[tauri::command]
@@ -96,6 +111,31 @@ async fn bring_up(
 ) -> AppResult<ConnectionState> {
     let settings = state.settings();
 
+    if monitoring {
+        state.log_session("Measuring usage - routing locally with no server, so traffic goes out directly");
+    } else {
+        state.log_session(format!("Connecting to {}", node.name));
+        state.log(
+            Level::Info,
+            format!(
+                "OpenWire {} on {}",
+                env!("CARGO_PKG_VERSION"),
+                connlog::system_summary()
+            ),
+        );
+        match Lan::describe_network() {
+            Some(network) => state.log(Level::Info, format!("Network: {network}")),
+            None => state.log(Level::Warning, "No local network found - check that this PC is online"),
+        }
+        state.log(Level::Info, describe_server(&node));
+        if node.outbound.tls().is_some_and(|tls| tls.allow_insecure) {
+            state.log(
+                Level::Warning,
+                "Certificate checking is off for this server, so its identity is not verified",
+            );
+        }
+    }
+
     // Monitor mode starts itself on launch and after a disconnect. Flashing
     // "Connecting" there would read as a VPN coming up, which it is not.
     if !monitoring {
@@ -135,6 +175,14 @@ async fn bring_up(
             // Roll all the way back so a failed attempt cannot leave the UI
             // stuck on "Connecting".
             let message = err.user_message();
+            state.log(
+                Level::Error,
+                if monitoring {
+                    format!("Could not start measuring: {message}")
+                } else {
+                    format!("Could not connect: {message}")
+                },
+            );
             state.update_connection(|conn| {
                 *conn = ConnectionState::default();
                 conn.note = Some(message);
@@ -144,6 +192,21 @@ async fn bring_up(
     };
 
     let listen_addr = tunnel.local_addr;
+    state.log(
+        Level::Info,
+        format!("Local proxy listening on {listen_addr} (SOCKS5 and HTTP)"),
+    );
+    if !monitoring {
+        let on_off = |on: bool| if on { "on" } else { "off" };
+        state.log(
+            Level::Info,
+            format!(
+                "Kill switch {}, local network bypass {}",
+                on_off(settings.kill_switch),
+                on_off(settings.lan_bypass)
+            ),
+        );
+    }
 
     // The OS proxy is best-effort: a failure here still leaves a usable tunnel
     // for apps pointed at the loopback address manually, so warn rather than
@@ -160,21 +223,35 @@ async fn bring_up(
                 Ok(engaged) => {
                     guard = Some(engaged);
                     proxy_engaged = true;
+                    state.log(Level::Info, format!("System proxy set to {listen_addr}"));
                 }
                 Err(err) => {
                     log::error!("system proxy engage failed: {err}");
-                    state.notify("warning", err.user_message());
+                    let message = err.user_message();
+                    state.log(Level::Warning, format!("Could not set the system proxy: {message}"));
+                    state.notify("warning", message);
                 }
             }
         } else {
-            state.notify(
-                "info",
-                format!("Point your apps at {listen_addr} to use the tunnel on this platform."),
-            );
+            let message =
+                format!("Point your apps at {listen_addr} to use the tunnel on this platform.");
+            state.log(Level::Info, message.clone());
+            state.notify("info", message);
         }
+    } else {
+        state.log(
+            Level::Info,
+            format!("System proxy is off in Settings - point apps at {listen_addr}"),
+        );
     }
 
     state.install(tunnel, guard);
+    if monitoring {
+        state.log(Level::Success, "Measuring usage");
+    } else {
+        state.log(Level::Success, format!("Connected to {}", node.name));
+        spawn_server_check(app.clone(), node.clone());
+    }
     spawn_health_forwarder(app, events_rx);
 
     Ok(state.update_connection(|conn| {
@@ -213,6 +290,8 @@ pub async fn vpn_disconnect(
         return Err(AppError::NotConnected);
     }
 
+    let proxy_was_set = state.connection().system_proxy;
+    state.log(Level::Info, "Disconnecting");
     state.update_connection(|conn| {
         conn.phase = Phase::Disconnecting;
         conn.note = None;
@@ -220,6 +299,14 @@ pub async fn vpn_disconnect(
 
     state.teardown();
     state.update_connection(|conn| *conn = ConnectionState::default());
+    state.log(
+        Level::Info,
+        if proxy_was_set {
+            "Disconnected - system proxy restored"
+        } else {
+            "Disconnected"
+        },
+    );
 
     // Dropping the VPN must not also stop metering: monitor mode takes the
     // route back, so the usage breakdown keeps naming apps and hosts.
@@ -274,6 +361,67 @@ fn resolve_node(state: &AppState, requested: Option<String>) -> AppResult<Server
     })
 }
 
+/// The profile line of a session, e.g. "Server: Tokyo - VLESS over TLS to
+/// edge.example.net:443, SNI cdn.example.com". Never the credentials.
+fn describe_server(node: &ServerNode) -> String {
+    let protocol = match node.outbound {
+        Outbound::Direct => return format!("Server: {} - direct, no tunnel", node.name),
+        Outbound::Vless(_) => "VLESS",
+        Outbound::Trojan(_) => "Trojan",
+    };
+    let sni = node
+        .outbound
+        .tls()
+        .map(|tls| format!(", SNI {}", tls.sni))
+        .unwrap_or_default();
+    format!(
+        "Server: {} - {protocol} over TLS to {}:{}{sni}",
+        node.name, node.host, node.port
+    )
+}
+
+/// Looks the server up and knocks on it once the tunnel is up, for the log.
+/// Afterwards rather than before, so connecting never waits on it.
+fn spawn_server_check(app: AppHandle, node: ServerNode) {
+    if matches!(node.outbound, Outbound::Direct) {
+        return;
+    }
+    tokio::spawn(async move {
+        let log = |level: Level, message: String| {
+            if let Some(state) = app.try_state::<AppState>() {
+                state.log(level, message);
+            }
+        };
+
+        if node.host.parse::<std::net::IpAddr>().is_err() {
+            let lookup = tokio::net::lookup_host((node.host.as_str(), node.port));
+            match timeout(Duration::from_secs(5), lookup).await {
+                Ok(Ok(addresses)) => {
+                    let mut ips: Vec<String> = addresses.map(|a| a.ip().to_string()).collect();
+                    ips.sort();
+                    ips.dedup();
+                    log(Level::Info, format!("Resolved {} to {}", node.host, ips.join(", ")));
+                }
+                Ok(Err(_)) | Err(_) => {
+                    log(
+                        Level::Warning,
+                        format!("Could not resolve {} - check the server address and your DNS", node.host),
+                    );
+                    return;
+                }
+            }
+        }
+
+        match probe::latency(&probe::Target::of(&node)).await {
+            Some(ms) => log(Level::Success, format!("Server answered in {ms} ms")),
+            None => log(
+                Level::Warning,
+                "Server did not answer - traffic may not get through".to_string(),
+            ),
+        }
+    });
+}
+
 fn exit_label(node: &ServerNode) -> String {
     match node.outbound {
         Outbound::Direct => "This device".to_string(),
@@ -304,17 +452,19 @@ fn spawn_health_forwarder(app: AppHandle, mut rx: mpsc::UnboundedReceiver<Tunnel
 
             match event {
                 TunnelEvent::Degraded => {
-                    let kill_switch = state.settings().kill_switch;
+                    let note = if state.settings().kill_switch {
+                        "Server unreachable. Kill switch is blocking traffic."
+                    } else {
+                        "Server unreachable. Retrying..."
+                    };
+                    state.log(Level::Warning, note);
                     state.update_connection(|conn| {
                         conn.phase = Phase::Reconnecting;
-                        conn.note = Some(if kill_switch {
-                            "Server unreachable. Kill switch is blocking traffic.".to_string()
-                        } else {
-                            "Server unreachable. Retrying...".to_string()
-                        });
+                        conn.note = Some(note.to_string());
                     });
                 }
                 TunnelEvent::Healthy { .. } => {
+                    state.log(Level::Success, "Server reachable again");
                     state.update_connection(|conn| {
                         conn.phase = Phase::Connected;
                         conn.note = None;

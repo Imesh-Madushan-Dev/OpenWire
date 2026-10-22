@@ -44,10 +44,12 @@ import { isActive, type ServerSummary } from '@/lib/types'
 import { useVpn } from '@/features/vpn/vpn-context'
 
 import { AddServerDialog } from './add-server-dialog'
+import { LogDialog, LogFooter } from './connection-log'
 import { EditServerDialog } from './edit-server-dialog'
 import { readQrImage, readTextFile } from './links'
 import { AutomaticRow, ServerRow } from './server-row'
 import { ShareDialog } from './share-dialog'
+import { useConnectionLog } from './use-connection-log'
 
 /** Searching only earns its space once the list outgrows a glance. */
 const SEARCH_FROM = 7
@@ -73,6 +75,8 @@ export function ServerPanel() {
 
   const [adding, setAdding] = useState(false)
   const [dialog, setDialog] = useState<DialogState | null>(null)
+  const [logOpen, setLogOpen] = useState(false)
+  const log = useConnectionLog()
   const [query, setQuery] = useState('')
   const [dragging, setDragging] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -296,6 +300,8 @@ export function ServerPanel() {
         </motion.ol>
       )}
 
+      <LogFooter latest={log.entries.at(-1)} onOpen={() => setLogOpen(true)} />
+
       {/* Shown while a file is dragged over, so dropping is discoverable. */}
       <AnimatePresence>
         {dragging && (
@@ -337,6 +343,7 @@ export function ServerPanel() {
       />
 
       <AddServerDialog open={adding} onOpenChange={setAdding} />
+      <LogDialog entries={log.entries} open={logOpen} onOpenChange={setLogOpen} onClear={log.clear} />
 
       {dialog?.kind === 'share' && (
         <ShareDialog server={dialog.server} open={dialog.open} onOpenChange={closeDialog} />

@@ -57,6 +57,8 @@ pub fn run() {
             commands::vpn::vpn_connect,
             commands::vpn::vpn_disconnect,
             commands::vpn::vpn_toggle,
+            commands::vpn::vpn_logs,
+            commands::vpn::vpn_logs_clear,
             commands::servers::servers_list,
             commands::servers::servers_probe,
             commands::servers::servers_import,

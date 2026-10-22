@@ -34,6 +34,8 @@ mockIPC(
     switch (cmd) {
       case 'vpn_status':
         return data.connected()
+      case 'vpn_logs':
+        return data.logs()
       case 'servers_list':
         return data.servers
       case 'servers_optimal':
