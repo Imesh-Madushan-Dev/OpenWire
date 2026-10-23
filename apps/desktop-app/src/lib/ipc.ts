@@ -29,6 +29,7 @@ import type {
   StatsSnapshot,
   UsageRange,
   UsageSample,
+  UpdateStatus,
   UsageSpan,
   UsageSummary,
 } from './types'
@@ -135,6 +136,11 @@ export const api = {
   /** Swaps the window and tray icons to the light or dark logo. */
   setAppIcon: (dark: boolean) => call<void>('app_icon_set', { dark }),
 
+  /** What the last release check found; never reaches out itself. */
+  updateStatus: () => call<UpdateStatus>('update_status'),
+  /** Asks GitHub now, even with automatic checks off. */
+  checkUpdate: () => call<UpdateStatus>('update_check'),
+
   restoreNetwork: () => call<string>('network_restore'),
 }
 
@@ -149,6 +155,7 @@ export const EVENTS = {
   netmonStatus: 'netmon:status',
   devices: 'devices:changed',
   devicesProgress: 'devices:progress',
+  update: 'update:status',
 } as const
 
 export function onConnectionState(handler: (state: ConnectionState) => void) {
@@ -183,6 +190,11 @@ export function onDevices(handler: (snapshot: DevicesSnapshot) => void) {
 /** Addresses asked so far in a sweep, whichever view started it. */
 export function onDevicesProgress(handler: (progress: ScanProgress) => void) {
   return listen<ScanProgress>(EVENTS.devicesProgress, (event) => handler(event.payload))
+}
+
+/** Every finished release check, background or asked for. */
+export function onUpdateStatus(handler: (status: UpdateStatus) => void) {
+  return listen<UpdateStatus>(EVENTS.update, (event) => handler(event.payload))
 }
 
 export type { UnlistenFn }

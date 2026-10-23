@@ -307,6 +307,9 @@ pub struct Settings {
     /// Show live upload and download speed on the Windows taskbar.
     #[serde(default = "default_true")]
     pub taskbar_speed: bool,
+    /// Ask GitHub now and then whether a newer release is out.
+    #[serde(default = "default_true")]
+    pub check_updates: bool,
     pub preferred_server: Option<String>,
 }
 
@@ -326,6 +329,7 @@ impl Default for Settings {
             monitor_when_idle: false,
             watch_devices: true,
             taskbar_speed: true,
+            check_updates: true,
             preferred_server: None,
         }
     }
@@ -344,6 +348,7 @@ pub struct SettingsPatch {
     pub monitor_when_idle: Option<bool>,
     pub watch_devices: Option<bool>,
     pub taskbar_speed: Option<bool>,
+    pub check_updates: Option<bool>,
     /// Double option: distinguishes "absent" from "explicit null", so the
     /// preferred server can actually be cleared.
     #[serde(default, deserialize_with = "double_option")]
@@ -386,6 +391,9 @@ impl Settings {
         if let Some(v) = patch.taskbar_speed {
             self.taskbar_speed = v;
         }
+        if let Some(v) = patch.check_updates {
+            self.check_updates = v;
+        }
         if let Some(v) = patch.preferred_server {
             self.preferred_server = v;
         }
@@ -398,4 +406,21 @@ impl Settings {
         }
         Ok(())
     }
+}
+
+// ---------------------------------------------------------------------------
+// Updates
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateStatus {
+    /// This build.
+    pub current: String,
+    /// The newest published release, once a check has succeeded.
+    pub latest: Option<String>,
+    /// `latest` is newer than `current`.
+    pub available: bool,
+    /// Unix seconds of the last successful check.
+    pub checked_at: Option<u64>,
 }

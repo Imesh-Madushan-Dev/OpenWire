@@ -73,6 +73,8 @@ pub fn run() {
             commands::settings::platform_info,
             commands::settings::network_restore,
             commands::settings::app_icon_set,
+            commands::update::update_status,
+            commands::update::update_check,
             commands::usage::usage_timeline,
             commands::usage::usage_timeline_between,
             commands::usage::usage_summary,
@@ -109,6 +111,7 @@ pub fn run() {
             spawn_stats_ticker(handle.clone());
             spawn_initial_probe(handle.clone());
             spawn_device_watch(handle.clone());
+            spawn_update_watch(handle.clone());
 
             if settings.launch_minimized {
                 if let Some(window) = app.get_webview_window("main") {
@@ -209,6 +212,43 @@ fn spawn_device_watch(app: AppHandle) {
                 }
             }
             tokio::time::sleep(EVERY).await;
+        }
+    });
+}
+
+/// Asks GitHub whether a newer OpenWire is out - shortly after launch, once
+/// the network has settled, then twice a day for a tray app left running -
+/// and says so once per release.
+fn spawn_update_watch(app: AppHandle) {
+    const FIRST_AFTER: Duration = Duration::from_secs(30);
+    const EVERY: Duration = Duration::from_secs(12 * 60 * 60);
+    /// A failed check is tried again sooner: networks that reset some TLS
+    /// handshakes would otherwise cost half a day.
+    const RETRY_AFTER: Duration = Duration::from_secs(30 * 60);
+
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(FIRST_AFTER).await;
+        loop {
+            let Some(state) = app.try_state::<AppState>() else {
+                break;
+            };
+            let mut wait = EVERY;
+            // Checked every round, so turning it off takes effect without a restart.
+            if state.settings().check_updates {
+                match commands::update::check(&state).await {
+                    Ok((_, Some(version))) => state.notify(
+                        "info",
+                        format!("OpenWire {version} is available - download it from Settings > About."),
+                    ),
+                    Ok(_) => {}
+                    // Offline, or GitHub is blocked here: nothing worth interrupting over.
+                    Err(err) => {
+                        log::debug!("background update check: {err}");
+                        wait = RETRY_AFTER;
+                    }
+                }
+            }
+            tokio::time::sleep(wait).await;
         }
     });
 }

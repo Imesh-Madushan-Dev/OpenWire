@@ -123,7 +123,7 @@ For the full technical picture - certificate checking, the usage meter's data so
 
 ## Privacy
 
-OpenWire has no accounts, no analytics and no telemetry. Beyond the servers you add, the only things it talks to are the devices on your own local network, when it scans them.
+OpenWire has no accounts, no analytics and no telemetry. Beyond the servers you add, it talks only to the devices on your own local network, when it scans them, and to GitHub twice a day to see whether a new release is out. That request carries nothing about you or your traffic, and you can turn it off in **Settings > General**.
 
 | Data | Where it stays |
 | --- | --- |

@@ -23,7 +23,8 @@
       "allow": [
         { "url": "https://github.com/Imesh-Madushan-Dev" },
         { "url": "https://github.com/Imesh-Madushan-Dev/OpenWire" },
-        { "url": "https://github.com/Imesh-Madushan-Dev/OpenWire/blob/main/LICENSE" }
+        { "url": "https://github.com/Imesh-Madushan-Dev/OpenWire/blob/main/LICENSE" },
+        { "url": "https://github.com/Imesh-Madushan-Dev/OpenWire/releases/latest" }
       ]
     }
   ]

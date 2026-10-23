@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.2.0"
+version = "0.3.0"
 description = "OpenWire desktop client"
 authors = ["OpenWire"]
 license = "GPL-3.0-only"
@@ -50,6 +50,8 @@ png = "0.18"
 base64 = "0.22"
 # Trojan's password digest. Already in the tree via tauri.
 sha2 = "0.10"
+# Release version comparison. Already in the tree via tauri.
+semver = "1"
 tauri-plugin-opener = "2"
 tauri-plugin-autostart = "2"
 maxminddb = "0.32.0"

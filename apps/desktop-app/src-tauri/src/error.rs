@@ -50,6 +50,10 @@ pub enum AppError {
     #[error("network monitor: {0}")]
     Monitor(String),
 
+    /// GitHub could not be reached, or its answer made no sense.
+    #[error("update check failed: {0}")]
+    Update(String),
+
     #[error("internal failure: {0}")]
     Internal(String),
 }
@@ -70,6 +74,7 @@ impl AppError {
             Self::Config(_) => "CONFIG_FAILED",
             Self::Invalid(_) => "INVALID_INPUT",
             Self::Monitor(_) => "MONITOR_FAILED",
+            Self::Update(_) => "UPDATE_CHECK_FAILED",
             Self::Internal(_) => "INTERNAL",
         }
     }
@@ -104,6 +109,9 @@ impl AppError {
             }
             Self::Config(_) => "Couldn't save your settings to disk.".into(),
             Self::Invalid(detail) | Self::Monitor(detail) => detail.clone(),
+            Self::Update(_) => {
+                "Couldn't reach GitHub to check for updates. Check your internet connection and try again.".into()
+            }
             Self::Internal(_) => "Something went wrong. Please try again.".into(),
         }
     }

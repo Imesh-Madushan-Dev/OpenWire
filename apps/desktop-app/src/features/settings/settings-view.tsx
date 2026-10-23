@@ -11,11 +11,13 @@ import {
   ComputerIcon,
   DashboardSpeed01Icon,
   Delete02Icon,
+  Download04Icon,
   GithubIcon,
   InformationCircleIcon,
   JusticeScale01Icon,
   LaptopPhoneSyncIcon,
   Radar01Icon,
+  RefreshIcon,
   Rocket01Icon,
   Route01Icon,
   ServerIcon,
@@ -32,10 +34,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { SettingGroup, SettingRow, SettingTone } from '@/components/setting-row'
+import { formatAgo } from '@/lib/format'
 import { staggerChild, staggerParent, transition } from '@/lib/motion'
 import { toneStyle } from '@/lib/tone'
 import { isActive, type Settings } from '@/lib/types'
 import { ServerImportField } from '@/features/servers/server-import-field'
+import { useUpdate } from '@/features/update/use-update'
 import { monitorSummary, useMonitor } from '@/features/usage/use-monitor'
 import { useVpn } from '@/features/vpn/vpn-context'
 import { RestoreNetworkRow } from './restore-network-row'
@@ -356,6 +360,13 @@ function GeneralSection({ settings }: { settings: Settings }) {
         disabled={notWindows}
         onChange={(next) => void updateSettings({ taskbarSpeed: next })}
       />
+      <SettingRow
+        icon={RefreshIcon}
+        title="Check for updates"
+        description="Ask GitHub twice a day whether a newer OpenWire has been released. Nothing about you or your traffic is sent."
+        checked={settings.checkUpdates}
+        onChange={(next) => void updateSettings({ checkUpdates: next })}
+      />
     </SettingGroup>
   )
 }
@@ -417,6 +428,7 @@ function AboutSection() {
       </motion.div>
 
       <SettingGroup>
+        <UpdateRow />
         <SettingRow
           icon={GithubIcon}
           title="Developer"
@@ -460,6 +472,49 @@ function AboutSection() {
         </p>
       </motion.div>
     </>
+  )
+}
+
+/** This build against the newest release, with the one action that fits. */
+function UpdateRow() {
+  const { status, available, checking, check, download } = useUpdate()
+
+  if (available) {
+    return (
+      <SettingRow
+        icon={Download04Icon}
+        title={`OpenWire ${available} is available`}
+        description={`You have ${status?.current ?? 'an older version'}. Download the installer from GitHub and run it to update.`}
+        control={
+          <Button size="sm" className="shrink-0" onClick={download}>
+            Download
+          </Button>
+        }
+      />
+    )
+  }
+
+  return (
+    <SettingRow
+      icon={RefreshIcon}
+      title="Updates"
+      description={
+        status?.checkedAt
+          ? `You have the latest version. Checked ${formatAgo(status.checkedAt)}.`
+          : 'Not checked yet.'
+      }
+      control={
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0"
+          disabled={checking}
+          onClick={() => void check()}
+        >
+          {checking ? 'Checking…' : 'Check now'}
+        </Button>
+      }
+    />
   )
 }
 

@@ -15,6 +15,7 @@ import { DevicesView } from '@/features/devices/devices-view'
 import { FirewallView } from '@/features/firewall/firewall-view'
 import type { SectionId } from '@/features/settings/sections'
 import { SettingsView } from '@/features/settings/settings-view'
+import { useUpdate } from '@/features/update/use-update'
 import { NetworkView } from '@/features/usage/network-view'
 import { UsageView } from '@/features/usage/usage-view'
 import { useVpn } from '@/features/vpn/vpn-context'
@@ -42,6 +43,7 @@ function Shell() {
   })
   const maximized = useMaximized()
   const { newCount } = useDevices()
+  const update = useUpdate()
 
   const openSettings = (section: SectionId = 'protection') => {
     setSettingsEntry((current) => ({ section, seq: current.seq + 1 }))
@@ -73,6 +75,10 @@ function Shell() {
         badges={{ devices: newCount }}
         phase={connection.phase}
         onFeedback={(message) => notify({ level: 'info', message })}
+        update={update.available}
+        onDownloadUpdate={update.download}
+        onCheckUpdate={() => void update.check()}
+        checkingUpdate={update.checking}
       />
 
       <main className="relative min-h-0 flex-1">

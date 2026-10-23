@@ -14,9 +14,11 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowDown01Icon,
   Cancel01Icon,
+  Download04Icon,
   InformationCircleIcon,
   Mail01Icon,
   MinusSignIcon,
+  RefreshIcon,
   SquareIcon,
 } from '@hugeicons/core-free-icons'
 import { getCurrentWindow } from '@tauri-apps/api/window'
@@ -26,6 +28,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { isBusy, type Phase } from '@/lib/types'
@@ -64,9 +67,25 @@ interface TitleBarProps {
   badges?: Partial<Record<ViewId, number>>
   phase: Phase
   onFeedback: (message: string) => void
+  /** A newer release's version, while there is one. */
+  update?: string | null
+  onDownloadUpdate?: () => void
+  onCheckUpdate?: () => void
+  checkingUpdate?: boolean
 }
 
-export function TitleBar({ view, onNavigate, onOpenSettings, badges, phase, onFeedback }: TitleBarProps) {
+export function TitleBar({
+  view,
+  onNavigate,
+  onOpenSettings,
+  badges,
+  phase,
+  onFeedback,
+  update,
+  onDownloadUpdate,
+  onCheckUpdate,
+  checkingUpdate = false,
+}: TitleBarProps) {
   const minimize = useCallback(() => void getCurrentWindow().minimize(), [])
   const toggleMaximize = useCallback(() => void getCurrentWindow().toggleMaximize(), [])
   // Intercepted in Rust: hides the window, leaves the tunnel running.
@@ -79,7 +98,14 @@ export function TitleBar({ view, onNavigate, onOpenSettings, badges, phase, onFe
       data-tauri-drag-region
       className="relative z-20 h-20 shrink-0 border-b border-hairline bg-rail"
     >
-      <AppMenu onOpenSettings={onOpenSettings} onFeedback={() => onFeedback(FEEDBACK_MESSAGE)} />
+      <AppMenu
+        onOpenSettings={onOpenSettings}
+        onFeedback={() => onFeedback(FEEDBACK_MESSAGE)}
+        update={update ?? null}
+        onDownloadUpdate={onDownloadUpdate}
+        onCheckUpdate={onCheckUpdate}
+        checkingUpdate={checkingUpdate}
+      />
 
       {/* Centred on the window, not on the space between the side clusters. */}
       <NavTabs
@@ -124,15 +150,25 @@ export function TitleBar({ view, onNavigate, onOpenSettings, badges, phase, onFe
 }
 
 /**
- * GlassWire's top-left product menu: the app's mark, and the two things about
- * the app itself. Connecting, Settings and hiding all have their own controls.
+ * GlassWire's top-left product menu: the app's mark, and the things about the
+ * app itself. Connecting, Settings and hiding all have their own controls. A
+ * newer release marks the button and leads the menu; otherwise the menu ends
+ * with a way to ask for one.
  */
 function AppMenu({
   onOpenSettings,
   onFeedback,
+  update,
+  onDownloadUpdate,
+  onCheckUpdate,
+  checkingUpdate,
 }: {
   onOpenSettings: (section?: 'about') => void
   onFeedback: () => void
+  update: string | null
+  onDownloadUpdate?: () => void
+  onCheckUpdate?: () => void
+  checkingUpdate: boolean
 }) {
   return (
     <DropdownMenu>
@@ -147,8 +183,26 @@ function AppMenu({
         <LogoMark size={20} />
         <span className="ml-0.5">OpenWire</span>
         <HugeiconsIcon icon={ArrowDown01Icon} size={13} strokeWidth={2} className="text-muted-foreground" />
+        {update && (
+          <>
+            <span
+              aria-hidden
+              className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary ring-2 ring-rail"
+            />
+            <span className="sr-only">, update available</span>
+          </>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-52">
+        {update && (
+          <>
+            <DropdownMenuItem onClick={onDownloadUpdate}>
+              <HugeiconsIcon icon={Download04Icon} strokeWidth={2} />
+              Get OpenWire {update}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuItem onClick={onFeedback}>
           <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} />
           Send feedback
@@ -157,6 +211,12 @@ function AppMenu({
           <HugeiconsIcon icon={InformationCircleIcon} strokeWidth={2} />
           About OpenWire
         </DropdownMenuItem>
+        {!update && onCheckUpdate && (
+          <DropdownMenuItem onClick={onCheckUpdate} disabled={checkingUpdate}>
+            <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />
+            {checkingUpdate ? 'Checking for updates…' : 'Check for updates'}
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

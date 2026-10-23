@@ -7,6 +7,7 @@
  * machine without touching any real data.
  *
  *   ?view=settings&section=appearance&theme=neon&mode=light
+ *   &update=0.4.0 shows that release as available
  */
 
 import { StrictMode } from 'react'
@@ -44,6 +45,9 @@ mockIPC(
         return data.settings
       case 'platform_info':
         return data.platform
+      case 'update_status':
+      case 'update_check':
+        return data.update(params.get('update'))
       case 'usage_timeline':
         return data.timeline(a.range)
       case 'usage_timeline_between':

@@ -66,7 +66,7 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
 name = "app"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "base64 0.22.1",
  "log",
@@ -74,6 +74,7 @@ dependencies = [
  "png 0.18.1",
  "rustls",
  "rustls-pki-types",
+ "semver",
  "serde",
  "serde_json",
  "sha2",

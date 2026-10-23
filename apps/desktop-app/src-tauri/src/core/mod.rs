@@ -10,4 +10,5 @@ pub mod probe;
 pub mod store;
 pub mod sysproxy;
 pub mod tunnel;
+pub mod update;
 pub mod usage;

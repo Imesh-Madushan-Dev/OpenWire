@@ -88,6 +88,8 @@ export interface Settings {
   watchDevices: boolean
   /** Live upload and download speed on the Windows taskbar. */
   taskbarSpeed: boolean
+  /** Ask GitHub now and then whether a newer release is out. */
+  checkUpdates: boolean
   preferredServer: string | null
 }
 
@@ -165,6 +167,18 @@ export interface PlatformInfo {
   systemProxySupported: boolean
   platform: string
   version: string
+}
+
+/** Mirrors `UpdateStatus` in `core/models.rs`. */
+export interface UpdateStatus {
+  /** This build. */
+  current: string
+  /** The newest published release, once a check has succeeded. */
+  latest: string | null
+  /** `latest` is newer than `current`. */
+  available: boolean
+  /** Unix seconds of the last successful check. */
+  checkedAt: number | null
 }
 
 /** The period the store holds, for bounding the date pickers. */

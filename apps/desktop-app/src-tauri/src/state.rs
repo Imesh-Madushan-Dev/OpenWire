@@ -16,12 +16,13 @@ use crate::core::connlog::{ConnLog, Level, LogEntry};
 use crate::core::lan::Lan;
 use crate::core::metrics::Metrics;
 use crate::core::models::{
-    ConnectionState, Phase, ServerNode, ServerSummary, Settings, StatsSnapshot,
+    ConnectionState, Phase, ServerNode, ServerSummary, Settings, StatsSnapshot, UpdateStatus,
 };
 use crate::core::netmon::client::Monitor;
 use crate::core::store;
 use crate::core::sysproxy::{self, ProxyGuard, Recovery};
 use crate::core::tunnel::Tunnel;
+use crate::core::update;
 use crate::core::usage::UsageTracker;
 use crate::error::{AppError, AppResult};
 
@@ -29,6 +30,7 @@ pub const EVENT_STATE: &str = "vpn:state";
 pub const EVENT_STATS: &str = "vpn:stats";
 pub const EVENT_NOTICE: &str = "vpn:notice";
 pub const EVENT_LOG: &str = "vpn:log";
+pub const EVENT_UPDATE: &str = "update:status";
 
 pub struct AppState {
     app: AppHandle,
@@ -39,6 +41,8 @@ pub struct AppState {
     connection: RwLock<ConnectionState>,
     /// What the Logs window shows.
     log: ConnLog,
+    /// What the last release check found.
+    update: RwLock<UpdateStatus>,
     pub metrics: Arc<Metrics>,
     pub usage: Arc<UsageTracker>,
     /// The device-wide network monitor, if the user installed it.
@@ -107,6 +111,7 @@ impl AppState {
             latency: RwLock::new(HashMap::new()),
             connection: RwLock::new(ConnectionState::default()),
             log: ConnLog::default(),
+            update: RwLock::new(update::unchecked()),
             metrics: Arc::new(Metrics::new()),
             usage: Arc::new(UsageTracker::load(&usage_path)),
             netmon: Monitor::new(),
@@ -289,6 +294,24 @@ impl AppState {
             EVENT_NOTICE,
             serde_json::json!({ "level": level, "message": message.into() }),
         );
+    }
+
+    // -- updates ------------------------------------------------------------
+
+    pub fn update_status(&self) -> UpdateStatus {
+        self.update.read().expect("update lock").clone()
+    }
+
+    /// Stores a finished check and shows it. Returns the newer version the
+    /// first time it is seen, so a release is announced once, not every check.
+    pub fn record_update(&self, next: UpdateStatus) -> Option<String> {
+        let previous = std::mem::replace(&mut *self.update.write().expect("update lock"), next.clone());
+        let _ = self.app.emit(EVENT_UPDATE, &next);
+        if next.available && next.latest != previous.latest {
+            next.latest
+        } else {
+            None
+        }
     }
 
     // -- tunnel + proxy ownership -------------------------------------------
