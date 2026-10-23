@@ -44,6 +44,18 @@ The system-proxy tests are `#[ignore]`d on purpose: they mutate the
 machine-global WinINET settings that a running OpenWire session also owns, so a
 routine `cargo test` must not switch your networking out from under you.
 
+Frontend unit tests: `bun test tests`.
+
+### Screenshots
+
+The README screenshots come from the real UI running on made-up data
+(`screenshots.html` → `src/demo/`), so no real address or device appears in
+them. To regenerate them (needs Node and Chrome or Edge):
+
+```bash
+bun scripts/screenshots.ts   # writes docs/screenshots/*.webp
+```
+
 ## Adding a server
 
 The bundled catalog ships with **no credentials** — remote nodes show as *Setup
