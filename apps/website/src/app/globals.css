@@ -1235,17 +1235,6 @@ html.motion:not(.is-booted) .badge {
   object-fit: cover;
 }
 
-/* Where the app's own orb sits in screens/vpn.webp: centre (532, 636), ring 270px, of 1640x1040. */
-.window__orb-target {
-  position: absolute;
-  left: 32.44%;
-  top: 61.15%;
-  width: 16.46%;
-  aspect-ratio: 1;
-  translate: -50% -50%;
-  pointer-events: none;
-}
-
 @media (max-width: 767px) {
   .window__bezel {
     padding: 6px;
@@ -1260,17 +1249,7 @@ html.motion:not(.is-booted) .badge {
   position: relative;
   padding-top: clamp(128px, 18vh, 196px);
   padding-bottom: clamp(56px, 10vh, 120px);
-  overflow-x: clip; /* the orb's halo may spill past the edge, never into a scrollbar */
-}
-
-/* The orb is client state: it appears once the engine boots, already in its first phase, so a
- * slow phone never shows the server's "on" flip to "off" before the tunnel opens. */
-.hero__orb {
-  transition: opacity 0.9s var(--ease);
-}
-
-.motion:not(.is-booted) .hero__orb {
-  opacity: 0;
+  overflow-x: clip; /* the window's glow may spill past the edge, never into a scrollbar */
 }
 
 .hero__grid {
@@ -1281,7 +1260,7 @@ html.motion:not(.is-booted) .badge {
 }
 
 .hero__copy {
-  grid-column: 1 / span 8;
+  grid-column: 1 / span 6;
   display: grid;
   justify-items: start;
   gap: 28px;
@@ -1334,32 +1313,20 @@ html.motion:not(.is-booted) .badge {
   color: var(--state);
 }
 
-.hero__orb {
-  grid-column: 9 / span 4;
-  justify-self: center;
-  display: grid;
-  justify-items: center;
-  gap: 26px;
-  text-align: center;
-}
-
-.hero__caption {
-  max-width: 26ch;
-  font-size: var(--t-s);
-  color: var(--muted);
-}
-
-.window--hero {
-  margin-top: clamp(64px, 11vh, 132px);
+/* The app window and its tab bar, switching tabs on a clock (src/motion/sections.ts). */
+.hero__screens {
+  grid-column: 7 / -1;
+  margin-left: clamp(0px, 2vw, 32px);
 }
 
 @media (max-width: 1023px) {
   .hero__copy,
-  .hero__orb {
+  .hero__screens {
     grid-column: 1 / -1;
   }
 
-  .hero__orb {
+  .hero__screens {
+    margin-left: 0;
     margin-top: 72px;
   }
 }
@@ -1386,7 +1353,7 @@ html.motion:not(.is-booted) .badge {
     justify-content: center;
   }
 
-  .window--hero {
+  .hero__screens {
     margin-top: 56px;
   }
 }
@@ -1399,14 +1366,6 @@ html.motion:not(.is-booted) .badge {
   --orb: clamp(176px, 9vw + 112px, 236px);
   width: var(--orb);
   height: var(--orb);
-}
-
-.orb-flyer {
-  position: relative;
-  z-index: 5;
-  width: 100%;
-  height: 100%;
-  transform-origin: 50% 50%;
 }
 
 .orb {
@@ -1553,46 +1512,6 @@ html.motion:not(.is-booted) .badge {
   filter: drop-shadow(0 0 14px color-mix(in oklab, var(--on) 70%, transparent));
 }
 
-/* The status lines above the orb, in the app's words and colours. */
-.status {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-}
-
-.status__headline {
-  display: grid;
-  place-items: center;
-  height: 2.6rem;
-  font-size: clamp(1.5rem, 1.2rem + 0.9vw, 2rem);
-  font-weight: 600;
-  letter-spacing: -0.025em;
-}
-
-.status__detail {
-  display: grid;
-  place-items: center;
-  min-height: 1.6rem;
-  font-size: var(--t-s);
-  color: var(--muted);
-}
-
-.status__headline [data-phase='connected'] {
-  color: var(--on);
-}
-
-.status__headline [data-phase='disconnected'] {
-  color: var(--off);
-}
-
-.status__headline [data-phase='connecting'] {
-  color: var(--ink);
-}
-
-.status__headline [data-phase='disconnecting'] {
-  color: var(--muted);
-}
-
 /* ---------------------------------------------------------------------------
  * Sections
  * ------------------------------------------------------------------------ */
@@ -1715,21 +1634,26 @@ html.motion:not(.is-booted) .badge {
   color: var(--tone, var(--state));
 }
 
+/* One window and the app's tab bar under it (components/screen-stage.tsx). */
+.stage {
+  display: grid;
+  justify-items: center;
+  gap: 26px;
+  container-type: inline-size;
+}
+
+.stage .window {
+  width: 100%;
+}
+
 .chapters__stage {
   grid-column: 6 / -1;
   position: sticky;
   top: 0;
   align-self: start;
-  display: grid;
   align-content: center;
-  justify-items: center;
-  gap: 26px;
   height: 100svh;
   padding-top: 40px;
-}
-
-.chapters__stage .window {
-  width: 100%;
 }
 
 .stage__shot {
@@ -1804,6 +1728,22 @@ html.motion:not(.is-booted) .badge {
 @media (hover: hover) {
   .tabs__item:hover {
     color: var(--ink);
+  }
+}
+
+/* Too narrow for five labels: the icons carry the bar, the labels stay for screen readers. */
+@container (max-width: 560px) {
+  .tabs__item {
+    padding-inline: 14px;
+  }
+
+  .tabs__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 

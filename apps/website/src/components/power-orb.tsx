@@ -15,8 +15,7 @@ import { gsap } from 'gsap';
 import { AnimatePresence, useMotionValue, useTransform } from 'motion/react';
 import * as m from 'motion/react-m';
 
-import { tunnelCopy } from '@/data/site';
-import { spring, swapVariants, transition } from '@/lib/motion';
+import { spring, transition } from '@/lib/motion';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { CONNECT_S, getPhase, getServerPhase, isBusy, subscribe, toggle, type Phase } from '@/motion/tunnel';
 
@@ -246,30 +245,6 @@ export function PowerOrb({
           )}
         </AnimatePresence>
       </m.button>
-    </div>
-  );
-}
-
-/** The two lines above the orb, in the app's words. Announced politely as the tunnel changes. */
-export function TunnelStatus({ pinned }: { pinned?: Phase }) {
-  const phase = useTunnelPhase(pinned);
-  const copy = tunnelCopy[phase];
-  return (
-    <div className="status" role="status" aria-live="polite">
-      <div className="status__headline">
-        <AnimatePresence mode="wait" initial={false}>
-          <m.p key={phase} data-phase={phase} variants={swapVariants} initial="initial" animate="animate" exit="exit">
-            {copy.headline}
-          </m.p>
-        </AnimatePresence>
-      </div>
-      <div className="status__detail">
-        <AnimatePresence mode="wait" initial={false}>
-          <m.p key={phase} variants={swapVariants} initial="initial" animate="animate" exit="exit">
-            {copy.detail}
-          </m.p>
-        </AnimatePresence>
-      </div>
     </div>
   );
 }

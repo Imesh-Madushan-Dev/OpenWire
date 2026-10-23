@@ -1,29 +1,9 @@
-import Image from 'next/image';
-import type { CSSProperties } from 'react';
-import {
-  ChartLineIcon,
-  Globe02Icon,
-  MonitorSmartphoneIcon,
-  PieChartIcon,
-  Settings02Icon,
-  Tick02Icon,
-} from '@hugeicons/core-free-icons';
-import type { IconSvgElement } from '@hugeicons/react';
+import { Tick02Icon } from '@hugeicons/core-free-icons';
 
-import { features, type Chapter } from '@/data/site';
+import { features } from '@/data/site';
 import { Icon } from '../icon';
 import { ProductShot } from '../product-shot';
-
-/** The app's own tab icons (apps/desktop-app/src/components/nav-tabs.tsx). */
-const TAB_ICONS: Record<string, IconSvgElement> = {
-  vpn: Globe02Icon,
-  network: ChartLineIcon,
-  usage: PieChartIcon,
-  devices: MonitorSmartphoneIcon,
-  themes: Settings02Icon,
-};
-
-const tone = (chapter: Chapter) => ({ '--tone': `var(--tone-${chapter.tone})` }) as CSSProperties;
+import { ScreenStage, TAB_ICONS, tone } from '../screen-stage';
 
 /**
  * Five chapters beside one sticky window (src/motion/chapters.ts swaps the screen and moves the
@@ -86,44 +66,7 @@ export function Features() {
           ))}
         </div>
 
-        <div className="chapters__stage">
-          <figure className="window">
-            <div className="window__bezel">
-              <div className="window__screen">
-                {chapters.map((chapter, i) => (
-                  <Image
-                    key={chapter.id}
-                    className="stage__shot"
-                    data-shot={i}
-                    data-active={i === 0 ? '' : undefined}
-                    src={chapter.shot.src}
-                    alt={chapter.shot.alt}
-                    width={1640}
-                    height={1040}
-                    quality={90}
-                    sizes="(min-width: 1400px) 760px, 56vw"
-                  />
-                ))}
-              </div>
-            </div>
-          </figure>
-          <nav className="tabs" aria-label="Jump to a tab" data-tabs>
-            <span className="tabs__marker" aria-hidden="true" data-tabs-marker />
-            {chapters.map((chapter, i) => (
-              <a
-                key={chapter.id}
-                className="tabs__item"
-                href={`#chapter-${chapter.id}`}
-                data-tab={i}
-                style={tone(chapter)}
-                aria-current={i === 0 ? 'true' : undefined}
-              >
-                <Icon icon={TAB_ICONS[chapter.id]} />
-                {chapter.tab}
-              </a>
-            ))}
-          </nav>
-        </div>
+        <ScreenStage className="chapters__stage" sizes="(min-width: 1400px) 760px, 56vw" jump />
       </div>
     </section>
   );

@@ -33,22 +33,13 @@ export const nav = [
 export const hero = {
   titleLead: 'See every byte.',
   titleTunnel: 'Tunnel it yourself.',
-  lede: 'OpenWire is a free, open-source network monitor and tunnel for Windows. Watch every app, host and device on your network, and send your traffic through a VLESS or Trojan server you run.',
+  lede: 'OpenWire is a free, open-source network monitor and tunnel for Windows. ',
   download: 'Download for Windows',
   repo: 'View on GitHub',
   facts: ['Windows 10 and 11, 64-bit', 'GPL-3.0', 'No account, no telemetry'],
-  orbCaption: 'The app’s connect button, working. Press it: nothing on your PC changes.',
   windowAlt:
     'OpenWire’s VPN tab in the Graphite theme: the tunnel is on through a server in Singapore, with six servers listed by latency',
 };
-
-/** The orb's two lines, in the app's own words (status-headline.tsx). */
-export const tunnelCopy = {
-  disconnected: { headline: 'Tunnel is off', detail: 'Traffic goes out directly, without the disguise' },
-  connecting: { headline: 'Opening the tunnel', detail: 'Checking in with your server' },
-  connected: { headline: 'Tunnel is on', detail: 'Your traffic leaves through your own server' },
-  disconnecting: { headline: 'Closing the tunnel', detail: 'Putting your proxy settings back' },
-} as const;
 
 export const statement =
   'Network monitors show you where your traffic goes, but they are closed source and sold by subscription. VPN apps hide your traffic, but only through their own servers. OpenWire does both, in the open, through a server you control.';

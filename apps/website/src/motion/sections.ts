@@ -29,6 +29,74 @@ export function statementWords() {
   });
 }
 
+/**
+ * One window and its tab bar (components/screen-stage.tsx): `show(i)` wipes tab i's screen in
+ * from the side it lies on, and the marker slides under its tab.
+ */
+function screenSwitcher(root: HTMLElement) {
+  const shots = gsap.utils.toArray<HTMLElement>('[data-shot]', root);
+  const tabs = gsap.utils.toArray<HTMLElement>('[data-tab]', root);
+  const nav = root.querySelector<HTMLElement>('[data-tabs]')!;
+  const marker = root.querySelector<HTMLElement>('[data-tabs-marker]')!;
+  let active = 0;
+
+  const place = (i: number, animate = true) => {
+    const n = nav.getBoundingClientRect();
+    const t = tabs[i].getBoundingClientRect();
+    const left = t.left - n.left - 5;
+    const right = n.right - 5 - t.right;
+    gsap.to(marker, {
+      clipPath: `inset(0px ${right}px 0px ${left}px round 999px)`,
+      duration: animate && !reduced() ? 0.7 : 0,
+      ease: ease.out,
+      overwrite: true,
+    });
+  };
+
+  const show = (i: number) => {
+    if (i === active) return;
+    const prev = shots[active];
+    const next = shots[i];
+    const dir = i > active ? 1 : -1;
+    tabs.forEach((tab, k) => (k === i ? tab.setAttribute('aria-current', 'true') : tab.removeAttribute('aria-current')));
+    shots.forEach((shot) => {
+      if (shot !== prev && shot !== next) gsap.set(shot, { opacity: 0, zIndex: 0 });
+    });
+    gsap.set(prev, { zIndex: 1 });
+    gsap.set(next, { zIndex: 2, opacity: 1 });
+    gsap.fromTo(
+      next,
+      { clipPath: dir > 0 ? 'inset(0% 0% 0% 100%)' : 'inset(0% 100% 0% 0%)', scale: 1.04 },
+      {
+        clipPath: 'inset(0% 0% 0% 0%)',
+        scale: 1,
+        duration: reduced() ? 0 : 1,
+        ease: ease.out,
+        overwrite: true,
+        onComplete: () => {
+          if (shots[active] !== prev) gsap.set(prev, { opacity: 0 });
+        },
+      },
+    );
+    place(i);
+    active = i;
+  };
+
+  gsap.set(shots, { opacity: (k: number) => (k === 0 ? 1 : 0) });
+  const ro = new ResizeObserver(() => place(active, false));
+  ro.observe(nav);
+  document.fonts?.ready.then(() => place(active, false));
+
+  return {
+    tabs,
+    show,
+    get active() {
+      return active;
+    },
+    destroy: () => ro.disconnect(),
+  };
+}
+
 /** Features: the sticky window swaps to the chapter in view, and the tab marker follows. */
 export function chapters() {
   onPage(() => {
@@ -37,70 +105,101 @@ export function chapters() {
     const mm = gsap.matchMedia();
     mm.add('(min-width: 1024px)', () => {
       const items = gsap.utils.toArray<HTMLElement>('[data-chapter]', root);
-      const shots = gsap.utils.toArray<HTMLElement>('[data-shot]', root);
-      const tabs = gsap.utils.toArray<HTMLElement>('[data-tab]', root);
-      const nav = root.querySelector<HTMLElement>('[data-tabs]')!;
-      const marker = root.querySelector<HTMLElement>('[data-tabs-marker]')!;
-      let active = 0;
-
-      const place = (i: number, animate = true) => {
-        const n = nav.getBoundingClientRect();
-        const t = tabs[i].getBoundingClientRect();
-        const left = t.left - n.left - 5;
-        const right = n.right - 5 - t.right;
-        gsap.to(marker, {
-          clipPath: `inset(0px ${right}px 0px ${left}px round 999px)`,
-          duration: animate && !reduced() ? 0.7 : 0,
-          ease: ease.out,
-          overwrite: true,
-        });
-      };
-
-      const show = (i: number) => {
-        if (i === active) return;
-        const prev = shots[active];
-        const next = shots[i];
-        const dir = i > active ? 1 : -1;
-        items.forEach((item, k) => item.classList.toggle('is-active', k === i));
-        tabs.forEach((tab, k) => (k === i ? tab.setAttribute('aria-current', 'true') : tab.removeAttribute('aria-current')));
-        shots.forEach((shot) => {
-          if (shot !== prev && shot !== next) gsap.set(shot, { opacity: 0, zIndex: 0 });
-        });
-        gsap.set(prev, { zIndex: 1 });
-        gsap.set(next, { zIndex: 2, opacity: 1 });
-        gsap.fromTo(
-          next,
-          { clipPath: dir > 0 ? 'inset(0% 0% 0% 100%)' : 'inset(0% 100% 0% 0%)', scale: 1.04 },
-          {
-            clipPath: 'inset(0% 0% 0% 0%)',
-            scale: 1,
-            duration: reduced() ? 0 : 1,
-            ease: ease.out,
-            overwrite: true,
-            onComplete: () => {
-              if (shots[active] !== prev) gsap.set(prev, { opacity: 0 });
-            },
-          },
-        );
-        place(i);
-        active = i;
-      };
-
-      gsap.set(shots, { opacity: (k: number) => (k === 0 ? 1 : 0) });
+      const screens = screenSwitcher(root.querySelector<HTMLElement>('.chapters__stage')!);
       items.forEach((item, i) =>
         ScrollTrigger.create({
           trigger: item,
           start: 'top 55%',
           end: 'bottom 55%',
-          onToggle: (self) => self.isActive && show(i),
+          onToggle: (self) => {
+            if (!self.isActive) return;
+            items.forEach((el, k) => el.classList.toggle('is-active', k === i));
+            screens.show(i);
+          },
         }),
       );
-      const ro = new ResizeObserver(() => place(active, false));
-      ro.observe(nav);
-      document.fonts?.ready.then(() => place(active, false));
-      return () => ro.disconnect();
+      return screens.destroy;
     });
     return () => mm.revert();
+  });
+}
+
+/** How long the hero shows each tab before moving to the next. */
+const HERO_TAB_S = 4;
+
+/**
+ * Hero: the same window and tab bar, on a clock. It moves to the next tab every four seconds,
+ * and a click shows that tab and restarts the count. The clock holds while the pointer or focus
+ * is on the window, while it is off screen and while the browser tab is hidden. With reduced
+ * motion it never runs: the tabs still switch on a click.
+ */
+export function heroScreens() {
+  onPage(() => {
+    const root = document.querySelector<HTMLElement>('[data-hero-screens]');
+    if (!root) return;
+    const screens = screenSwitcher(root);
+    const { tabs } = screens;
+    const holds = new Set<string>();
+    let clock: gsap.core.Tween | null = null;
+
+    const run = () => {
+      clock?.kill();
+      clock = null;
+      if (holds.size || reduced()) return;
+      clock = gsap.delayedCall(HERO_TAB_S, () => {
+        screens.show((screens.active + 1) % tabs.length);
+        run();
+      });
+    };
+    const hold = (why: string, on: boolean) => {
+      const had = holds.size > 0;
+      if (on) holds.add(why);
+      else holds.delete(why);
+      if (holds.size && !had) {
+        clock?.kill();
+        clock = null;
+      } else if (!holds.size && had) run();
+    };
+
+    const onClick = (event: MouseEvent) => {
+      const tab = (event.target as Element).closest<HTMLElement>('[data-tab]');
+      if (!tab) return;
+      screens.show(tabs.indexOf(tab));
+      run();
+    };
+    const onEnter = () => hold('pointer', true);
+    const onLeave = () => hold('pointer', false);
+    // Keyboard focus only: a click focuses the tab too, and should restart the clock, not stop it.
+    const onFocusIn = (event: FocusEvent) => hold('focus', (event.target as Element).matches(':focus-visible'));
+    const onFocusOut = (event: FocusEvent) => {
+      if (!root.contains(event.relatedTarget as Node | null)) hold('focus', false);
+    };
+    const onVisibility = () => hold('hidden', document.hidden);
+
+    root.addEventListener('click', onClick);
+    root.addEventListener('pointerenter', onEnter);
+    root.addEventListener('pointerleave', onLeave);
+    root.addEventListener('focusin', onFocusIn);
+    root.addEventListener('focusout', onFocusOut);
+    document.addEventListener('visibilitychange', onVisibility);
+    ScrollTrigger.create({
+      trigger: root,
+      start: 'top bottom',
+      end: 'bottom top',
+      onToggle: (self) => hold('away', !self.isActive),
+    });
+    run();
+
+    return () => {
+      clock?.kill();
+      screens.destroy();
+      root.removeEventListener('click', onClick);
+      root.removeEventListener('pointerenter', onEnter);
+      root.removeEventListener('pointerleave', onLeave);
+      root.removeEventListener('focusin', onFocusIn);
+      root.removeEventListener('focusout', onFocusOut);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   });
 }
 

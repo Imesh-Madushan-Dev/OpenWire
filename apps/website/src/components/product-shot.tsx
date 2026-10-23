@@ -10,7 +10,6 @@ export function ProductShot({
   alt,
   sizes,
   eager = false,
-  orbTarget = false,
   className = '',
   reveal,
   focus,
@@ -19,8 +18,6 @@ export function ProductShot({
   alt: string;
   sizes: string;
   eager?: boolean;
-  /** Mark where the app's own power orb sits, for the hero orb to land on. */
-  orbTarget?: boolean;
   className?: string;
   reveal?: boolean;
   /** Where a cropped (phone) view of this window looks, as an object-position. */
@@ -43,7 +40,6 @@ export function ProductShot({
             quality={90}
             loading={eager ? 'eager' : 'lazy'}
           />
-          {orbTarget && <span className="window__orb-target" data-orb-target aria-hidden="true" />}
         </div>
       </div>
     </figure>

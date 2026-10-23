@@ -5,8 +5,7 @@ import { delay } from '@/lib/enter';
 import type { Release } from '@/lib/release';
 import { Icon } from '../icon';
 import { DownloadButton, RepoButton } from '../pills';
-import { PowerOrb, TunnelStatus } from '../power-orb';
-import { ProductShot } from '../product-shot';
+import { ScreenStage } from '../screen-stage';
 
 export function Hero({ release }: { release: Release }) {
   const news = release.headline
@@ -59,26 +58,12 @@ export function Hero({ release }: { release: Release }) {
           </ul>
         </div>
 
-        <div className="hero__orb">
-          <TunnelStatus />
-          <div className="orb-slot" data-orb-slot>
-            <div className="orb-flyer" data-orb-flyer>
-              <PowerOrb />
-            </div>
-          </div>
-          <p className="hero__caption">{hero.orbCaption}</p>
+        <div className="hero__screens" data-hero-screens data-enter style={delay(0.45)}>
+          <ScreenStage
+            sizes="(min-width: 1400px) 660px, (min-width: 1024px) 50vw, calc(100vw - 40px)"
+            eager
+          />
         </div>
-      </div>
-
-      <div className="frame">
-        <ProductShot
-          className="window--hero"
-          src="/screens/vpn.webp"
-          alt={hero.windowAlt}
-          sizes="(min-width: 1400px) 1320px, calc(100vw - 40px)"
-          orbTarget
-          reveal
-        />
       </div>
     </section>
   );

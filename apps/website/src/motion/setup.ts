@@ -2,15 +2,14 @@
 import { startTunnel } from './page-tunnel';
 import { ringTransition } from './transition';
 import { frameAside, pointerFill } from './interactions';
-import { orbMorph } from './orb-morph';
-import { chapters, finaleWire, pasteDemo, routePackets, statementWords } from './sections';
+import { chapters, finaleWire, heroScreens, pasteDemo, routePackets, statementWords } from './sections';
 
 export function setupMotion() {
   ringTransition();
   startTunnel();
   frameAside();
   pointerFill();
-  orbMorph();
+  heroScreens();
   statementWords();
   chapters();
   routePackets();
