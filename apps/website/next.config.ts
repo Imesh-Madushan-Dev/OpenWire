@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   reactCompiler: true,
+  images: {
+    // 90 for the product screens, whose small UI text blurs at the default 75.
+    qualities: [75, 90],
+  },
   turbopack: {
     rules: {
       "*.css": {

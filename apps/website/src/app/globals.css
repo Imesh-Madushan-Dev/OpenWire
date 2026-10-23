@@ -2,43 +2,47 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* ---------------------------------------------------------------------------
+ * OpenWire website
+ *
+ * Dressed in the desktop app's Aurora theme, in its dark mode: a deep indigo
+ * field lit from the corners, blue-to-violet actions, a teal tunnel. The charts
+ * keep the Classic pair (gold down, magenta up). DESIGN.md has the reasoning.
+ *
+ * One light changes: `--tunnel` (0 off, 1 on) on <html>, written by
+ * src/motion/tunnel.ts. `--state` mixes the app's tunnel-on and tunnel-off
+ * colours from it. Ink never changes, so text reads the same in both states.
+ *
+ * Shape: every control is a full pill; surfaces are 32px; a screen's bezel and
+ * its screen have concentric radii. Weight: nothing above 600.
+ * ------------------------------------------------------------------------ */
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+  --font-mono: var(--f-mono);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted-surface);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -49,82 +53,3040 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  color-scheme: dark;
+
+  /* Palette: Aurora dark (apps/desktop-app/src/index.css). */
+  --ground: #12141d;
+  --ground-2: #1a1d2a;
+  --ground-3: #22263a;
+  --ink: #eceef6;
+  --muted: #9196ab;
+  --line: rgb(255 255 255 / 0.09);
+  --line-2: rgb(255 255 255 / 0.15);
+  --raise: rgb(255 255 255 / 0.04);
+  --raise-2: rgb(255 255 255 / 0.07);
+
+  --on: #5eead4; /* Aurora --protected: the tunnel is on */
+  --off: #ff8f80; /* Aurora --exposed: the tunnel is off */
+  --indigo: #5b63f0; /* Aurora --primary: what you can act on */
+  --action: linear-gradient(135deg, #5466f5, #7c4ddb);
+  --action-ink: #ffffff;
+  --action-glow: rgb(99 102 241 / 0.42);
+  --ring-conic: conic-gradient(from 200deg, #34d399, #22d3ee, #60a5fa, #34d399);
+  --down: #f3c900; /* Classic chart: download */
+  --up: #d7397f; /* Classic chart: upload */
+  --wire: linear-gradient(90deg, #ffd60a, #ff2e63); /* the logo's wire */
+
+  --tone-sky: #38bdf8;
+  --tone-amber: #fbbf24;
+  --tone-violet: #a78bfa;
+  --tone-green: #34d399;
+  --tone-rose: #fb7185;
+
+  --tunnel: 1;
+  --state: color-mix(in oklab, var(--on) calc(var(--tunnel) * 100%), var(--off));
+
+  /* shadcn's names, so its components wear the same theme. */
+  --background: var(--ground);
+  --foreground: var(--ink);
+  --card: var(--ground-2);
+  --card-foreground: var(--ink);
+  --popover: #1d2030;
+  --popover-foreground: var(--ink);
+  --primary: var(--indigo);
+  --primary-foreground: var(--action-ink);
+  --secondary: var(--ground-3);
+  --secondary-foreground: var(--ink);
+  --muted-surface: #1c1f2c;
+  --muted-foreground: var(--muted);
+  --accent: #262a3d;
+  --accent-foreground: var(--ink);
+  --destructive: #fb7185;
+  --border: var(--line);
+  --input: rgb(255 255 255 / 0.12);
+  --ring: #818cf8; /* focus, and indigo that is light enough to read as text */
+  --radius: 1rem;
+
+  /* Type */
+  --f-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --f-mono: ui-monospace, 'Cascadia Mono', 'Cascadia Code', Consolas, 'SF Mono', Menlo, monospace;
+  --t-mega: clamp(3.4rem, 1.7rem + 6.6vw, 8.25rem);
+  --t-xl: clamp(2.5rem, 1.5rem + 3.9vw, 5.25rem);
+  --t-l: clamp(1.7rem, 1.2rem + 1.9vw, 3rem);
+  --t-m: clamp(1.2rem, 1.06rem + 0.55vw, 1.55rem);
+  --t-body: clamp(1rem, 0.96rem + 0.2vw, 1.125rem);
+  --t-s: 0.875rem;
+  --t-xs: 0.8125rem;
+
+  /* Space and shape */
+  --gutter: clamp(20px, 1rem + 1.5vw, 40px);
+  --frame: 1320px;
+  --pill: 999px;
+  --r-surface: 32px;
+  --r-inner: 22px;
+  --ease: cubic-bezier(0.32, 0.72, 0, 1); /* the app's curve */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --z-content: 1;
+  --z-header: 50;
+  --z-menu: 45; /* under the header, whose Close button stays on top */
+  --z-curtain: 90;
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+@media (max-width: 767px) {
+  :root {
+    --r-surface: 24px;
+    --r-inner: 16px;
+  }
 }
+
+/* ---------------------------------------------------------------------------
+ * Foundation
+ * ------------------------------------------------------------------------ */
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+  *,
+  *::before,
+  *::after {
+    border-color: var(--line);
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+
   html {
-    @apply font-sans;
+    background: var(--ground);
+    color: var(--ink);
+    -webkit-text-size-adjust: none;
+    text-size-adjust: none;
+    scrollbar-color: rgb(255 255 255 / 0.16) transparent;
+  }
+
+  body {
+    min-height: 100dvh;
+    background: var(--ground);
+    font-family: var(--f-sans);
+    font-size: var(--t-body);
+    font-weight: 400;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-kerning: normal;
+    overflow-x: clip;
+  }
+
+  /* Semibold is the ceiling, everywhere. */
+  b,
+  strong,
+  th {
+    font-weight: 600;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  code,
+  kbd,
+  samp {
+    font-family: var(--f-mono);
+    font-size: 0.92em;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--state) 34%, transparent);
+    color: var(--ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+    border-radius: var(--pill);
+  }
+
+  #main:focus,
+  [tabindex='-1']:focus {
+    outline: none;
+  }
+
+  [id] {
+    scroll-margin-top: 96px;
+  }
+}
+
+.frame {
+  width: min(100% - 2 * var(--gutter), var(--frame));
+  margin-inline: auto;
+}
+
+.skip-link {
+  position: fixed;
+  left: var(--gutter);
+  top: 14px;
+  z-index: calc(var(--z-curtain) + 1);
+  padding: 0.8em 1.4em;
+  border-radius: var(--pill);
+  background: var(--ink);
+  color: var(--ground);
+  font-weight: 600;
+  translate: 0 -200%;
+}
+
+.skip-link:focus-visible {
+  translate: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.mono {
+  font-family: var(--f-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* The room light: the app's ambient field, tinted by the tunnel. */
+.room {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(52% 46% at 74% -4%, color-mix(in oklab, var(--state) 13%, transparent), transparent 72%),
+    radial-gradient(110% 80% at 0% 0%, rgb(84 102 245 / 0.16), transparent 60%),
+    radial-gradient(90% 80% at 100% 100%, rgb(139 92 246 / 0.11), transparent 60%);
+}
+
+/* At rest the light breathes, slowly, as the app's orb halo does: the tunnel is a live thing. */
+@keyframes room-breathe {
+  from {
+    opacity: 0.7;
+    scale: 1;
+  }
+  to {
+    opacity: 1;
+    scale: 1.06;
+  }
+}
+
+.motion .room {
+  animation: room-breathe 7s ease-in-out infinite alternate;
+  transform-origin: 74% 0%;
+}
+
+#main {
+  position: relative;
+  z-index: var(--z-content);
+}
+
+/* ---------------------------------------------------------------------------
+ * Engine
+ * ------------------------------------------------------------------------ */
+
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
+}
+
+.lenis [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+/* Hidden until revealed, only when motion is allowed and JS runs. */
+.motion [data-split],
+.motion [data-reveal] {
+  visibility: hidden;
+}
+
+.split-line {
+  padding-bottom: 0.08em;
+  margin-bottom: -0.08em;
+}
+
+[data-split] > *,
+[data-split] > * > * {
+  text-indent: 0;
+}
+
+[data-split] > :first-child,
+[data-split] > :first-child > :first-child {
+  text-indent: inherit;
+}
+
+/* First-screen entrances, in CSS so they start with the first paint instead of waiting for
+ * JavaScript (the largest text is what LCP measures). `.rise` is a masked line that arrives
+ * along its baseline; `[data-enter]` fades up. Both wait under `.is-covered` while the page
+ * transition holds the screen, and play as it opens. The mask lets go at the end, so a glow
+ * around the text is never cut into a box. */
+@keyframes enter-rise {
+  from {
+    translate: 0 108%;
+  }
+}
+
+@keyframes enter-unmask {
+  0%,
+  99% {
+    clip-path: inset(-60% -12% 0 -12%);
+  }
+  100% {
+    clip-path: none;
+  }
+}
+
+@keyframes enter-up {
+  from {
+    opacity: 0;
+    translate: 0 26px;
+  }
+}
+
+/* For the page's largest text: it slides into place but is never invisible, so it counts as
+ * painted from the first frame. */
+@keyframes enter-slide {
+  from {
+    translate: 0 26px;
+  }
+}
+
+.rise {
+  display: block;
+  padding-bottom: 0.1em;
+  margin-bottom: -0.1em;
+}
+
+.rise > span {
+  display: block;
+}
+
+.motion:not(.is-covered) .rise {
+  animation: enter-unmask 1.4s linear both;
+  animation-delay: var(--d, 0.1s);
+}
+
+.motion:not(.is-covered) .rise > span {
+  animation: enter-rise 1.25s var(--ease-out) both;
+  animation-delay: var(--d, 0.1s);
+}
+
+.motion:not(.is-covered) [data-enter] {
+  animation: enter-up 1.1s var(--ease-out) both;
+  animation-delay: var(--d, 0.3s);
+}
+
+.motion:not(.is-covered) [data-enter='slide'] {
+  animation-name: enter-slide;
+}
+
+.motion.is-covered .rise {
+  clip-path: inset(-60% -12% 0 -12%);
+}
+
+.motion.is-covered .rise > span {
+  translate: 0 108%;
+}
+
+.motion.is-covered [data-enter] {
+  opacity: 0;
+}
+
+/* The transition: a ring that opens from where you clicked. */
+#curtain {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-curtain);
+  pointer-events: none;
+  visibility: hidden;
+  overflow: hidden;
+}
+
+.curtain__panel {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 50% at 50% 46%, color-mix(in oklab, var(--state) 10%, transparent), transparent 70%),
+    var(--ground);
+}
+
+.curtain__ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.curtain__ring circle {
+  fill: none;
+  stroke: var(--state);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 10px color-mix(in oklab, var(--state) 70%, transparent));
+}
+
+.curtain__label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.curtain__label span {
+  display: block;
+  font-size: var(--t-l);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+/* ---------------------------------------------------------------------------
+ * Type
+ * ------------------------------------------------------------------------ */
+
+.h-xl {
+  font-size: var(--t-xl);
+  font-weight: 500;
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  margin-left: -0.04em;
+}
+
+.h-l {
+  font-size: var(--t-l);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.lede {
+  font-size: var(--t-m);
+  line-height: 1.45;
+  color: var(--muted);
+  max-width: 34ch;
+}
+
+.label {
+  font-size: var(--t-xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+/* Inline links in text: an underline at rest that rises into a band. */
+.link {
+  /* Inline padding grows the tap target without moving a single line of text. */
+  padding-block: 0.22em;
+  color: var(--ink);
+  text-decoration: none;
+  background: linear-gradient(color-mix(in oklab, var(--state) 30%, transparent) 0 0) left bottom / 100% 1px no-repeat;
+  transition: background-size 0.4s var(--ease-out);
+  border-radius: 2px;
+}
+
+@media (hover: hover) {
+  .link:hover {
+    background-size: 100% 0.45em;
+  }
+}
+
+.link:focus-visible {
+  background-size: 100% 0.45em;
+}
+
+/* A link standing on its own line, not inside a sentence: a full tap target. */
+.link--solo {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Pills: every control on the site
+ * ------------------------------------------------------------------------ */
+
+.pill {
+  --h: 48px;
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--h);
+  padding-inline: calc(var(--h) * 0.48);
+  border-radius: var(--pill);
+  font-size: 0.975rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: clip;
+  user-select: none;
+  transition:
+    scale 0.3s var(--ease),
+    color 0.35s var(--ease),
+    box-shadow 0.5s var(--ease),
+    border-color 0.35s var(--ease);
+}
+
+.pill:active {
+  scale: 0.97;
+}
+
+.pill--lg {
+  --h: 58px;
+  gap: 14px;
+  font-size: 1.04rem;
+}
+
+.pill--sm {
+  --h: 40px;
+  gap: 8px;
+  font-size: 0.9rem;
+  padding-inline: 18px;
+}
+
+.pill svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+/* Primary: the app's action gradient, lit by the tunnel. */
+.pill--primary {
+  color: var(--action-ink);
+  background: var(--action);
+  background-size: 160% 100%;
+  background-position: 0% 50%;
+  box-shadow:
+    0 10px 34px -10px var(--action-glow),
+    inset 0 1px 0 rgb(255 255 255 / 0.25);
+  transition:
+    scale 0.3s var(--ease),
+    background-position 0.7s var(--ease),
+    box-shadow 0.5s var(--ease);
+}
+
+@media (hover: hover) {
+  .pill--primary:hover {
+    background-position: 100% 50%;
+    box-shadow:
+      0 16px 46px -8px var(--action-glow),
+      inset 0 1px 0 rgb(255 255 255 / 0.3);
+  }
+}
+
+.pill--primary:focus-visible {
+  background-position: 100% 50%;
+  outline-color: var(--ink);
+}
+
+.pill__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: calc(var(--h) - 20px);
+  margin-right: calc(var(--h) * -0.3);
+  padding-inline: 12px;
+  border-radius: var(--pill);
+  background: rgb(255 255 255 / 0.16);
+  font-family: var(--f-mono);
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.pill__meta span + span::before {
+  content: '';
+  display: inline-block;
+  width: 1px;
+  height: 0.9em;
+  margin-right: 8px;
+  vertical-align: -0.1em;
+  background: currentColor;
+  opacity: 0.35;
+}
+
+/* Secondary: an outline that floods from the pointer's side (src/motion/fill.ts). */
+.pill--ghost {
+  color: var(--ink);
+  background: var(--raise);
+  border: 1px solid var(--line-2);
+}
+
+.pill__fill {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--ink);
+  clip-path: circle(0% at 50% 50%);
+}
+
+.pill--ghost.is-filled,
+.pill--ghost:active {
+  color: var(--ground);
+}
+
+.pill--ghost:active .pill__fill {
+  clip-path: circle(150% at 50% 50%);
+}
+
+.pill__nudge {
+  transition: translate 0.45s var(--ease-out);
+}
+
+@media (hover: hover) {
+  .pill:hover .pill__nudge {
+    translate: 3px -3px;
+  }
+}
+
+.pill:focus-visible .pill__nudge {
+  translate: 3px -3px;
+}
+
+/* Letter roll: the label slides up and an identical one takes its place. */
+.roll {
+  display: inline-grid;
+  overflow: clip;
+  line-height: 1.25;
+}
+
+.roll > span {
+  grid-area: 1 / 1;
+  transition: translate 0.55s var(--ease-out);
+}
+
+.roll > span + span {
+  translate: 0 110%;
+}
+
+/* The icon slot that swaps on hover: the Windows mark rolls out, the arrow drops in. */
+.swap {
+  position: relative;
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  overflow: clip;
+}
+
+.swap > * {
+  grid-area: 1 / 1;
+  transition: translate 0.55s var(--ease-out);
+}
+
+.swap > * + * {
+  translate: 0 -110%;
+}
+
+@media (hover: hover) {
+  .pill:hover .roll > span,
+  .pill:hover .swap > * {
+    translate: 0 -110%;
+  }
+
+  .pill:hover .roll > span + span,
+  .pill:hover .swap > * + * {
+    translate: 0 0;
+  }
+
+  .pill:hover .swap > :first-child {
+    translate: 0 110%;
+  }
+}
+
+.pill:focus-visible .roll > span {
+  translate: 0 -110%;
+}
+
+.pill:focus-visible .roll > span + span,
+.pill:focus-visible .swap > * + * {
+  translate: 0 0;
+}
+
+.pill:focus-visible .swap > :first-child {
+  translate: 0 110%;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* One-column grids: an implicit `auto` track would grow to the widest child (a no-wrap pill). */
+.hero__copy,
+.page-hero__copy,
+.finale__cta,
+.split__copy,
+.section-head,
+.notfound__inner {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 420px) {
+  .pill--lg {
+    gap: 10px;
+    padding-inline: 20px;
+  }
+
+  /* The size is the useful number on a phone; the version is in the chip above. */
+  .pill__meta span:first-child {
+    display: none;
+  }
+
+  .pill__meta span + span::before {
+    display: none;
+  }
+}
+
+/* A small rounded tag: the release chip, "Recommended", "Planned". */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 14px 0 12px;
+  border-radius: var(--pill);
+  border: 1px solid var(--line);
+  background: var(--raise);
+  font-size: var(--t-s);
+  font-weight: 500;
+  color: var(--ink);
+  transition:
+    border-color 0.35s var(--ease),
+    background-color 0.35s var(--ease);
+}
+
+.chip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--state);
+  box-shadow: 0 0 12px var(--state);
+}
+
+.chip svg {
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  transition: translate 0.45s var(--ease-out);
+}
+
+@media (hover: hover) {
+  a.chip:hover {
+    border-color: color-mix(in oklab, var(--state) 45%, transparent);
+    background: var(--raise-2);
+  }
+
+  a.chip:hover svg {
+    translate: 4px 0;
+  }
+}
+
+a.chip:focus-visible svg {
+  translate: 4px 0;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding-inline: 11px;
+  border-radius: var(--pill);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  background: var(--raise-2);
+  border: 1px solid var(--line);
+}
+
+.tag--state {
+  color: var(--state);
+  background: color-mix(in oklab, var(--state) 12%, transparent);
+  border-color: color-mix(in oklab, var(--state) 30%, transparent);
+}
+
+/* A feature's identity colour, as the app's icon tiles (lib/tone.ts). */
+.tone-tile {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--tone);
+  background: color-mix(in oklab, var(--tone) 15%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone) 22%, transparent);
+}
+
+.tone-tile svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Header: a floating pill that steps aside while you read
+ * ------------------------------------------------------------------------ */
+
+.site-header {
+  position: fixed;
+  top: 14px;
+  left: 0;
+  right: 0;
+  z-index: var(--z-header);
+  display: flex;
+  justify-content: center;
+  padding-inline: var(--gutter);
+  pointer-events: none;
+  transition: translate 0.7s var(--ease-out);
+}
+
+html.frame-away .site-header:not(:focus-within) {
+  translate: 0 -150%;
+}
+
+.site-header__bar {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: min(100%, 1180px);
+  height: 64px;
+  padding: 8px 8px 8px 10px;
+  border-radius: var(--pill);
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--ground-2) 90%, transparent);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  box-shadow:
+    0 18px 50px -20px rgb(0 0 0 / 0.75),
+    inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 14px 0 6px;
+  border-radius: var(--pill);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  transition: background-color 0.3s var(--ease);
+}
+
+.brand img {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  transition: rotate 0.7s var(--ease-out);
+}
+
+@media (hover: hover) {
+  .brand:hover {
+    background: var(--raise);
+  }
+
+  .brand:hover img {
+    rotate: -12deg;
+  }
+}
+
+.nav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-inline: auto;
+}
+
+.nav__link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding-inline: 18px;
+  border-radius: var(--pill);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--muted);
+  transition: color 0.3s var(--ease);
+}
+
+.nav__link[aria-current='page'],
+.nav__link.is-hot {
+  color: var(--ink);
+}
+
+.nav__link span {
+  position: relative;
+  z-index: 1;
+}
+
+/* One pill for the whole nav, cut down to the hovered link and slid between links. */
+.nav__marker {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--pill);
+  background: var(--raise-2);
+  clip-path: inset(0 calc(100% - var(--mark-left) - var(--mark-width)) 0 var(--mark-left) round 999px);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    clip-path 0.5s var(--ease-out),
+    opacity 0.3s var(--ease);
+}
+
+.nav[data-marked] .nav__marker {
+  opacity: 1;
+}
+
+/* The page you are on keeps a small light under its name, in the tunnel's colour. */
+.nav__link[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--state);
+  translate: -50% 0;
+}
+
+.header-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.icon-btn {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--raise);
+  color: var(--ink);
+  overflow: clip;
+  transition:
+    color 0.35s var(--ease),
+    scale 0.3s var(--ease);
+}
+
+.icon-btn svg {
+  width: 20px;
+  height: 20px;
+  transition: rotate 0.6s var(--ease-out);
+}
+
+.icon-btn.is-filled {
+  color: var(--ground);
+}
+
+@media (hover: hover) {
+  .icon-btn:hover svg {
+    rotate: -10deg;
+  }
+}
+
+.icon-btn:active {
+  scale: 0.94;
+}
+
+/* The app's title-bar badge: "TUNNEL ON". Here it is also a switch. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 13px 0 11px;
+  border-radius: var(--pill);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--state);
+  background: color-mix(in oklab, var(--state) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--state) 32%, transparent);
+  transition:
+    scale 0.3s var(--ease),
+    opacity 0.6s var(--ease);
+}
+
+/* Until the engine boots the badge would show the server's "on"; it appears with the tunnel. */
+html.motion:not(.is-booted) .badge {
+  opacity: 0;
+}
+
+.badge:active {
+  scale: 0.95;
+}
+
+.badge__dot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  transition: scale 0.45s var(--ease-out);
+}
+
+/* Pointing at the switch: it brightens and the light swells, as if about to flip. */
+@media (hover: hover) {
+  .badge:hover {
+    background: color-mix(in oklab, var(--state) 22%, transparent);
+    scale: 1.04;
+  }
+
+  .badge:hover .badge__dot {
+    scale: 1.5;
+  }
+}
+
+.badge:focus-visible .badge__dot {
+  scale: 1.5;
+}
+
+.badge[data-phase='connected'] .badge__dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  animation: badge-ping 2.4s var(--ease-out) infinite;
+}
+
+@keyframes badge-ping {
+  from {
+    opacity: 0.8;
+    scale: 0.6;
+  }
+  to {
+    opacity: 0;
+    scale: 1.8;
+  }
+}
+
+.menu-btn {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .nav,
+  .header-download {
+    display: none;
+  }
+
+  .header-tools {
+    margin-left: auto;
+  }
+
+  .menu-btn {
+    display: inline-flex;
+  }
+}
+
+/* On a narrow phone the badge keeps a word, not a bare dot: it is the tunnel's switch. */
+.badge__short {
+  display: none;
+}
+
+@media (max-width: 419px) {
+  .badge {
+    padding-inline: 10px;
+  }
+
+  .badge__text {
+    display: none;
+  }
+
+  .badge__short {
+    display: inline;
+  }
+}
+
+/* The phone menu: a full-screen sheet with big links. */
+.menu {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-menu);
+  display: flex;
+  flex-direction: column;
+  padding: 104px var(--gutter) calc(32px + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(70% 50% at 80% 0%, color-mix(in oklab, var(--state) 16%, transparent), transparent 70%),
+    var(--ground);
+}
+
+.menu__list {
+  display: grid;
+  gap: 4px;
+  list-style: none;
+  padding: 0;
+}
+
+.menu__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 64px;
+  padding-inline: 22px;
+  border-radius: var(--pill);
+  font-size: clamp(1.8rem, 1.2rem + 3vw, 2.6rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.menu__link[aria-current='page'] {
+  background: var(--raise-2);
+}
+
+.menu__link svg {
+  width: 26px;
+  height: 26px;
+  color: var(--muted);
+}
+
+.menu__foot {
+  display: grid;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.menu__foot .pill {
+  justify-content: center;
+}
+
+/* ---------------------------------------------------------------------------
+ * Product windows: the real app, in a bezel
+ * ------------------------------------------------------------------------ */
+
+.window {
+  position: relative;
+}
+
+.window__bezel {
+  position: relative;
+  padding: 10px;
+  border-radius: var(--r-surface);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.075), rgb(255 255 255 / 0.02));
+  border: 1px solid var(--line);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.5),
+    0 50px 140px -50px color-mix(in oklab, var(--state) 38%, transparent),
+    0 40px 90px -40px rgb(0 0 0 / 0.9);
+}
+
+/* A lit top edge, in the tunnel's colour. */
+.window__bezel::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 18%;
+  right: 18%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--state), transparent);
+  opacity: 0.8;
+}
+
+.window__screen {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1640 / 1040;
+  border-radius: var(--r-inner);
+  background: var(--ground);
+}
+
+.window__screen img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Where the app's own orb sits in screens/vpn.webp: centre (532, 636), ring 270px, of 1640x1040. */
+.window__orb-target {
+  position: absolute;
+  left: 32.44%;
+  top: 61.15%;
+  width: 16.46%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  pointer-events: none;
+}
+
+@media (max-width: 767px) {
+  .window__bezel {
+    padding: 6px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Hero
+ * ------------------------------------------------------------------------ */
+
+.hero {
+  position: relative;
+  padding-top: clamp(128px, 18vh, 196px);
+  padding-bottom: clamp(56px, 10vh, 120px);
+  overflow-x: clip; /* the orb's halo may spill past the edge, never into a scrollbar */
+}
+
+/* The orb is client state: it appears once the engine boots, already in its first phase, so a
+ * slow phone never shows the server's "on" flip to "off" before the tunnel opens. */
+.hero__orb {
+  transition: opacity 0.9s var(--ease);
+}
+
+.motion:not(.is-booted) .hero__orb {
+  opacity: 0;
+}
+
+.hero__grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--gutter);
+  align-items: center;
+}
+
+.hero__copy {
+  grid-column: 1 / span 8;
+  display: grid;
+  justify-items: start;
+  gap: 28px;
+  container-type: inline-size;
+}
+
+/* Sized to its column, so each sentence holds one line on desktop. */
+.hero__title {
+  font-size: clamp(3rem, 10.3cqi, 6.75rem);
+  font-weight: 600;
+  line-height: 0.94;
+  letter-spacing: -0.05em;
+  margin-left: -0.05em;
+}
+
+.hero__tunnel {
+  color: var(--state);
+}
+
+.hero__lede {
+  max-width: 40ch;
+  font-size: var(--t-m);
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.hero__actions {
+  margin-top: 6px;
+}
+
+.hero__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  list-style: none;
+  padding: 0;
+  font-size: var(--t-s);
+  color: var(--muted);
+}
+
+.hero__facts li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hero__facts svg {
+  width: 16px;
+  height: 16px;
+  color: var(--state);
+}
+
+.hero__orb {
+  grid-column: 9 / span 4;
+  justify-self: center;
+  display: grid;
+  justify-items: center;
+  gap: 26px;
+  text-align: center;
+}
+
+.hero__caption {
+  max-width: 26ch;
+  font-size: var(--t-s);
+  color: var(--muted);
+}
+
+.window--hero {
+  margin-top: clamp(64px, 11vh, 132px);
+}
+
+@media (max-width: 1023px) {
+  .hero__copy,
+  .hero__orb {
+    grid-column: 1 / -1;
+  }
+
+  .hero__orb {
+    margin-top: 72px;
+  }
+}
+
+@media (max-width: 767px) {
+  .hero {
+    padding-top: 112px;
+  }
+
+  .hero__copy {
+    gap: 22px;
+  }
+
+  .hero__title {
+    font-size: 15.5cqi;
+  }
+
+  .hero__actions {
+    display: grid;
+    width: 100%;
+  }
+
+  .hero__actions .pill {
+    justify-content: center;
+  }
+
+  .window--hero {
+    margin-top: 56px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * The power orb: ported from the app (features/vpn/components/power-orb.tsx)
+ * ------------------------------------------------------------------------ */
+
+.orb-slot {
+  --orb: clamp(176px, 9vw + 112px, 236px);
+  width: var(--orb);
+  height: var(--orb);
+}
+
+.orb-flyer {
+  position: relative;
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 50%;
+}
+
+.orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.orb__halo {
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, color-mix(in oklab, var(--orb-halo) 55%, transparent), transparent 62%);
+  filter: blur(28px);
+}
+
+.orb__pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklab, var(--on) 45%, transparent);
+  pointer-events: none;
+}
+
+/* A faint outer rim, as in the app's VPN pane. */
+.orb::before {
+  content: '';
+  position: absolute;
+  inset: -9%;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklab, var(--orb-halo) 14%, transparent);
+  pointer-events: none;
+}
+
+.orb__button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid var(--orb-ring);
+  background: radial-gradient(circle at 50% 30%, rgb(255 255 255 / 0.07), rgb(0 0 0 / 0.38));
+  color: var(--orb-icon);
+  cursor: pointer;
+  transition:
+    border-color 0.3s var(--ease),
+    color 0.3s var(--ease);
+}
+
+.orb__button[aria-disabled='true'] {
+  cursor: progress;
+}
+
+.orb__button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 6px color-mix(in oklab, var(--ring) 45%, transparent);
+}
+
+.orb__rim {
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: var(--ring-conic);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+  animation: rim-turn 9s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes rim-turn {
+  to {
+    rotate: 1turn;
+  }
+}
+
+.orb__inner {
+  position: absolute;
+  inset: 10%;
+  border-radius: 50%;
+  border: 1px solid var(--orb-rim);
+  transition: border-color 0.3s var(--ease);
+  pointer-events: none;
+}
+
+.orb__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.orb__icon {
+  display: grid;
+  place-items: center;
+}
+
+.orb__icon svg {
+  width: calc(var(--orb, 220px) * 0.27);
+  height: calc(var(--orb, 220px) * 0.27);
+}
+
+.orb__count {
+  font-size: calc(var(--orb, 220px) * 0.17);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.orb[data-phase='disconnected'] {
+  --orb-ring: color-mix(in oklab, var(--off) 45%, transparent);
+  --orb-rim: color-mix(in oklab, var(--off) 12%, transparent);
+  --orb-icon: var(--off);
+  --orb-halo: var(--off);
+}
+
+.orb[data-phase='connecting'] {
+  --orb-ring: color-mix(in oklab, var(--indigo) 50%, transparent);
+  --orb-rim: color-mix(in oklab, var(--indigo) 14%, transparent);
+  --orb-icon: var(--ring);
+  --orb-halo: var(--indigo);
+}
+
+.orb[data-phase='connected'] {
+  --orb-ring: transparent;
+  --orb-rim: color-mix(in oklab, var(--on) 25%, transparent);
+  --orb-icon: var(--on);
+  --orb-halo: var(--on);
+}
+
+.orb[data-phase='disconnecting'] {
+  --orb-ring: rgb(255 255 255 / 0.2);
+  --orb-rim: rgb(255 255 255 / 0.05);
+  --orb-icon: var(--muted);
+  --orb-halo: var(--ink);
+}
+
+.orb[data-phase='connected'] .orb__icon svg {
+  filter: drop-shadow(0 0 14px color-mix(in oklab, var(--on) 70%, transparent));
+}
+
+/* The status lines above the orb, in the app's words and colours. */
+.status {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.status__headline {
+  display: grid;
+  place-items: center;
+  height: 2.6rem;
+  font-size: clamp(1.5rem, 1.2rem + 0.9vw, 2rem);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.status__detail {
+  display: grid;
+  place-items: center;
+  min-height: 1.6rem;
+  font-size: var(--t-s);
+  color: var(--muted);
+}
+
+.status__headline [data-phase='connected'] {
+  color: var(--on);
+}
+
+.status__headline [data-phase='disconnected'] {
+  color: var(--off);
+}
+
+.status__headline [data-phase='connecting'] {
+  color: var(--ink);
+}
+
+.status__headline [data-phase='disconnecting'] {
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * Sections
+ * ------------------------------------------------------------------------ */
+
+.section {
+  position: relative;
+  padding-block: clamp(80px, 12vh, 140px);
+}
+
+/* The chapters set their own pace; the section adds none after them. */
+.features {
+  padding-bottom: 0;
+}
+
+@media (max-width: 600px) {
+  .section {
+    padding-block: 56px;
+  }
+
+  .statement {
+    padding-block: 88px;
+  }
+
+  .section-head {
+    margin-bottom: 36px;
+  }
+}
+
+.section-head {
+  display: grid;
+  gap: 22px;
+  max-width: 820px;
+  margin-bottom: clamp(48px, 8vh, 88px);
+}
+
+/* Statement: words light up as you read down. */
+.statement {
+  padding-block: clamp(120px, 26vh, 300px);
+}
+
+.statement__text {
+  max-width: 24ch;
+  font-size: clamp(1.9rem, 1.1rem + 2.9vw, 4rem);
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+  margin-left: -0.03em;
+}
+
+.statement__text .word {
+  transition: none;
+}
+
+/* Features: chapters on the left, one sticky window on the right. */
+.chapters {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--gutter);
+}
+
+.chapters__list {
+  grid-column: 1 / span 5;
+}
+
+.chapter {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 22px;
+  min-height: 92svh;
+  padding-block: 10vh;
+  transition: opacity 0.6s var(--ease);
+}
+
+.motion .chapter:not(.is-active) {
+  opacity: 0.3;
+}
+
+.chapter__tab {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: var(--t-s);
+  font-weight: 600;
+  color: var(--tone);
+}
+
+.chapter__title {
+  font-size: var(--t-l);
+  font-weight: 500;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+}
+
+.chapter__body {
+  max-width: 44ch;
+  color: var(--muted);
+}
+
+.points {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+}
+
+.points li {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 12px;
+  align-items: start;
+  font-size: var(--t-s);
+  line-height: 1.5;
+}
+
+.points svg {
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  color: var(--tone, var(--state));
+}
+
+.chapters__stage {
+  grid-column: 6 / -1;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 26px;
+  height: 100svh;
+  padding-top: 40px;
+}
+
+.chapters__stage .window {
+  width: 100%;
+}
+
+.stage__shot {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.stage__shot[data-active] {
+  opacity: 1;
+}
+
+.tabs {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  padding: 5px;
+  border-radius: var(--pill);
+  border: 1px solid var(--line);
+  background: var(--raise);
+}
+
+.tabs__item {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding-inline: 16px;
+  border-radius: var(--pill);
+  font-size: var(--t-s);
+  font-weight: 500;
+  color: var(--muted);
+  transition:
+    color 0.35s var(--ease),
+    background-color 0.35s var(--ease);
+}
+
+.tabs__item svg {
+  width: 18px;
+  height: 18px;
+  transition:
+    translate 0.45s var(--ease-out),
+    rotate 0.45s var(--ease-out);
+}
+
+@media (hover: hover) {
+  .tabs__item:hover {
+    background: var(--raise);
+  }
+
+  .tabs__item:hover svg {
+    translate: 0 -2px;
+    rotate: -10deg;
+  }
+}
+
+.tabs__item:focus-visible svg {
+  translate: 0 -2px;
+  rotate: -10deg;
+}
+
+.tabs__item[aria-current='true'] {
+  color: var(--ink);
+}
+
+.tabs__item[aria-current='true'] svg {
+  color: var(--tone);
+}
+
+@media (hover: hover) {
+  .tabs__item:hover {
+    color: var(--ink);
+  }
+}
+
+.tabs__marker {
+  position: absolute;
+  inset: 5px;
+  border-radius: var(--pill);
+  background: var(--raise-2);
+  box-shadow: inset 0 0 0 1px var(--line-2);
+  clip-path: inset(0 100% 0 0 round 999px);
+}
+
+.chapter__shot {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .chapters__list {
+    grid-column: 1 / -1;
+  }
+
+  .chapters__stage {
+    display: none;
+  }
+
+  .chapter {
+    min-height: 0;
+    padding-block: 56px;
+  }
+
+  .motion .chapter:not(.is-active) {
+    opacity: 1;
+  }
+
+  .chapter__shot {
+    display: block;
+    margin-top: 12px;
+  }
+}
+
+/* On a phone the whole window would shrink its text to 5px: show the part that matters, at
+ * twice the size. Each chapter points `--focus` at its detail (src/data/site.ts). */
+@media (max-width: 600px) {
+  .chapter {
+    padding-block: 40px;
+  }
+
+  .chapter__shot .window__screen {
+    aspect-ratio: 4 / 5;
+  }
+
+  .chapter__shot .window__screen img {
+    object-position: var(--focus, 50% 50%);
+  }
+}
+
+/* How it works: the route your traffic takes. */
+.how__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 28px;
+  margin-bottom: clamp(40px, 7vh, 72px);
+}
+
+.how__head .section-head {
+  margin-bottom: 0;
+}
+
+.switch-wrap {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+  max-width: 30ch;
+  text-align: right;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  height: 52px;
+  padding: 0 20px 0 8px;
+  border-radius: var(--pill);
+  border: 1px solid color-mix(in oklab, var(--state) 35%, transparent);
+  background: color-mix(in oklab, var(--state) 10%, transparent);
+  font-weight: 600;
+  color: var(--ink);
+  transition: scale 0.3s var(--ease);
+}
+
+.switch:active {
+  scale: 0.97;
+}
+
+.switch__track {
+  position: relative;
+  width: 58px;
+  height: 36px;
+  border-radius: var(--pill);
+  background: color-mix(in oklab, var(--state) 28%, transparent);
+}
+
+.switch__thumb {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--state);
+  box-shadow: 0 0 16px color-mix(in oklab, var(--state) 70%, transparent);
+  translate: calc(var(--tunnel) * 22px) 0;
+}
+
+.switch-wrap p {
+  font-size: var(--t-xs);
+  color: var(--muted);
+}
+
+.route {
+  position: relative;
+  aspect-ratio: 1200 / 420;
+  border-radius: 40px;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(60% 80% at 50% 36%, color-mix(in oklab, var(--state) 7%, transparent), transparent 70%),
+    var(--ground-2);
+  overflow: hidden;
+}
+
+.route__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.route__svg--tall {
+  display: none;
+}
+
+.route__line {
+  fill: none;
+  stroke: var(--line-2);
+  stroke-width: 2;
+}
+
+.route__pipe {
+  fill: none;
+  stroke: color-mix(in oklab, var(--state) 14%, transparent);
+  stroke-width: 34;
+  stroke-linecap: round;
+  opacity: calc(0.12 + 0.88 * var(--tunnel));
+}
+
+.route__core {
+  fill: none;
+  stroke: var(--state);
+  stroke-width: 2;
+  stroke-dasharray: 2 14;
+  stroke-linecap: round;
+  opacity: calc(0.1 + 0.9 * var(--tunnel));
+  animation: core-flow 1.6s linear infinite;
+}
+
+@keyframes core-flow {
+  to {
+    stroke-dashoffset: -32;
+  }
+}
+
+.route__direct {
+  fill: none;
+  stroke: var(--off);
+  stroke-width: 2;
+  stroke-dasharray: 6 8;
+  opacity: calc(0.08 + 0.82 * (1 - var(--tunnel)));
+}
+
+.packet {
+  opacity: 0;
+}
+
+.packet--up {
+  fill: var(--up);
+}
+
+.packet--down {
+  fill: var(--down);
+}
+
+.route__nodes {
+  list-style: none;
+  padding: 0;
+}
+
+.node {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  translate: -50% -50%;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  background: var(--ground-3);
+  box-shadow: 0 0 0 8px var(--ground-2);
+}
+
+.node svg,
+.node img {
+  width: 30px;
+  height: 30px;
+}
+
+.node img {
+  border-radius: 8px;
+}
+
+.node__text {
+  position: absolute;
+  bottom: calc(100% + 16px);
+  left: 50%;
+  translate: -50% 0;
+  display: grid;
+  gap: 2px;
+  width: max-content;
+  max-width: 170px;
+  text-align: center;
+}
+
+.node__label {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.node__detail {
+  font-size: var(--t-xs);
+  color: var(--muted);
+}
+
+.node--tunnelled {
+  opacity: calc(0.35 + 0.65 * var(--tunnel));
+}
+
+.node--openwire {
+  border-color: color-mix(in oklab, var(--state) 50%, transparent);
+  box-shadow:
+    0 0 0 8px var(--ground-2),
+    0 0 40px -6px color-mix(in oklab, var(--state) 60%, transparent);
+}
+
+.route__note {
+  position: absolute;
+  translate: -50% -50%;
+  padding: 6px 14px;
+  border-radius: var(--pill);
+  font-size: var(--t-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.route__note--tunnel {
+  left: 52.5%;
+  top: 56%;
+  color: var(--state);
+  background: color-mix(in oklab, var(--state) 10%, var(--ground-2));
+  border: 1px solid color-mix(in oklab, var(--state) 30%, transparent);
+  opacity: calc(0.35 + 0.65 * var(--tunnel));
+}
+
+.route__note--direct {
+  left: 52.5%;
+  top: 83.3%;
+  color: var(--off);
+  background: var(--ground-2);
+  border: 1px dashed color-mix(in oklab, var(--off) 45%, transparent);
+  opacity: calc(0.3 + 0.7 * (1 - var(--tunnel)));
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--gutter);
+  margin-top: clamp(40px, 7vh, 72px);
+  list-style: none;
+  padding: 0;
+  counter-reset: step;
+}
+
+.steps li {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+
+.steps__n {
+  font-family: var(--f-mono);
+  font-size: var(--t-xs);
+  color: var(--state);
+}
+
+.steps h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.steps p {
+  font-size: var(--t-s);
+  color: var(--muted);
+}
+
+@media (min-width: 768px) and (max-width: 1100px) {
+  .node {
+    width: 56px;
+    height: 56px;
+  }
+
+  .node svg,
+  .node img {
+    width: 24px;
+    height: 24px;
+  }
+
+  .node__text {
+    bottom: calc(100% + 10px);
+    max-width: 140px;
+  }
+
+  .node__label {
+    font-size: 0.85rem;
+  }
+
+  .node__detail {
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 1023px) {
+  .how__head {
+    grid-template-columns: 1fr;
+  }
+
+  .switch-wrap {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 36px;
+  }
+}
+
+@media (max-width: 767px) {
+  .route {
+    aspect-ratio: 360 / 820;
+    border-radius: var(--r-surface);
+  }
+
+  .route__svg--wide {
+    display: none;
+  }
+
+  .route__svg--tall {
+    display: block;
+  }
+
+  .node {
+    left: var(--xm);
+    top: var(--ym);
+    width: 60px;
+    height: 60px;
+    box-shadow: 0 0 0 6px var(--ground-2);
+  }
+
+  .node svg,
+  .node img {
+    width: 24px;
+    height: 24px;
+  }
+
+  .node--openwire {
+    box-shadow:
+      0 0 0 6px var(--ground-2),
+      0 0 30px -6px color-mix(in oklab, var(--state) 60%, transparent);
+  }
+
+  .node__text {
+    top: 50%;
+    bottom: auto;
+    left: calc(100% + 18px);
+    translate: 0 -50%;
+    text-align: left;
+    max-width: 150px;
+  }
+
+  .route__note--tunnel {
+    left: 47%;
+    top: 51.2%;
+    translate: 0 -50%;
+  }
+
+  .route__note--direct {
+    display: none;
+  }
+
+  .steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Bring your own server: steps beside a paste that happens. */
+.split {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--gutter);
+  row-gap: 56px;
+  align-items: center;
+}
+
+.split__copy {
+  grid-column: 1 / span 5;
+  display: grid;
+  gap: 26px;
+}
+
+.split__side {
+  grid-column: 7 / -1;
+}
+
+/* Grid items default to their content's width; a long link must not stretch its column. */
+.split > *,
+.paste-demo > * {
+  min-width: 0;
+}
+
+.numbered {
+  display: grid;
+  gap: 16px;
+  list-style: none;
+  padding: 0;
+  counter-reset: n;
+}
+
+.numbered li {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 16px;
+  align-items: center;
+  counter-increment: n;
+}
+
+.numbered li::before {
+  content: counter(n);
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  font-size: var(--t-s);
+  font-weight: 600;
+  color: var(--state);
+  font-variant-numeric: tabular-nums;
+}
+
+.note {
+  font-size: var(--t-xs);
+  color: var(--muted);
+  max-width: 52ch;
+}
+
+.paste-demo {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  padding: clamp(22px, 3vw, 40px);
+  border-radius: 40px;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(70% 70% at 90% 0%, color-mix(in oklab, var(--state) 9%, transparent), transparent 70%),
+    var(--ground-2);
+}
+
+.paste {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  padding: 10px 22px 10px 10px;
+  border-radius: var(--pill);
+  border: 1px solid color-mix(in oklab, var(--state) 35%, transparent);
+  background: var(--ground);
+  box-shadow: 0 0 0 5px color-mix(in oklab, var(--state) 8%, transparent);
+}
+
+.paste__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--state) 14%, transparent);
+  color: var(--state);
+}
+
+.paste__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.paste__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.86rem;
+  color: var(--ink);
+}
+
+.keys {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+}
+
+.keys kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 64px;
+  height: 52px;
+  padding-inline: 18px;
+  border-radius: var(--pill);
+  border: 1px solid var(--line-2);
+  border-bottom-width: 3px;
+  background: var(--ground-3);
+  font-family: var(--f-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.added {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 22px 10px 10px;
+  border-radius: var(--pill);
+  background: var(--raise);
+  border: 1px solid var(--line);
+}
+
+.added__region {
+  font-family: var(--f-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.added__name {
+  display: grid;
+  line-height: 1.3;
+}
+
+.added__name span:first-child {
+  font-weight: 600;
+}
+
+.added__name span + span {
+  font-family: var(--f-mono);
+  font-size: var(--t-xs);
+  color: var(--muted);
+}
+
+.added__ms {
+  font-weight: 600;
+  color: var(--tone-green);
+  font-variant-numeric: tabular-nums;
+}
+
+.paste-demo figcaption {
+  font-size: var(--t-xs);
+  color: var(--muted);
+}
+
+@media (max-width: 1023px) {
+  .split__copy,
+  .split__side {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Privacy: a ledger of what stays where. */
+.ledger {
+  display: grid;
+  gap: 10px;
+}
+
+.ledger__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
+  min-height: 76px;
+  padding: 14px 16px 14px 30px;
+  border-radius: var(--pill);
+  border: 1px solid var(--line);
+  background: var(--raise);
+}
+
+.ledger__row dt {
+  font-weight: 500;
+}
+
+.ledger__row dd {
+  justify-self: end;
+  max-width: 100%;
+  text-align: right;
+  font-size: var(--t-s);
+  color: var(--muted);
+}
+
+/* A file path is a value you could type: it gets the app's mono, in a recessed chip. */
+.ledger__row dd.mono {
+  padding: 10px 18px;
+  border-radius: var(--pill);
+  background: var(--ground);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.talks {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  padding: 0;
+  margin-top: 28px;
+}
+
+.talks__title {
+  margin-top: 40px;
+}
+
+.talks li {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 24px 14px 14px;
+  border-radius: 30px;
+  border: 1px dashed var(--line-2);
+}
+
+.talks li span {
+  display: grid;
+  gap: 2px;
+  font-size: var(--t-s);
+}
+
+.talks li span span:last-child {
+  color: var(--muted);
+}
+
+.talks .tone-tile {
+  --tone: var(--state);
+}
+
+@media (max-width: 767px) {
+  .ledger__row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 22px 22px;
+    border-radius: var(--r-surface);
+  }
+
+  .ledger__row dd {
+    justify-self: start;
+  }
+
+  .talks li {
+    border-radius: var(--r-surface);
+  }
+}
+
+/* Open source: real facts, then the roadmap as an index. */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gutter);
+  margin-block: clamp(56px, 9vh, 96px);
+}
+
+.fact {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding-top: 26px;
+  border-top: 1px solid var(--line);
+}
+
+.fact dd {
+  order: -1;
+  font-size: var(--t-xl);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+}
+
+.fact dt {
+  max-width: 28ch;
+  font-size: var(--t-s);
+  color: var(--muted);
+}
+
+.roadmap__list {
+  display: grid;
+  list-style: none;
+  padding: 0;
+  margin-top: 22px;
+  border-top: 1px solid var(--line);
+}
+
+.roadmap__row {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 6fr) auto;
+  align-items: center;
+  gap: var(--gutter);
+  padding-block: 26px;
+  border-bottom: 1px solid var(--line);
+}
+
+.roadmap__row h4 {
+  font-size: var(--t-m);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.roadmap__row p {
+  color: var(--muted);
+}
+
+@media (max-width: 767px) {
+  .facts {
+    grid-template-columns: 1fr;
+  }
+
+  .roadmap__row {
+    grid-template-columns: 1fr auto;
+    gap: 8px 16px;
+  }
+
+  .roadmap__row p {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Footer: the finale
+ * ------------------------------------------------------------------------ */
+
+.finale {
+  position: relative;
+  z-index: var(--z-content);
+  padding-top: clamp(120px, 22vh, 240px);
+  overflow: clip;
+}
+
+.finale__cta {
+  display: grid;
+  justify-items: center;
+  gap: 26px;
+  text-align: center;
+}
+
+.finale__title {
+  font-size: var(--t-mega);
+  font-weight: 600;
+  line-height: 0.94;
+  letter-spacing: -0.05em;
+}
+
+.finale__title span {
+  color: var(--state);
+}
+
+.finale__cta .lede {
+  max-width: 40ch;
+}
+
+.finale__cta .actions {
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.finale__grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--gutter);
+  row-gap: 48px;
+  margin-top: clamp(100px, 18vh, 200px);
+}
+
+.finale__nav {
+  grid-column: 1 / span 6;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gutter);
+}
+
+.finale__nav h2 {
+  margin-bottom: 14px;
+}
+
+.finale__nav ul {
+  display: grid;
+  gap: 2px;
+  list-style: none;
+  padding: 0;
+}
+
+.foot-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  color: var(--muted);
+  transition: color 0.3s var(--ease);
+}
+
+.foot-link svg {
+  width: 15px;
+  height: 15px;
+  transition: translate 0.45s var(--ease-out);
+}
+
+@media (hover: hover) {
+  .foot-link:hover {
+    color: var(--ink);
+  }
+
+  .foot-link:hover svg {
+    translate: 2px -2px;
+  }
+}
+
+.foot-link:focus-visible {
+  color: var(--ink);
+}
+
+.meter {
+  grid-column: 8 / -1;
+  align-self: start;
+  display: grid;
+  gap: 14px;
+  padding: 26px 30px;
+  border-radius: var(--r-surface);
+  border: 1px solid var(--line);
+  background: var(--raise);
+}
+
+.meter__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 22px;
+}
+
+.meter__value {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--t-m);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.meter__value i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--down);
+}
+
+.meter p {
+  font-size: var(--t-xs);
+  color: var(--muted);
+}
+
+.finale__mark {
+  position: relative;
+  margin-top: clamp(72px, 12vh, 140px);
+  padding-inline: var(--gutter);
+  container-type: inline-size;
+}
+
+/* The name, as wide as the frame, drawn in outline so it reads as a mark, not a headline. */
+.finale__word {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  user-select: none;
+}
+
+.finale__word text {
+  font-family: var(--f-sans);
+  font-size: 236px;
+  font-weight: 600;
+  letter-spacing: -0.06em;
+  fill: rgb(241 245 255 / 0.035);
+  stroke: rgb(241 245 255 / 0.18);
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.finale__wire {
+  height: 2px;
+  margin-top: 18px;
+  border-radius: var(--pill);
+  background: var(--wire);
+  transform-origin: left center;
+  box-shadow: 0 0 22px rgb(255 46 99 / 0.5);
+}
+
+.finale__small {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px 30px;
+  padding-block: 30px calc(30px + env(safe-area-inset-bottom));
+  font-size: var(--t-xs);
+  color: var(--muted);
+}
+
+@media (max-width: 1023px) {
+  .finale__nav,
+  .meter {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Inner pages: download, privacy, 404
+ * ------------------------------------------------------------------------ */
+
+.page-hero {
+  padding-top: clamp(150px, 22vh, 230px);
+  padding-bottom: clamp(48px, 8vh, 88px);
+}
+
+.page-hero__grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--gutter);
+  row-gap: 32px;
+  align-items: end;
+}
+
+.page-hero__copy {
+  grid-column: 1 / span 7;
+  display: grid;
+  justify-items: start;
+  gap: 24px;
+}
+
+.page-hero__title {
+  font-size: var(--t-xl);
+  font-weight: 600;
+  line-height: 0.96;
+  letter-spacing: -0.045em;
+  margin-left: -0.04em;
+}
+
+.version-mark {
+  grid-column: 8 / -1;
+  justify-self: end;
+  font-size: clamp(4.5rem, 2rem + 9vw, 11rem);
+  font-weight: 600;
+  line-height: 0.82;
+  letter-spacing: -0.06em;
+  font-variant-numeric: tabular-nums;
+  color: transparent;
+  background: var(--action);
+  -webkit-background-clip: text;
+  background-clip: text;
+  padding-bottom: 0.06em;
+  padding-inline-end: 0.12em; /* the clipped background must reach past the last glyph */
+}
+
+@media (max-width: 1023px) {
+  .page-hero__copy,
+  .version-mark {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+.downloads {
+  display: grid;
+  gap: 12px;
+}
+
+.dl-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 22px;
+  padding: 14px 14px 14px 14px;
+  border-radius: var(--pill);
+  border: 1px solid var(--line);
+  background: var(--raise);
+  transition:
+    border-color 0.4s var(--ease),
+    background-color 0.4s var(--ease);
+}
+
+.dl-row--lead {
+  border-color: color-mix(in oklab, var(--state) 40%, transparent);
+  background:
+    radial-gradient(60% 140% at 0% 50%, color-mix(in oklab, var(--state) 10%, transparent), transparent 70%),
+    var(--raise);
+}
+
+.dl-row__icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--ground-3);
+  color: var(--state);
+}
+
+.dl-row__icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.dl-row__text {
+  display: grid;
+  gap: 4px;
+}
+
+.dl-row__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--t-m);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.dl-row__file {
+  font-family: var(--f-mono);
+  font-size: var(--t-xs);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.dl-row__use {
+  font-size: var(--t-s);
+  color: var(--muted);
+  max-width: 62ch;
+}
+
+@media (hover: hover) {
+  .dl-row:hover {
+    border-color: color-mix(in oklab, var(--state) 55%, transparent);
+  }
+}
+
+@media (max-width: 767px) {
+  .dl-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 22px;
+    border-radius: var(--r-surface);
+  }
+
+  .dl-row .pill {
+    justify-content: center;
+  }
+}
+
+.doc {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--gutter);
+  row-gap: clamp(56px, 9vh, 96px);
+  padding-block: clamp(56px, 10vh, 120px);
+}
+
+.doc__block {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--gutter);
+  row-gap: 18px;
+}
+
+.doc__block > h2 {
+  grid-column: 1 / span 4;
+  font-size: var(--t-l);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.doc__body {
+  grid-column: 6 / -1;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  max-width: 68ch;
+}
+
+.doc__body p,
+.doc__body li {
+  color: var(--muted);
+}
+
+.doc__body strong,
+.doc__body h3 {
+  color: var(--ink);
+}
+
+.doc__body h3 {
+  font-size: var(--t-m);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin-top: 6px;
+}
+
+.doc__body ul {
+  display: grid;
+  gap: 10px;
+  padding-left: 1.2em;
+  list-style: disc;
+}
+
+.doc__body li::marker {
+  color: var(--state);
+}
+
+.doc__body code:not(pre code) {
+  padding: 0.12em 0.5em;
+  border-radius: var(--pill);
+  background: var(--raise-2);
+  color: var(--ink);
+}
+
+@media (max-width: 1023px) {
+  .doc__block > h2,
+  .doc__body {
+    grid-column: 1 / -1;
+  }
+}
+
+.code {
+  position: relative;
+  display: grid;
+  border-radius: 26px;
+  border: 1px solid var(--line);
+  background: var(--ground-2);
+  overflow: hidden;
+}
+
+.code__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 10px 10px 24px;
+  border-bottom: 1px solid var(--line);
+  background: var(--raise);
+}
+
+.code__shell {
+  font-size: var(--t-xs);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.code__bar .pill {
+  --h: 38px;
+  padding-inline: 16px;
+  font-size: 0.85rem;
+}
+
+.code pre {
+  margin: 0;
+  padding: 20px 24px;
+  overflow-x: auto;
+  font-size: 0.86rem;
+  line-height: 1.7;
+  color: var(--ink);
+}
+
+/* On a phone a command wraps rather than hide its end off the side. */
+@media (max-width: 600px) {
+  .code pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
+.privacy-table {
+  display: grid;
+  gap: 10px;
+}
+
+.notfound {
+  display: grid;
+  place-items: center;
+  min-height: 100svh;
+  padding: 140px var(--gutter) 80px;
+  text-align: center;
+}
+
+.notfound__inner {
+  display: grid;
+  justify-items: center;
+  gap: 26px;
+}
+
+.notfound .orb-slot {
+  margin-bottom: 18px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Motion preferences
+ * ------------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .roll > span + span,
+  .swap > * + * {
+    visibility: hidden;
+  }
+
+  .pill:focus-visible,
+  .nav__link:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 0.25em;
+  }
+
+  .packet {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) and (hover: hover) {
+  .pill:hover .roll > span,
+  .pill:hover .swap > * {
+    translate: none;
+  }
+
+  .pill--ghost:hover {
+    color: var(--ground);
+  }
+
+  .pill--ghost:hover .pill__fill {
+    clip-path: none;
   }
 }
