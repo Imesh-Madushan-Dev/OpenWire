@@ -27,11 +27,11 @@ export type Release = {
 const API = 'https://api.github.com/repos/Imesh-Madushan-Dev/OpenWire/releases/latest';
 
 const FALLBACK: Release = {
-  version: '0.2.0',
-  tag: 'v0.2.0',
+  version: '0.4.0',
+  tag: 'v0.4.0',
   url: site.latest,
-  date: '2026-10-22T20:56:33Z',
-  dateLabel: formatDate('2026-10-22T20:56:33Z'),
+  date: '2026-10-24T00:00:00Z',
+  dateLabel: formatDate('2026-10-24T00:00:00Z'),
   headline: null,
   notes: '',
   installer: null,

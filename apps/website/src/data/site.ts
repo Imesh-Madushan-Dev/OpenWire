@@ -93,7 +93,7 @@ export const features = {
       tab: 'VPN',
       tone: 'sky',
       title: 'A tunnel to your own server.',
-      body: 'Paste a vless:// or trojan:// link and press the power button. OpenWire runs a local proxy and points Windows at it, so every app that uses the system proxy goes through the tunnel, wrapped in TLS with a server name you choose.',
+      body: 'Paste a vless:// or trojan:// link and press the power button. OpenWire runs a local proxy and points Windows at it, so every app that uses the system proxy goes through the tunnel, wrapped in TLS with a server name you choose - over TCP, WebSocket, gRPC or XHTTP, whichever your server speaks.',
       points: [
         'A kill switch that blocks traffic if the server drops',
         'Printers and NAS drives stay reachable on your local network',
@@ -193,7 +193,7 @@ export const firstServer = {
     'Press Ctrl+V on the VPN tab, or click Add. A screenshot of a QR code works too.',
     'Click the power button.',
   ],
-  note: 'Supported links use TLS over TCP. REALITY, XTLS, WebSocket, gRPC and HTTPUpgrade links are turned away at import, with a message saying why.',
+  note: 'Supported links use TCP, WebSocket, gRPC, XHTTP, HTTPUpgrade or HTTP/2, with TLS or without. REALITY, XTLS Vision, mKCP and QUIC links are turned away at import, with a message saying why.',
   example: 'vless://7f3c…e21a@203.0.113.24:443?security=tls&sni=cdn.yours.example#Tokyo',
   exampleCaption: 'An example link: 203.0.113.x addresses and .example names are set aside for documentation.',
   added: { name: 'Tokyo', host: '203.0.113.24', latency: '68 ms' },
@@ -228,7 +228,7 @@ export const openSource = {
   roadmap: [
     { name: 'Firewall', text: 'Allow or block each app from reaching the network.' },
     { name: 'TUN mode', text: 'A virtual network adapter, for apps that ignore the system proxy.' },
-    { name: 'More transports', text: 'REALITY, WebSocket and gRPC.' },
+    { name: 'More protocols', text: 'REALITY and VMess.' },
     { name: 'macOS and Linux routing', text: 'The tunnel already runs there; the system wiring does not yet.' },
   ],
   source: 'View the source',

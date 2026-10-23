@@ -44,7 +44,7 @@ Network monitors like GlassWire show you where your traffic goes, but they are c
 | --- | --- |
 | ![The VPN page in light mode: tunnel on, connected to Singapore, with servers and their latency](docs/screenshots/vpn.webp) | ![The VPN page in dark mode](docs/screenshots/vpn-dark.webp) |
 
-Route your apps through your own server over **VLESS or Trojan with TLS**, with a TLS server name (SNI) you choose. OpenWire runs a local SOCKS5/HTTP proxy and points Windows at it, so every app that respects the system proxy goes through the tunnel.
+Route your apps through your own server over **VLESS or Trojan with TLS**, with a TLS server name (SNI) you choose - straight over TCP, or framed as **WebSocket, gRPC, XHTTP, HTTPUpgrade or HTTP/2** for servers behind a CDN. OpenWire runs a local SOCKS5/HTTP proxy and points Windows at it, so every app that respects the system proxy goes through the tunnel.
 
 - Import servers by pasting a `vless://` or `trojan://` link, or from a screenshot of a QR code - and share them as a link or QR code
 - Live latency for every server, and a **Fastest server** option picked at connect time
@@ -106,7 +106,7 @@ The installer asks for administrator approval once. During setup it offers to tu
 2. In OpenWire, press **Ctrl+V** on the VPN page, or click **Add**.
 3. Click the power button to connect.
 
-Supported links use TLS over TCP. Links for REALITY, XTLS, WebSocket, gRPC or HTTPUpgrade transports are rejected at import with a message saying why.
+Supported links use the TCP (including its fake HTTP header), WebSocket, gRPC, XHTTP, HTTPUpgrade or HTTP/2 transport, with TLS or - for servers set up without it - none. Links for REALITY, XTLS Vision, VLESS encryption, mKCP or QUIC are rejected at import with a message saying why.
 
 ## How it works
 
@@ -116,7 +116,7 @@ your apps ──SOCKS5/HTTP──▶ OpenWire (127.0.0.1:10808) ──VLESS or T
 
 1. **Inbound** - one local listener speaks both SOCKS5 and HTTP proxy, bound to `127.0.0.1` only, so it can never become an open relay.
 2. **Routing** - local network and loopback destinations can skip the tunnel; everything else goes through it.
-3. **Outbound** - a TLS connection to your server carries the real destination inside the encrypted VLESS or Trojan stream.
+3. **Outbound** - a TLS connection to your server carries the real destination inside the encrypted VLESS or Trojan stream, framed by whichever transport the server's link names.
 4. **System proxy** - Windows is pointed at the local listener while connected, and put back exactly as it was afterwards.
 
 For the full technical picture - certificate checking, the usage meter's data sources, and the safety guarantees - see the [developer guide](apps/desktop-app/README.md).
@@ -183,7 +183,8 @@ apps/desktop-app/
 
 - [ ] **Firewall** - allow or block apps from reaching the network
 - [ ] **TUN mode** - a virtual network adapter for apps that ignore the system proxy
-- [ ] More transports - REALITY, WebSocket and gRPC
+- [x] WebSocket, gRPC, XHTTP, HTTPUpgrade and HTTP/2 transports
+- [ ] REALITY and VMess
 - [ ] Automatic routing on macOS and Linux (the tunnel already runs there)
 
 ## Contributing

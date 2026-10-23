@@ -17,9 +17,10 @@ app  ──SOCKS5/HTTP──▶  127.0.0.1:10808  ──VLESS over TLS──▶ 
    use the HTTP proxy; everything else prefers SOCKS5.
 2. **Routing** (`core/tunnel/mod.rs`) — LAN and loopback destinations bypass the
    tunnel when *Bypass local network* is on; everything else goes out masked.
-3. **Outbound** (`core/tunnel/vless.rs`) — TCP connects to the VPS, but the TLS
-   ClientHello carries the camouflage hostname. The real destination is inside
-   the encrypted VLESS payload.
+3. **Outbound** (`core/tunnel/vless.rs`, `trojan.rs`) — TCP connects to the VPS,
+   but the TLS ClientHello carries the camouflage hostname. The real destination
+   is inside the encrypted VLESS payload, framed by the link's transport
+   (`core/tunnel/transport/`): raw, WebSocket, gRPC, XHTTP, HTTPUpgrade or HTTP/2.
 4. **System proxy** (`core/sysproxy/windows.rs`) — per-user WinINET registry
    values, captured before they are touched and restored on disconnect, on exit,
    and on panic.
@@ -58,7 +59,8 @@ vless://<uuid>@<vps-host>:443?encryption=none&security=tls&sni=teams.microsoft.c
 | `<uuid>`   | Your access key from the server config                           |
 | `<vps-host>` | Where the TCP connection really goes                          |
 | `sni`      | Name shown to the network — the camouflage                       |
-| `security` | Must be `tls`                                                    |
+| `security` | `tls`, or `none` for a server without TLS                         |
+| `type`     | `tcp`, `ws`, `grpc`, `xhttp`, `httpupgrade` or `http` (HTTP/2)   |
 
 Links are written to `%APPDATA%/com.openwire.desktop/servers.json` on this machine
 only. They are never committed, bundled, or sent anywhere — and the UI never
@@ -108,9 +110,29 @@ need it for a normal masked setup.
 
 ### Supported subset
 
-Only `security=tls` over `type=tcp`. Links using REALITY, XTLS, WebSocket, gRPC
-or HTTPUpgrade are **rejected at import** with a message saying why, rather than
-being added as a node that fails later with a confusing handshake error.
+`security=tls` or `security=none`, over any of these transports:
+
+| `type=` | Notes |
+| --- | --- |
+| `tcp` / `raw` | Also `headerType=http`, the fake HTTP request/response head |
+| `ws` | Early data via `?ed=` in the path, sent in `Sec-WebSocket-Protocol` |
+| `grpc` | `serviceName`, `authority`, gun or `mode=multi`; Xray's `/custom/path` form |
+| `xhttp` / `splithttp` | packet-up, stream-up and stream-one, over HTTP/2 or HTTP/1.1; `extra` is read |
+| `httpupgrade` | |
+| `http` / `h2` | HTTP/2 `PUT`, as v2fly and sing-box serve it (Xray has dropped it) |
+
+The HTTP/2 transports share one connection per session. Links using REALITY,
+XTLS Vision (`flow=`), VLESS encryption, mKCP, QUIC, or XHTTP settings this
+client doesn't follow (a separate download server, custom placements) are
+**rejected at import** with a message saying why, rather than being added as a
+node that fails later with a confusing handshake error.
+
+Every transport is tested end to end against real Xray and sing-box servers:
+
+```bash
+cd src-tauri && OPENWIRE_XRAY=path/to/xray.exe OPENWIRE_SINGBOX=path/to/sing-box.exe \
+  cargo test interop -- --ignored --nocapture
+```
 
 `fp=chrome` (uTLS fingerprint mimicry) is parsed but not applied — the client
 uses rustls, whose TLS fingerprint differs from Chrome's. This matters only

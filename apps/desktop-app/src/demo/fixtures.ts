@@ -124,7 +124,7 @@ export const settings: Settings = {
 export const platform: PlatformInfo = {
   systemProxySupported: true,
   platform: 'windows',
-  version: '0.3.0',
+  version: '0.4.0',
 }
 
 /** Up to date, unless the demo is asked to show `latest` as a newer release. */
@@ -152,7 +152,7 @@ export function logs(): LogEntry[] {
   const start = (now() - 2 * 3600 - 17 * 60) * 1000
   const lines: [offsetMs: number, LogEntry['level'], string, boolean?][] = [
     [-640_000, 'info', 'Connecting to Tokyo', true],
-    [-639_900, 'info', 'OpenWire 0.3.0 on Windows 11 Pro 25H2 (build 26200), 64-bit'],
+    [-639_900, 'info', 'OpenWire 0.4.0 on Windows 11 Pro 25H2 (build 26200), 64-bit'],
     [-639_850, 'info', 'Network: Wi-Fi, 192.168.1.20/24, gateway 192.168.1.1, DNS 192.168.1.1'],
     [-639_800, 'info', 'Server: Tokyo - VLESS over TLS to 203.0.113.24:443, SNI cdn.example.com'],
     [-639_700, 'info', 'Local proxy listening on 127.0.0.1:10808 (SOCKS5 and HTTP)'],
@@ -164,7 +164,7 @@ export function logs(): LogEntry[] {
     [-12_000, 'info', 'Disconnecting'],
     [-11_900, 'info', 'Disconnected - system proxy restored'],
     [0, 'info', 'Connecting to Singapore', true],
-    [80, 'info', 'OpenWire 0.3.0 on Windows 11 Pro 25H2 (build 26200), 64-bit'],
+    [80, 'info', 'OpenWire 0.4.0 on Windows 11 Pro 25H2 (build 26200), 64-bit'],
     [120, 'info', 'Network: Wi-Fi, 192.168.1.20/24, gateway 192.168.1.1, DNS 192.168.1.1'],
     [160, 'info', 'Server: Singapore - VLESS over TLS to 198.51.100.17:443, SNI cdn.example.com'],
     [240, 'info', 'Local proxy listening on 127.0.0.1:10808 (SOCKS5 and HTTP)'],
