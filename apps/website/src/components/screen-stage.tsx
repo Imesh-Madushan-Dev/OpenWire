@@ -11,6 +11,7 @@ import type { IconSvgElement } from '@hugeicons/react';
 
 import { features, type Chapter } from '@/data/site';
 import { Icon } from './icon';
+import { ScreenViewer } from './screen-viewer';
 
 /** The app's own tab icons (apps/desktop-app/src/components/nav-tabs.tsx). */
 export const TAB_ICONS: Record<string, IconSvgElement> = {
@@ -42,7 +43,7 @@ export function ScreenStage({
 }) {
   const { chapters } = features;
   return (
-    <div className={`stage ${className}`}>
+    <div className={`stage ${className}`} style={tone(chapters[0])}>
       <figure className="window">
         <div className="window__bezel">
           <div className="window__screen">
@@ -60,8 +61,10 @@ export function ScreenStage({
                 sizes={sizes}
                 loading={eager && i === 0 ? 'eager' : 'lazy'}
                 fetchPriority={eager && i === 0 ? 'high' : undefined}
+                data-full={chapter.shot.src}
               />
             ))}
+            <ScreenViewer />
           </div>
         </div>
       </figure>

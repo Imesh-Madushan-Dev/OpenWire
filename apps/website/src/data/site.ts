@@ -41,8 +41,36 @@ export const hero = {
     'OpenWire’s VPN tab in the Graphite theme: the tunnel is on through a server in Singapore, with six servers listed by latency',
 };
 
-export const statement =
-  'Network monitors show you where your traffic goes, but they are closed source and sold by subscription. VPN apps hide your traffic, but only through their own servers. OpenWire does both, in the open, through a server you control.';
+/** A product named in the statement and the table, in its own colour: a site tone, or the state. */
+export type Named = { name: string; tone: Tone | 'state' };
+
+const glasswire: Named = { name: 'GlassWire', tone: 'amber' };
+const netmod: Named = { name: 'NetMod VPN', tone: 'violet' };
+const openwire: Named = { name: 'OpenWire', tone: 'state' };
+
+export const statement: (string | Named)[] = [
+  glasswire,
+  ' monitors your traffic, but it is paid. ',
+  netmod,
+  ' tunnels it, but does not monitor it. ',
+  openwire,
+  ' does both, free and open source.',
+];
+
+/**
+ * The difference, side by side. Checked against glasswire.com/pricing and NetMod's download
+ * listings (SourceForge, MajorGeeks) in October 2026: keep it to what those pages say.
+ */
+export const compare = {
+  products: [glasswire, netmod, openwire],
+  rows: [
+    { label: 'Live traffic by app, host and device', values: [true, false, true] },
+    { label: 'Tunnel through your own VLESS or Trojan server', values: [false, true, true] },
+    { label: 'Price', values: ['Paid', 'Free', 'Free'] },
+    { label: 'Licence', values: ['Closed source', 'Freeware', 'Open source, GPL-3.0'] },
+  ],
+  note: 'GlassWire also has a free tier, limited to 24 hours of history and without its firewall controls; Premium is billed yearly. As listed by each project in October 2026.',
+} satisfies { products: Named[]; rows: { label: string; values: (boolean | string)[] }[]; note: string };
 
 export type Tone = 'sky' | 'amber' | 'violet' | 'green' | 'rose';
 
@@ -53,8 +81,7 @@ export type Chapter = {
   title: string;
   body: string;
   points?: string[];
-  /** `focus`: the part of the window a phone shows, as an object-position. */
-  shot: { src: string; alt: string; focus: string };
+  shot: { src: string; alt: string };
 };
 
 export const features = {
@@ -73,7 +100,7 @@ export const features = {
         'The fastest server, picked the moment you connect',
         'Your proxy settings put back on disconnect, on exit, even after a crash',
       ],
-      shot: { src: '/screens/vpn.webp', alt: hero.windowAlt, focus: '14% 50%' },
+      shot: { src: '/screens/vpn.webp', alt: hero.windowAlt },
     },
     {
       id: 'network',
@@ -83,7 +110,6 @@ export const features = {
       body: 'Download in gold, upload in magenta, updated every second. Zoom out from five minutes to three hours, a day, a week or a month, or filter the graph to only the traffic that went through the tunnel.',
       shot: {
         src: '/screens/network.webp',
-        focus: '62% 50%',
         alt: 'OpenWire’s Network tab: a live five-minute graph of download in gold and upload in magenta, with an overview strip underneath',
       },
     },
@@ -99,7 +125,6 @@ export const features = {
       ],
       shot: {
         src: '/screens/usage.webp',
-        focus: '30% 50%',
         alt: 'OpenWire’s Usage tab: 4.1 GB in a day, ranked by app, by host with country flags, and by traffic type',
       },
     },
@@ -111,7 +136,6 @@ export const features = {
       body: 'Scan your Wi-Fi or Ethernet network for every connected device, with its name, maker, type and when it was first seen. OpenWire can keep watching in the background and tell you when a new one joins.',
       shot: {
         src: '/screens/devices.webp',
-        focus: '0% 50%',
         alt: 'OpenWire’s Devices tab: twelve devices on a home network, from the router to a PlayStation, with maker, status and first-seen date',
       },
     },
@@ -123,7 +147,6 @@ export const features = {
       body: 'Neon, Aurora and Graphite, each in light and dark, plus five palettes for the charts. Live upload and download speed sits on the Windows taskbar, just left of the clock, and opens OpenWire with a click.',
       shot: {
         src: '/screens/settings.webp',
-        focus: '62% 50%',
         alt: 'OpenWire’s Appearance settings: the Graphite, Aurora and Neon themes, and five chart colour palettes',
       },
     },

@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
-import { GithubIcon, Link01Icon, SourceCodeIcon, Wifi01Icon } from '@hugeicons/core-free-icons';
+import { GithubIcon, Link01Icon, MinusSignIcon, SourceCodeIcon, Tick02Icon, Wifi01Icon } from '@hugeicons/core-free-icons';
 
-import { firstServer, openSource, privacy, site, statement } from '@/data/site';
+import { compare, firstServer, openSource, privacy, site, statement, type Named } from '@/data/site';
 import type { Release } from '@/lib/release';
 import { Icon } from '../icon';
 import { GhostButton } from '../pills';
 
-/** The case for the product in one paragraph; its words light up as you read down (statement.ts). */
+/** The case for the product in one paragraph; its words light up as you read down (statement.ts).
+ *  The table under it shows the same difference, row by row. */
 export function Statement() {
   return (
     <section className="statement" aria-labelledby="statement-title">
@@ -16,10 +17,72 @@ export function Statement() {
       </h2>
       <div className="frame">
         <p className="statement__text" data-statement>
-          {statement}
+          {statement.map((part, i) => (typeof part === 'string' ? part : <ProductName key={i} product={part} />))}
         </p>
+        <Compare />
       </div>
     </section>
+  );
+}
+
+const toneColor = ({ tone }: Named) => (tone === 'state' ? 'var(--state)' : `var(--tone-${tone})`);
+
+function ProductName({ product }: { product: Named }) {
+  return (
+    <span className="product-name" style={{ color: toneColor(product) }}>
+      {product.name}
+    </span>
+  );
+}
+
+function CompareCell({ value }: { value: boolean | string }) {
+  if (typeof value === 'string') return <>{value}</>;
+  return (
+    <>
+      <Icon icon={value ? Tick02Icon : MinusSignIcon} className={value ? 'compare__yes' : 'compare__no'} />
+      <span className="sr-only">{value ? 'Yes' : 'No'}</span>
+    </>
+  );
+}
+
+/**
+ * The statement's claim as a table, OpenWire's column lit. On phones each row stacks its label
+ * above the three answers, so the roles are spelled out: a table restyled as a grid loses them
+ * in some browsers.
+ */
+function Compare() {
+  const ours = compare.products.length - 1;
+  return (
+    <div className="compare" data-reveal="up">
+      <table className="compare__table" role="table">
+        <caption className="sr-only">OpenWire next to GlassWire and NetMod</caption>
+        <thead role="rowgroup">
+          <tr role="row">
+            <td className="compare__corner" />
+            {compare.products.map((product, i) => (
+              <th key={product.name} scope="col" role="columnheader" className={i === ours ? 'is-ours' : undefined}>
+                <ProductName product={product} />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody role="rowgroup">
+          {compare.rows.map((row) => (
+            <tr key={row.label} role="row">
+              <th scope="row" role="rowheader">
+                {row.label}
+              </th>
+              {row.values.map((value, i) => (
+                <td key={compare.products[i].name} role="cell" className={i === ours ? 'is-ours' : undefined}>
+                  <CompareCell value={value} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="compare__note">{compare.note}</p>
+    </div>
   );
 }
 

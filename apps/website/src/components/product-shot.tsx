@@ -1,9 +1,11 @@
 import Image from 'next/image';
-import type { CSSProperties } from 'react';
+
+import { ScreenViewer } from './screen-viewer';
 
 /**
  * The real app in a rounded bezel. Images are the README's 820x520 windows at 2x, copied from
- * docs/screenshots (`bun run screens`), so their proportions are fixed at 1640 / 1040.
+ * docs/screenshots (`bun run screens`), so their proportions are fixed at 1640 / 1040. Shown whole
+ * on every screen; a tap opens it full size.
  */
 export function ProductShot({
   src,
@@ -12,7 +14,6 @@ export function ProductShot({
   eager = false,
   className = '',
   reveal,
-  focus,
 }: {
   src: string;
   alt: string;
@@ -20,15 +21,9 @@ export function ProductShot({
   eager?: boolean;
   className?: string;
   reveal?: boolean;
-  /** Where a cropped (phone) view of this window looks, as an object-position. */
-  focus?: string;
 }) {
   return (
-    <figure
-      className={`window ${className}`}
-      style={focus ? ({ '--focus': focus } as CSSProperties) : undefined}
-      {...(reveal ? { 'data-reveal': 'clip' } : {})}
-    >
+    <figure className={`window ${className}`} {...(reveal ? { 'data-reveal': 'clip' } : {})}>
       <div className="window__bezel">
         <div className="window__screen">
           <Image
@@ -39,7 +34,9 @@ export function ProductShot({
             sizes={sizes}
             quality={90}
             loading={eager ? 'eager' : 'lazy'}
+            data-full={src}
           />
+          <ScreenViewer />
         </div>
       </div>
     </figure>

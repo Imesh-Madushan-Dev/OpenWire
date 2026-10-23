@@ -59,7 +59,6 @@ export function Features() {
                 className="chapter__shot"
                 src={chapter.shot.src}
                 alt={chapter.shot.alt}
-                focus={chapter.shot.focus}
                 sizes="(max-width: 600px) 200vw, calc(100vw - 40px)"
               />
             </article>

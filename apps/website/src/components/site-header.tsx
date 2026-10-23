@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from 'react';
 import { AnimatePresence } from 'motion/react';
 import * as m from 'motion/react-m';
-import { ArrowRight02Icon, Cancel01Icon, GithubIcon, Menu01Icon, WindowsNewIcon } from '@hugeicons/core-free-icons';
+import { ArrowRight02Icon, Cancel01Icon, GithubIcon, Menu01Icon } from '@hugeicons/core-free-icons';
 
 import { nav, site } from '@/data/site';
 import { EASE } from '@/lib/motion';
@@ -15,7 +15,7 @@ import { startScroll, stopScroll } from '@/engine';
 import { toggle, type Phase } from '@/motion/tunnel';
 import { Icon } from './icon';
 import { useTunnelPhase } from './power-orb';
-import { Roll } from './pills';
+import { Roll, WindowsLogo } from './pills';
 
 export type HeaderDownload = { href: string; version: string; size: string | null };
 
@@ -204,7 +204,7 @@ function MobileMenu({
       </ul>
       <div className="menu__foot">
         <a className="pill pill--primary pill--lg" href={download.href}>
-          <Icon icon={WindowsNewIcon} />
+          <WindowsLogo />
           <span>Download {download.version}</span>
           {download.size && <span className="pill__meta">{download.size}</span>}
         </a>

@@ -608,7 +608,6 @@ html.lenis body {
 .pill__meta {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
   height: calc(var(--h) - 20px);
   margin-right: calc(var(--h) * -0.3);
   padding-inline: 12px;
@@ -618,17 +617,6 @@ html.lenis body {
   font-size: 0.8rem;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-}
-
-.pill__meta span + span::before {
-  content: '';
-  display: inline-block;
-  width: 1px;
-  height: 0.9em;
-  margin-right: 8px;
-  vertical-align: -0.1em;
-  background: currentColor;
-  opacity: 0.35;
 }
 
 /* Secondary: an outline that floods from the pointer's side (src/motion/fill.ts). */
@@ -754,15 +742,6 @@ html.lenis body {
   .pill--lg {
     gap: 10px;
     padding-inline: 20px;
-  }
-
-  /* The size is the useful number on a phone; the version is in the chip above. */
-  .pill__meta span:first-child {
-    display: none;
-  }
-
-  .pill__meta span + span::before {
-    display: none;
   }
 }
 
@@ -891,6 +870,7 @@ html.frame-away .site-header:not(:focus-within) {
 }
 
 .brand {
+  flex: none; /* the wordmark never gives up room: the tools make way for it instead */
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -1137,6 +1117,31 @@ html.motion:not(.is-booted) .badge {
   }
 }
 
+/* A phone has room for the wordmark, the badge and the menu. GitHub moves into the menu, which
+ * already ends with it, and the menu button keeps only its icon. */
+@media (max-width: 479px) {
+  .header-tools .icon-btn {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .menu-btn {
+    width: 46px;
+    padding-inline: 0;
+    justify-content: center;
+  }
+
+  .menu-btn span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 /* The phone menu: a full-screen sheet with big links. */
 .menu {
   position: fixed;
@@ -1229,10 +1234,121 @@ html.motion:not(.is-booted) .badge {
   background: var(--ground);
 }
 
-.window__screen img {
+.window__screen > img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* Over every screen, a button that opens it full size (components/screen-viewer.tsx). The corner
+ * chip says so: always on touch screens, on hover with a mouse. */
+.screen-viewer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: block;
+  width: 100%;
+  cursor: zoom-in;
+  border-radius: inherit;
+}
+
+.screen-viewer:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
+.screen-viewer__hint {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  background: color-mix(in oklab, var(--ground) 72%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--ink);
+  transition:
+    opacity 0.35s var(--ease),
+    scale 0.45s var(--ease-out);
+}
+
+@media (hover: hover) {
+  .screen-viewer__hint {
+    opacity: 0;
+    scale: 0.8;
+  }
+
+  .screen-viewer:hover .screen-viewer__hint,
+  .screen-viewer:focus-visible .screen-viewer__hint {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+/* The screen on its own: as large as fits on a desktop, at the app's real 820px on a phone,
+ * where it pans. Clicking anywhere but the screen closes it, as Escape does. */
+.viewer {
+  width: 100vw;
+  height: 100svh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+
+.viewer::backdrop {
+  background: rgb(8 9 14 / 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.viewer[open] {
+  animation: viewer-in 0.45s var(--ease-out);
+}
+
+@keyframes viewer-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+
+.viewer__scroll {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  padding: 72px 16px 24px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.viewer__img {
+  flex: none;
+  margin: auto; /* centres it, and still lets a wider screen scroll to both edges */
+  width: clamp(820px, min(100vw - 32px, (100svh - 96px) * 1640 / 1040), 1640px);
+  height: auto;
+  border-radius: 14px;
+  box-shadow: 0 40px 120px -40px rgb(0 0 0 / 0.9);
+  cursor: default;
+}
+
+.viewer__close {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewer[open] {
+    animation: none;
+  }
 }
 
 @media (max-width: 767px) {
@@ -1245,31 +1361,34 @@ html.motion:not(.is-booted) .badge {
  * Hero
  * ------------------------------------------------------------------------ */
 
+/* One screen tall, its two halves centred in it: copy on the left, the app on the right. */
 .hero {
   position: relative;
-  padding-top: clamp(128px, 18vh, 196px);
-  padding-bottom: clamp(56px, 10vh, 120px);
+  display: grid;
+  align-content: center;
+  min-height: 100svh;
+  padding-top: clamp(112px, 14vh, 156px);
+  padding-bottom: clamp(48px, 8vh, 96px);
   overflow-x: clip; /* the window's glow may spill past the edge, never into a scrollbar */
 }
 
 .hero__grid {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  column-gap: var(--gutter);
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+  column-gap: clamp(32px, 3.5vw, 64px);
   align-items: center;
 }
 
 .hero__copy {
-  grid-column: 1 / span 6;
   display: grid;
   justify-items: start;
   gap: 28px;
   container-type: inline-size;
 }
 
-/* Sized to its column, so each sentence holds one line on desktop. */
+/* Sized to its column, so each sentence holds one line and the longer one fills it. */
 .hero__title {
-  font-size: clamp(3rem, 10.3cqi, 6.75rem);
+  font-size: clamp(3rem, 13.2cqi, 7rem);
   font-weight: 600;
   line-height: 0.94;
   letter-spacing: -0.05em;
@@ -1281,14 +1400,36 @@ html.motion:not(.is-booted) .badge {
 }
 
 .hero__lede {
-  max-width: 40ch;
+  max-width: 34ch;
   font-size: var(--t-m);
   line-height: 1.5;
   color: var(--muted);
+  text-wrap: pretty;
 }
 
 .hero__actions {
-  margin-top: 6px;
+  flex-wrap: nowrap;
+  margin-top: 8px;
+}
+
+/* A column too narrow for both full-size buttons on one line gets slightly smaller ones, and
+ * one narrower still stacks them, at the same width. */
+@container (max-width: 595px) {
+  .hero__actions .pill--lg {
+    --h: 52px;
+    gap: 10px;
+    font-size: 0.98rem;
+  }
+}
+
+@container (max-width: 549px) {
+  .hero__actions {
+    display: inline-grid;
+  }
+
+  .hero__actions .pill {
+    justify-content: center;
+  }
 }
 
 .hero__facts {
@@ -1313,20 +1454,53 @@ html.motion:not(.is-booted) .badge {
   color: var(--state);
 }
 
-/* The app window and its tab bar, switching tabs on a clock (src/motion/sections.ts). */
+/* The app window and its tab bar, switching tabs on a clock (src/motion/sections.ts). On wide
+ * screens it grows past the frame into the margin, so the product leads the page. */
 .hero__screens {
-  grid-column: 7 / -1;
-  margin-left: clamp(0px, 2vw, 32px);
+  --bleed: clamp(0px, (100vw - var(--frame)) / 2 - 2 * var(--gutter), 160px);
+  margin-right: calc(-1 * var(--bleed));
+}
+
+.hero__screens .stage {
+  position: relative;
+  isolation: isolate;
+  gap: 22px;
+}
+
+/* The light behind the window takes the colour of the tab on show, as each tab has its own tone
+ * in the app. --tone is set on the stage as the tab changes; --halo eases between them. */
+@property --halo {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: transparent;
+}
+
+.hero__screens .stage::before {
+  content: '';
+  position: absolute;
+  inset: -14% -12% -4%;
+  z-index: -1;
+  --halo: var(--tone);
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--halo) 34%, transparent), transparent);
+  transition: --halo 1.2s var(--ease);
+  pointer-events: none;
 }
 
 @media (max-width: 1023px) {
-  .hero__copy,
-  .hero__screens {
-    grid-column: 1 / -1;
+  .hero {
+    min-height: 0;
+  }
+
+  .hero__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero__title {
+    font-size: clamp(3rem, 11cqi, 6.25rem);
   }
 
   .hero__screens {
-    margin-left: 0;
+    margin-right: 0;
     margin-top: 72px;
   }
 }
@@ -1334,6 +1508,12 @@ html.motion:not(.is-booted) .badge {
 @media (max-width: 767px) {
   .hero {
     padding-top: 112px;
+    padding-bottom: 8px;
+  }
+
+  /* The release chip waits for a bigger screen: on a phone the headline opens the page. */
+  .hero__copy .chip {
+    display: none;
   }
 
   .hero__copy {
@@ -1532,7 +1712,7 @@ html.motion:not(.is-booted) .badge {
   }
 
   .statement {
-    padding-block: 88px;
+    padding-block: 48px 64px;
   }
 
   .section-head {
@@ -1563,6 +1743,166 @@ html.motion:not(.is-booted) .badge {
 
 .statement__text .word {
   transition: none;
+}
+
+/* The products the statement names, each in its own colour: GlassWire amber, NetMod violet,
+ * OpenWire the tunnel's (src/data/site.ts). */
+.product-name {
+  white-space: nowrap;
+}
+
+/* The same claim, row by row: GlassWire, NetMod and OpenWire, with OpenWire's column lit. */
+.compare {
+  margin-top: clamp(56px, 9vh, 104px);
+}
+
+.compare__table {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-surface);
+  border-spacing: 0;
+  background: var(--raise);
+  font-size: var(--t-body);
+  table-layout: fixed;
+}
+
+.compare__table th,
+.compare__table td {
+  padding: 20px 24px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--line);
+}
+
+.compare__table thead th {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.compare__table tbody th {
+  width: 34%;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.compare__table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.compare__table .is-ours {
+  background: color-mix(in oklab, var(--state) 9%, transparent);
+}
+
+.compare__table thead .is-ours {
+  border-radius: 22px 22px 0 0;
+}
+
+.compare__table tbody tr:last-child .is-ours {
+  border-radius: 0 0 22px 22px;
+}
+
+.compare__table svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+.compare__yes {
+  color: var(--ink);
+}
+
+.is-ours .compare__yes {
+  color: var(--state);
+}
+
+.compare__no {
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+.compare__note {
+  max-width: 72ch;
+  margin-top: 18px;
+  padding-inline: 16px;
+  font-size: var(--t-xs);
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* A phone has no room for a label column: each row puts its label above the three answers, centred
+ * under their product, and OpenWire's column is one band from the header down. */
+@media (max-width: 600px) {
+  .compare__table,
+  .compare__table thead,
+  .compare__table tbody {
+    display: block;
+  }
+
+  .compare__table {
+    position: relative;
+    isolation: isolate;
+    padding: 6px;
+    font-size: var(--t-s);
+  }
+
+  .compare__table::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    top: 6px;
+    right: 6px;
+    bottom: 6px;
+    width: calc((100% - 12px) / 3);
+    border-radius: 20px;
+    background: color-mix(in oklab, var(--state) 9%, transparent);
+  }
+
+  .compare__table .is-ours,
+  .compare__table thead .is-ours,
+  .compare__table tbody tr:last-child .is-ours {
+    background: none;
+    border-radius: 0;
+  }
+
+  .compare__table tr {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .compare__table tbody tr {
+    border-top: 1px solid var(--line);
+  }
+
+  .compare__table th,
+  .compare__table td {
+    padding: 8px 6px 14px;
+    border-bottom: 0;
+    text-align: center;
+    line-height: 1.35;
+  }
+
+  .compare__table thead th {
+    padding-block: 14px;
+  }
+
+  .compare__corner {
+    display: none;
+  }
+
+  .compare__table tbody th {
+    grid-column: 1 / -1;
+    width: auto;
+    padding: 14px 12px 4px;
+    text-align: left;
+    font-size: var(--t-xs);
+  }
+
+  .compare__table svg {
+    width: 20px;
+    height: 20px;
+    margin-inline: auto;
+  }
 }
 
 /* Features: chapters on the left, one sticky window on the right. */
@@ -1732,7 +2072,7 @@ html.motion:not(.is-booted) .badge {
 }
 
 /* Too narrow for five labels: the icons carry the bar, the labels stay for screen readers. */
-@container (max-width: 560px) {
+@container (max-width: 540px) {
   .tabs__item {
     padding-inline: 14px;
   }
@@ -1784,19 +2124,9 @@ html.motion:not(.is-booted) .badge {
   }
 }
 
-/* On a phone the whole window would shrink its text to 5px: show the part that matters, at
- * twice the size. Each chapter points `--focus` at its detail (src/data/site.ts). */
 @media (max-width: 600px) {
   .chapter {
     padding-block: 40px;
-  }
-
-  .chapter__shot .window__screen {
-    aspect-ratio: 4 / 5;
-  }
-
-  .chapter__shot .window__screen img {
-    object-position: var(--focus, 50% 50%);
   }
 }
 

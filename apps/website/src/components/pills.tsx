@@ -1,4 +1,4 @@
-import { ArrowUpRight01Icon, Download04Icon, GithubIcon, WindowsNewIcon } from '@hugeicons/core-free-icons';
+import { ArrowUpRight01Icon, Download04Icon, GithubIcon } from '@hugeicons/core-free-icons';
 import type { IconSvgElement } from '@hugeicons/react';
 
 import { hero, site } from '@/data/site';
@@ -18,6 +18,15 @@ export function Roll({ text }: { text: string }) {
   );
 }
 
+/** The Windows logo, four panes, filled as Microsoft draws it and a little inside the icon box. */
+export function WindowsLogo() {
+  return (
+    <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor" aria-hidden="true">
+      <path d="M3 3h8.5v8.5H3zM12.5 3H21v8.5h-8.5zM3 12.5h8.5V21H3zM12.5 12.5H21V21h-8.5z" />
+    </svg>
+  );
+}
+
 /** The direct download of the newest installer, straight from the GitHub release. */
 export function DownloadButton({
   release,
@@ -34,16 +43,11 @@ export function DownloadButton({
   return (
     <a className={`pill pill--primary${sizeClass(size)}`} href={asset?.url ?? release.url}>
       <span className="swap" aria-hidden="true">
-        <Icon icon={WindowsNewIcon} />
+        <WindowsLogo />
         <Icon icon={Download04Icon} />
       </span>
       <Roll text={label} />
-      {meta && asset && (
-        <span className="pill__meta">
-          <span>{release.version}</span>
-          <span>{asset.sizeLabel}</span>
-        </span>
-      )}
+      {meta && asset && <span className="pill__meta">{asset.sizeLabel}</span>}
     </a>
   );
 }

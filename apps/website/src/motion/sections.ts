@@ -31,7 +31,7 @@ export function statementWords() {
 
 /**
  * One window and its tab bar (components/screen-stage.tsx): `show(i)` wipes tab i's screen in
- * from the side it lies on, and the marker slides under its tab.
+ * from the side it lies on, the marker slides under its tab, and the stage takes the tab's tone.
  */
 function screenSwitcher(root: HTMLElement) {
   const shots = gsap.utils.toArray<HTMLElement>('[data-shot]', root);
@@ -59,6 +59,7 @@ function screenSwitcher(root: HTMLElement) {
     const next = shots[i];
     const dir = i > active ? 1 : -1;
     tabs.forEach((tab, k) => (k === i ? tab.setAttribute('aria-current', 'true') : tab.removeAttribute('aria-current')));
+    root.style.setProperty('--tone', tabs[i].style.getPropertyValue('--tone'));
     shots.forEach((shot) => {
       if (shot !== prev && shot !== next) gsap.set(shot, { opacity: 0, zIndex: 0 });
     });
