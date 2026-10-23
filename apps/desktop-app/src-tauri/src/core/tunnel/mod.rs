@@ -3,6 +3,7 @@
 
 pub mod inbound;
 pub mod tls;
+pub mod transport;
 pub mod trojan;
 pub mod vless;
 
@@ -59,7 +60,8 @@ struct Session {
     /// Set when health checks fail. With the kill switch on, this makes the
     /// proxy refuse connections rather than let traffic find another way out.
     degraded: AtomicBool,
-    tls: Option<Arc<rustls::ClientConfig>>,
+    /// How to reach the server; `None` for the direct route.
+    dialer: Option<transport::Dialer>,
 }
 
 pub struct Tunnel {
@@ -81,12 +83,12 @@ impl Tunnel {
             return Err(AppError::MissingCredentials(node.name.clone()));
         }
 
-        // Build the TLS config once per session, not once per connection.
-        let tls = node
-            .outbound
-            .tls()
-            .map(|settings| tls::build(settings, &node.host))
-            .transpose()?;
+        // Built once per session, not once per connection: the TLS config,
+        // and the HTTP/2 connection the transports that use one share.
+        let dialer = match node.outbound {
+            Outbound::Direct => None,
+            Outbound::Vless(_) | Outbound::Trojan(_) => Some(transport::Dialer::new(&node)?),
+        };
 
         // Loopback only. Binding 0.0.0.0 would turn this into an open proxy for
         // anyone on the same network.
@@ -107,7 +109,7 @@ impl Tunnel {
             metrics,
             usage,
             degraded: AtomicBool::new(false),
-            tls,
+            dialer,
         });
 
         let (shutdown, mut rx) = watch::channel(false);
@@ -294,22 +296,17 @@ async fn dial(
         return Ok((Box::new(stream), remote));
     }
 
-    let tls = session
-        .tls
-        .clone()
-        .ok_or_else(|| AppError::Internal("tls config missing".into()))?;
-    let node = &session.node;
+    let dialer = session
+        .dialer
+        .as_ref()
+        .ok_or_else(|| AppError::Internal("dialer missing".into()))?;
 
-    let stream = match &node.outbound {
-        Outbound::Vless(cfg) => {
-            vless::dial(&node.host, node.port, cfg, tls, &request.host, request.port).await?
-        }
-        Outbound::Trojan(cfg) => {
-            trojan::dial(&node.host, node.port, cfg, tls, &request.host, request.port).await?
-        }
-        Outbound::Direct => return Err(AppError::Internal("outbound/tls mismatch".into())),
+    let stream = match &session.node.outbound {
+        Outbound::Vless(cfg) => vless::dial(dialer, cfg, &request.host, request.port).await?,
+        Outbound::Trojan(cfg) => trojan::dial(dialer, cfg, &request.host, request.port).await?,
+        Outbound::Direct => return Err(AppError::Internal("outbound/dialer mismatch".into())),
     };
-    Ok((Box::new(stream), None))
+    Ok((stream, None))
 }
 
 async fn relay(
@@ -397,6 +394,10 @@ where
             break;
         }
         writer.write_all(&buf[..read]).await.map_err(io)?;
+        // A TLS or framing layer may hold on to what it was given while the
+        // socket is busy. Nothing else would push it out if this read was
+        // the last for a while - the end of a request, waiting on its reply.
+        writer.flush().await.map_err(io)?;
         match direction {
             Direction::Up => recorder.add_up(read as u64),
             Direction::Down => recorder.add_down(read as u64),

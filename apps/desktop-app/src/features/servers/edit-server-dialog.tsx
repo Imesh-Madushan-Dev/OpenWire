@@ -30,7 +30,8 @@ interface EditServerDialogProps {
 export function EditServerDialog({ server, open, onOpenChange }: EditServerDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="grid-cols-[minmax(0,1fr)] gap-5">
+      {/* Scrolls rather than running past a short window. */}
+      <DialogContent className="max-h-[calc(100dvh-2rem)] grid-cols-[minmax(0,1fr)] gap-5 overflow-y-auto">
         {/* Keyed so reopening for another server starts from its values. */}
         <EditForm key={server.id} server={server} onDone={() => onOpenChange(false)} />
       </DialogContent>
@@ -76,8 +77,8 @@ function EditForm({ server, onDone }: { server: ServerSummary; onDone: () => voi
       <DialogHeader>
         <DialogTitle>Edit server</DialogTitle>
         <DialogDescription>
-          To change its {server.protocol === 'trojan-tls' ? 'password' : 'access key'}, add the
-          server&apos;s new link instead.
+          To change its {server.protocol === 'trojan' ? 'password' : 'access key'} or transport,
+          add the server&apos;s new link instead.
         </DialogDescription>
       </DialogHeader>
 
@@ -108,36 +109,46 @@ function EditForm({ server, onDone }: { server: ServerSummary; onDone: () => voi
           </FormField>
         </div>
 
-        <FormField
-          label="Masking domain (SNI)"
-          hint="The name your connection appears to be for. It should be a site your network allows."
-        >
-          <Input
-            value={sni}
-            disabled={locked}
-            spellCheck={false}
-            className="font-mono text-xs"
-            onChange={(e) => setSni(e.target.value)}
-          />
-        </FormField>
+        {/* Without TLS there is no handshake to mask and no certificate. */}
+        {server.tls ? (
+          <>
+            <FormField
+              label="Masking domain (SNI)"
+              hint="The name your connection appears to be for. It should be a site your network allows."
+            >
+              <Input
+                value={sni}
+                disabled={locked}
+                spellCheck={false}
+                className="font-mono text-xs"
+                onChange={(e) => setSni(e.target.value)}
+              />
+            </FormField>
 
-        <ToggleField
-          label="Skip certificate check"
-          description={
-            allowInsecure
-              ? "On: the server isn't verified, so someone on your network could impersonate it."
-              : 'Only for servers you control that use a self-signed certificate.'
-          }
-          tone={allowInsecure ? 'warning' : 'default'}
-          control={
-            <Switch
-              aria-label="Skip certificate check"
-              checked={allowInsecure}
-              disabled={locked}
-              onCheckedChange={setAllowInsecure}
+            <ToggleField
+              label="Skip certificate check"
+              description={
+                allowInsecure
+                  ? "On: the server isn't verified, so someone on your network could impersonate it."
+                  : 'Only for servers you control that use a self-signed certificate.'
+              }
+              tone={allowInsecure ? 'warning' : 'default'}
+              control={
+                <Switch
+                  aria-label="Skip certificate check"
+                  checked={allowInsecure}
+                  disabled={locked}
+                  onCheckedChange={setAllowInsecure}
+                />
+              }
             />
-          }
-        />
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            This server doesn&apos;t use TLS, so there&apos;s no masking domain or certificate to
+            set.
+          </p>
+        )}
 
         {locked && (
           <p className="text-xs text-warning">

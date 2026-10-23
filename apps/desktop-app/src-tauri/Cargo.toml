@@ -44,6 +44,13 @@ tokio-rustls = { version = "0.26", default-features = false, features = [
 ] }
 rustls-pki-types = "1"
 webpki-roots = "1"
+# HTTP/2 for the gRPC, h2 and XHTTP transports.
+h2 = "0.4"
+# h2's request and buffer types. Already in the tree via tauri.
+http = "1"
+bytes = "1"
+# WebSocket keys and masks. Already in the tree via rustls.
+ring = "0.17"
 uuid = { version = "1", features = ["serde", "v4"] }
 # Already in the tree via tauri's icon handling; direct deps cost no download.
 png = "0.18"

@@ -50,6 +50,7 @@ const server = (
   host: string,
   protocol: ServerSummary['protocol'],
   latencyMs: number,
+  transport: ServerSummary['transport'] = 'tcp',
 ): ServerSummary => ({
   id,
   name,
@@ -62,6 +63,8 @@ const server = (
   load: 0,
   tags: [],
   protocol,
+  transport,
+  tls: true,
   sni: 'cdn.example.com',
   allowInsecure: false,
   configured: true,
@@ -69,12 +72,12 @@ const server = (
 })
 
 export const servers: ServerSummary[] = [
-  server('singapore', 'Singapore', 'Singapore', 'SG', '198.51.100.17', 'vless-tls', 41),
-  server('tokyo', 'Tokyo', 'Japan', 'JP', '203.0.113.24', 'vless-tls', 68),
-  server('frankfurt', 'Frankfurt', 'Germany', 'DE', '203.0.113.88', 'trojan-tls', 172),
-  server('amsterdam', 'Amsterdam', 'Netherlands', 'NL', '198.51.100.62', 'vless-tls', 179),
-  server('london', 'London', 'United Kingdom', 'GB', '198.51.100.9', 'trojan-tls', 188),
-  server('new-york', 'New York', 'United States', 'US', '203.0.113.140', 'vless-tls', 236),
+  server('singapore', 'Singapore', 'Singapore', 'SG', '198.51.100.17', 'vless', 41),
+  server('tokyo', 'Tokyo', 'Japan', 'JP', '203.0.113.24', 'vless', 68, 'ws'),
+  server('frankfurt', 'Frankfurt', 'Germany', 'DE', '203.0.113.88', 'trojan', 172),
+  server('amsterdam', 'Amsterdam', 'Netherlands', 'NL', '198.51.100.62', 'vless', 179, 'xhttp'),
+  server('london', 'London', 'United Kingdom', 'GB', '198.51.100.9', 'trojan', 188, 'grpc'),
+  server('new-york', 'New York', 'United States', 'US', '203.0.113.140', 'vless', 236),
 ]
 
 export const connected = (): ConnectionState => ({

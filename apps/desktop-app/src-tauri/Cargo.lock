@@ -69,9 +69,13 @@ name = "app"
 version = "0.3.0"
 dependencies = [
  "base64 0.22.1",
+ "bytes",
+ "h2",
+ "http",
  "log",
  "maxminddb",
  "png 0.18.1",
+ "ring",
  "rustls",
  "rustls-pki-types",
  "semver",
@@ -1531,6 +1535,25 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "h2"
+version = "0.4.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d29020232d6aa3fb1daca64c1127cf662cf97f254ae16c18c05b8ab635fc118"
+dependencies = [
+ "atomic-waker",
+ "bytes",
+ "fnv",
+ "futures-core",
+ "futures-sink",
+ "http",
+ "indexmap 2.14.2",
+ "slab",
+ "tokio",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]
@@ -4061,6 +4084,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
+ "libc",
  "pin-project-lite",
  "tokio",
 ]

@@ -1,4 +1,5 @@
-//! Trojan outbound, carried inside the masked TLS session from [`super::tls`].
+//! Trojan outbound, carried by whichever transport the server's link names -
+//! see [`super::transport`].
 //!
 //! Trojan proves the client knows the server's password by sending its
 //! SHA-224 digest as hex, then names the destination SOCKS5-style. Nothing
@@ -7,40 +8,29 @@
 //!
 //! <https://trojan-gfw.github.io/trojan/protocol>
 
-use std::sync::Arc;
-
-use rustls::ClientConfig;
 use sha2::{Digest, Sha224};
-use tokio::io::AsyncWriteExt;
-use tokio::net::TcpStream;
 
-use super::tls;
+use super::transport::Dialer;
+use super::IoStream;
 use crate::core::models::TrojanConfig;
 use crate::error::{AppError, AppResult};
 
-/// Opens the masked tunnel and writes the Trojan request head for `target`.
+/// Opens the tunnel with the Trojan request head for `target` as its first bytes.
 pub async fn dial(
-    node_host: &str,
-    node_port: u16,
+    dialer: &Dialer,
     config: &TrojanConfig,
-    tls: Arc<ClientConfig>,
     target_host: &str,
     target_port: u16,
-) -> AppResult<tokio_rustls::client::TlsStream<TcpStream>> {
+) -> AppResult<Box<dyn IoStream>> {
     if config.password.is_empty() {
         return Err(AppError::Invalid(
             "This server has no password. Add it again from its share link.".into(),
         ));
     }
 
-    let mut stream = tls::connect(node_host, node_port, &config.sni, tls).await?;
-
-    stream
-        .write_all(&request_head(&config.password, target_host, target_port))
+    dialer
+        .open(request_head(&config.password, target_host, target_port))
         .await
-        .map_err(|e| AppError::Protocol(format!("write trojan head: {e}")))?;
-
-    Ok(stream)
 }
 
 /// `hex(SHA224(password)) CRLF [cmd=1 connect][atyp][addr][port:u16be] CRLF`

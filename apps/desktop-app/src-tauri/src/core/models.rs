@@ -23,10 +23,10 @@ pub enum Outbound {
     /// NOT masked - used to verify the inbound proxy and system routing work.
     Direct,
 
-    /// VLESS over TLS with a camouflaged SNI.
+    /// VLESS, usually over TLS with a camouflaged SNI.
     Vless(VlessConfig),
 
-    /// Trojan over TLS, masked the same way.
+    /// Trojan, masked the same way.
     Trojan(TrojanConfig),
 }
 
@@ -35,25 +35,185 @@ impl Outbound {
     pub fn protocol(&self) -> &'static str {
         match self {
             Self::Direct => "direct",
-            Self::Vless(_) => "vless-tls",
-            Self::Trojan(_) => "trojan-tls",
+            Self::Vless(_) => "vless",
+            Self::Trojan(_) => "trojan",
         }
     }
 
-    /// The TLS settings, for every outbound that speaks TLS.
+    /// The TLS settings, for every outbound that speaks TLS. `None` for the
+    /// direct route and for servers reached without TLS.
     pub fn tls(&self) -> Option<TlsSettings<'_>> {
+        let (security, settings) = match self {
+            Self::Direct => return None,
+            Self::Vless(config) => (
+                config.security,
+                TlsSettings {
+                    sni: &config.sni,
+                    alpn: &config.alpn,
+                    allow_insecure: config.allow_insecure,
+                },
+            ),
+            Self::Trojan(config) => (
+                config.security,
+                TlsSettings {
+                    sni: &config.sni,
+                    alpn: &config.alpn,
+                    allow_insecure: config.allow_insecure,
+                },
+            ),
+        };
+        (security == Security::Tls).then_some(settings)
+    }
+
+    /// How the protocol's bytes are framed on the way to the server.
+    pub fn transport(&self) -> Option<&Transport> {
         match self {
             Self::Direct => None,
-            Self::Vless(config) => Some(TlsSettings {
-                sni: &config.sni,
-                alpn: &config.alpn,
-                allow_insecure: config.allow_insecure,
-            }),
-            Self::Trojan(config) => Some(TlsSettings {
-                sni: &config.sni,
-                alpn: &config.alpn,
-                allow_insecure: config.allow_insecure,
-            }),
+            Self::Vless(config) => Some(&config.transport),
+            Self::Trojan(config) => Some(&config.transport),
+        }
+    }
+}
+
+/// Whether the connection to the server is wrapped in TLS.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Security {
+    #[default]
+    Tls,
+    /// `security=none`: no TLS at all, usually a port-80 server behind a CDN.
+    /// Nothing but the transport's framing stands between the tunnel and an
+    /// observer, so there is no SNI to mask with either.
+    None,
+}
+
+/// How a protocol's bytes travel once the connection to the server is open:
+/// straight down it, or framed inside HTTP so the server can sit behind a CDN
+/// or a web server. Named after a share link's `type=`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum Transport {
+    /// The protocol written straight to the connection.
+    #[default]
+    Tcp,
+
+    /// Raw TCP behind one fake HTTP/1.1 request and response head
+    /// (`type=tcp&headerType=http`). Both fields are comma-separated lists;
+    /// each connection picks one of each.
+    #[serde(rename = "tcp-http")]
+    TcpHttp {
+        #[serde(default)]
+        host: String,
+        #[serde(default)]
+        path: String,
+    },
+
+    /// WebSocket. Up to `early_data` bytes of the protocol head ride in the
+    /// upgrade request itself, saving the server a round trip.
+    #[serde(rename_all = "camelCase")]
+    Ws {
+        #[serde(default)]
+        path: String,
+        #[serde(default)]
+        host: String,
+        #[serde(default)]
+        early_data: usize,
+    },
+
+    /// An HTTP/1.1 upgrade request, then the raw stream with no framing.
+    HttpUpgrade {
+        #[serde(default)]
+        path: String,
+        #[serde(default)]
+        host: String,
+    },
+
+    /// gRPC "gun": one bidirectional stream, each chunk a protobuf message.
+    #[serde(rename_all = "camelCase")]
+    Grpc {
+        #[serde(default)]
+        service_name: String,
+        #[serde(default)]
+        authority: String,
+        /// `TunMulti` instead of `Tun`, as `mode=multi` asks.
+        #[serde(default)]
+        multi: bool,
+    },
+
+    /// One HTTP/2 request whose bodies carry the stream (`type=http`).
+    /// `host` is a comma-separated list, one picked per connection.
+    H2 {
+        #[serde(default)]
+        path: String,
+        #[serde(default)]
+        host: String,
+    },
+
+    /// XHTTP (once SplitHTTP): the stream split over ordinary HTTP requests.
+    Xhttp {
+        #[serde(default)]
+        path: String,
+        #[serde(default)]
+        host: String,
+        #[serde(default)]
+        mode: XhttpMode,
+        /// The link's `extra` JSON, kept verbatim so a shared link carries
+        /// it on; read when the session starts.
+        #[serde(default)]
+        extra: String,
+    },
+}
+
+impl Transport {
+    /// The share-link name, which the UI also keys its labels on.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Tcp => "tcp",
+            Self::TcpHttp { .. } => "tcp-http",
+            Self::Ws { .. } => "ws",
+            Self::HttpUpgrade { .. } => "httpupgrade",
+            Self::Grpc { .. } => "grpc",
+            Self::H2 { .. } => "h2",
+            Self::Xhttp { .. } => "xhttp",
+        }
+    }
+
+    /// For the logs.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Tcp => "TCP",
+            Self::TcpHttp { .. } => "TCP with an HTTP header",
+            Self::Ws { .. } => "WebSocket",
+            Self::HttpUpgrade { .. } => "HTTPUpgrade",
+            Self::Grpc { .. } => "gRPC",
+            Self::H2 { .. } => "HTTP/2",
+            Self::Xhttp { .. } => "XHTTP",
+        }
+    }
+}
+
+/// How XHTTP splits the stream into requests.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum XhttpMode {
+    /// Whatever the client prefers - which is packet-up, as Xray's own is.
+    #[default]
+    Auto,
+    /// A streaming download, and the upload as a series of POSTs.
+    PacketUp,
+    /// A streaming download and one streaming upload.
+    StreamUp,
+    /// Both directions in a single request.
+    StreamOne,
+}
+
+impl XhttpMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::PacketUp => "packet-up",
+            Self::StreamUp => "stream-up",
+            Self::StreamOne => "stream-one",
         }
     }
 }
@@ -84,6 +244,12 @@ pub struct VlessConfig {
     /// masked endpoint must actually present a certificate valid for `sni`.
     #[serde(default)]
     pub allow_insecure: bool,
+    /// Defaulted, like `transport`, so servers saved before either existed
+    /// load as what they were: TLS over raw TCP.
+    #[serde(default)]
+    pub security: Security,
+    #[serde(default)]
+    pub transport: Transport,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -98,6 +264,10 @@ pub struct TrojanConfig {
     pub alpn: Vec<String>,
     #[serde(default)]
     pub allow_insecure: bool,
+    #[serde(default)]
+    pub security: Security,
+    #[serde(default)]
+    pub transport: Transport,
 }
 
 pub fn default_alpn() -> Vec<String> {
@@ -177,7 +347,12 @@ pub struct ServerSummary {
     pub load: u8,
     pub tags: Vec<String>,
     pub protocol: &'static str,
-    /// The masking domain presented in the TLS handshake; empty for direct.
+    /// [`Transport::kind`]; `None` for direct.
+    pub transport: Option<&'static str>,
+    /// Whether the connection is wrapped in TLS.
+    pub tls: bool,
+    /// The masking domain presented in the TLS handshake; empty for direct
+    /// and for servers without TLS.
     /// Not a secret - it is visible on the wire to anyone watching.
     pub sni: String,
     pub allow_insecure: bool,
@@ -200,6 +375,8 @@ impl ServerSummary {
             load: node.load,
             tags: node.tags.clone(),
             protocol: node.outbound.protocol(),
+            transport: node.outbound.transport().map(Transport::kind),
+            tls: node.outbound.tls().is_some(),
             sni: node
                 .outbound
                 .tls()

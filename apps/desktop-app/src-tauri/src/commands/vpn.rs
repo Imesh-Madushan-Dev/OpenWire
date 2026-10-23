@@ -9,7 +9,9 @@ use tokio::time::timeout;
 
 use crate::core::connlog::{self, Level, LogEntry};
 use crate::core::lan::Lan;
-use crate::core::models::{ConnectionState, Outbound, Phase, ServerNode, StatsSnapshot};
+use crate::core::models::{
+    ConnectionState, Outbound, Phase, ServerNode, StatsSnapshot, Transport,
+};
 use crate::core::probe;
 use crate::core::sysproxy::{self, ProxyGuard};
 use crate::core::tunnel::{Tunnel, TunnelConfig, TunnelEvent};
@@ -132,6 +134,12 @@ async fn bring_up(
             state.log(
                 Level::Warning,
                 "Certificate checking is off for this server, so its identity is not verified",
+            );
+        }
+        if lacks_tls(&node) {
+            state.log(
+                Level::Warning,
+                "This server doesn't use TLS, so the tunnel itself is not encrypted",
             );
         }
     }
@@ -275,6 +283,9 @@ async fn bring_up(
             match node.outbound {
                 // Be explicit that the diagnostic node does not mask anything.
                 Outbound::Direct => Some("Diagnostic route - traffic is not masked.".to_string()),
+                Outbound::Vless(_) | Outbound::Trojan(_) if lacks_tls(&node) => {
+                    Some("No TLS on this server - the tunnel is not encrypted.".to_string())
+                }
                 Outbound::Vless(_) | Outbound::Trojan(_) => None,
             }
         };
@@ -361,13 +372,26 @@ fn resolve_node(state: &AppState, requested: Option<String>) -> AppResult<Server
     })
 }
 
-/// The profile line of a session, e.g. "Server: Tokyo - VLESS over TLS to
-/// edge.example.net:443, SNI cdn.example.com". Never the credentials.
+/// A tunneling server reached without TLS.
+fn lacks_tls(node: &ServerNode) -> bool {
+    !matches!(node.outbound, Outbound::Direct) && node.outbound.tls().is_none()
+}
+
+/// The profile line of a session, e.g. "Server: Tokyo - VLESS over WebSocket
+/// + TLS to edge.example.net:443, SNI cdn.example.com". Never the credentials.
 fn describe_server(node: &ServerNode) -> String {
     let protocol = match node.outbound {
         Outbound::Direct => return format!("Server: {} - direct, no tunnel", node.name),
         Outbound::Vless(_) => "VLESS",
         Outbound::Trojan(_) => "Trojan",
+    };
+    let stack = match (node.outbound.transport(), node.outbound.tls().is_some()) {
+        (Some(Transport::Tcp) | None, true) => "TLS".to_string(),
+        (Some(transport), true) => format!("{} + TLS", transport.label()),
+        (transport, false) => format!(
+            "{} without TLS",
+            transport.map_or("TCP", Transport::label)
+        ),
     };
     let sni = node
         .outbound
@@ -375,7 +399,7 @@ fn describe_server(node: &ServerNode) -> String {
         .map(|tls| format!(", SNI {}", tls.sni))
         .unwrap_or_default();
     format!(
-        "Server: {} - {protocol} over TLS to {}:{}{sni}",
+        "Server: {} - {protocol} over {stack} to {}:{}{sni}",
         node.name, node.host, node.port
     )
 }

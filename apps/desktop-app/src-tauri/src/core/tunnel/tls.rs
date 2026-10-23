@@ -7,7 +7,8 @@
 //! On the wire, a DPI middlebox sees a TLS session to the whitelisted name and
 //! nothing else - the real destination, and which protocol carries it, live
 //! inside the encrypted payload. VLESS and Trojan differ only in what they
-//! write once this handshake is done.
+//! write once this handshake is done, and the transports in
+//! [`super::transport`] only in how they frame it.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -76,6 +77,18 @@ pub fn build(config: TlsSettings<'_>, endpoint_host: &str) -> AppResult<Arc<Clie
     Ok(Arc::new(tls))
 }
 
+/// Dials the endpoint: the TCP connection alone, which is all a server
+/// without TLS gets.
+pub async fn dial(node_host: &str, node_port: u16) -> AppResult<TcpStream> {
+    let tcp = timeout(DIAL_TIMEOUT, TcpStream::connect((node_host, node_port)))
+        .await
+        .map_err(|_| AppError::Dial(format!("{node_host}:{node_port} timed out")))?
+        .map_err(|e| AppError::Dial(format!("{node_host}:{node_port}: {e}")))?;
+    // Interactive traffic: latency matters far more than packet efficiency.
+    let _ = tcp.set_nodelay(true);
+    Ok(tcp)
+}
+
 /// Dials the endpoint and completes the masked handshake.
 pub async fn connect(
     node_host: &str,
@@ -88,12 +101,7 @@ pub async fn connect(
         AppError::Invalid("The masking domain for this server is not valid.".into())
     })?;
 
-    let tcp = timeout(DIAL_TIMEOUT, TcpStream::connect((node_host, node_port)))
-        .await
-        .map_err(|_| AppError::Dial(format!("{node_host}:{node_port} timed out")))?
-        .map_err(|e| AppError::Dial(format!("{node_host}:{node_port}: {e}")))?;
-    // Interactive traffic: latency matters far more than packet efficiency.
-    let _ = tcp.set_nodelay(true);
+    let tcp = dial(node_host, node_port).await?;
 
     timeout(DIAL_TIMEOUT, TlsConnector::from(tls).connect(sni, tcp))
         .await

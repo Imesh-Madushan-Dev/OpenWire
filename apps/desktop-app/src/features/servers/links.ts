@@ -8,7 +8,7 @@
 
 import jsQR from 'jsqr'
 
-import type { ServerSummary } from '@/lib/types'
+import type { ServerSummary, Transport } from '@/lib/types'
 
 export type LinkProtocol = 'vless' | 'trojan'
 
@@ -17,16 +17,36 @@ export const PROTOCOLS: readonly { value: LinkProtocol; label: string; secret: s
   { value: 'trojan', label: 'Trojan', secret: 'Password' },
 ]
 
-/** Chips for a server's transport stack, e.g. VLESS · TCP · TLS. */
+/** The fake HTTP header is left to share links: nobody types one in. */
+export type ManualTransport = Exclude<Transport, 'tcp-http'>
+
+export const TRANSPORTS: readonly { value: ManualTransport; label: string }[] = [
+  { value: 'tcp', label: 'TCP' },
+  { value: 'ws', label: 'WebSocket' },
+  { value: 'grpc', label: 'gRPC' },
+  { value: 'xhttp', label: 'XHTTP' },
+  { value: 'httpupgrade', label: 'HTTPUpgrade' },
+  { value: 'h2', label: 'HTTP/2' },
+]
+
+const TRANSPORT_CHIPS: Record<Transport, string> = {
+  tcp: 'TCP',
+  'tcp-http': 'TCP+HTTP',
+  ws: 'WS',
+  httpupgrade: 'HTTPUpgrade',
+  grpc: 'gRPC',
+  h2: 'H2',
+  xhttp: 'XHTTP',
+}
+
+/** Chips for a server's transport stack, e.g. VLESS · WS · TLS. */
 export function protocolChips(server: ServerSummary): string[] {
-  switch (server.protocol) {
-    case 'vless-tls':
-      return ['VLESS', 'TCP', 'TLS']
-    case 'trojan-tls':
-      return ['Trojan', 'TCP', 'TLS']
-    case 'direct':
-      return ['Direct']
-  }
+  if (server.protocol === 'direct') return ['Direct']
+  return [
+    server.protocol === 'vless' ? 'VLESS' : 'Trojan',
+    TRANSPORT_CHIPS[server.transport ?? 'tcp'],
+    server.tls ? 'TLS' : 'No TLS',
+  ]
 }
 
 export interface ManualServer {
@@ -35,6 +55,12 @@ export interface ManualServer {
   host: string
   port: string
   secret: string
+  transport: ManualTransport
+  /** The path, or for gRPC the service name. */
+  path: string
+  /** The HTTP `Host` the transport sends, when it differs from the SNI. */
+  hostHeader: string
+  tls: boolean
   sni: string
   allowInsecure: boolean
 }
@@ -45,14 +71,29 @@ export function buildLink(server: ManualServer): string {
   const bracketed = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host
   const params = new URLSearchParams()
   if (server.protocol === 'vless') params.set('encryption', 'none')
-  params.set('security', 'tls')
-  params.set('type', 'tcp')
-  if (server.sni.trim()) params.set('sni', server.sni.trim())
-  if (server.allowInsecure) params.set('allowInsecure', '1')
+  params.set('security', server.tls ? 'tls' : 'none')
+  params.set('type', server.transport === 'h2' ? 'http' : server.transport)
+
+  const path = server.path.trim()
+  if (server.transport !== 'tcp') {
+    if (server.transport === 'grpc') {
+      if (path) params.set('serviceName', path)
+    } else if (path) {
+      params.set('path', path.startsWith('/') ? path : `/${path}`)
+    }
+    if (server.hostHeader.trim()) params.set('host', server.hostHeader.trim())
+  }
+  if (server.tls) {
+    if (server.sni.trim()) params.set('sni', server.sni.trim())
+    if (server.allowInsecure) params.set('allowInsecure', '1')
+  }
 
   const secret = encodeURIComponent(server.secret.trim())
   const label = encodeURIComponent(server.name.trim() || host)
-  return `${server.protocol}://${secret}@${bracketed}:${server.port.trim()}?${params}#${label}`
+  // Form encoding writes spaces as `+`, which share links read literally; a
+  // real `+` is already `%2B`, so every `+` left is a space.
+  const query = params.toString().replace(/\+/g, '%20')
+  return `${server.protocol}://${secret}@${bracketed}:${server.port.trim()}?${query}#${label}`
 }
 
 /** A dropped or picked file's text: a list of links, or a subscription body. */

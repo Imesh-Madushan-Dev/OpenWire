@@ -2,8 +2,9 @@
  * The server list beside the connect control, as a flat GlassWire column.
  *
  * Every way of adding a server lands in the same backend importer: the Add
- * dialog, the Import menu (clipboard, link file, QR image), a file or image
- * dropped on the panel, and Ctrl+V anywhere on the page.
+ * menu (clipboard, link file, QR image, or the dialog to paste links or type
+ * details in), a file or image dropped on the panel, and Ctrl+V anywhere on
+ * the page.
  */
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type DragEvent } from 'react'
@@ -12,6 +13,7 @@ import {
   ClipboardIcon,
   FileImportIcon,
   ImageUpload01Icon,
+  PencilEdit02Icon,
   PlusSignIcon,
   QrCodeIcon,
   RefreshIcon,
@@ -34,6 +36,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -210,10 +213,9 @@ export function ServerPanel() {
         </Tooltip>
 
         <DropdownMenu>
-          <DropdownMenuTrigger
-            render={<Button variant="ghost" size="icon-xs" aria-label="Import servers" />}
-          >
-            <HugeiconsIcon icon={FileImportIcon} strokeWidth={2} />
+          <DropdownMenuTrigger render={<Button size="xs" className="ml-0.5" />}>
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2.2} />
+            Add
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuItem onClick={() => void importLinks()}>
@@ -229,13 +231,13 @@ export function ServerPanel() {
               <HugeiconsIcon icon={QrCodeIcon} strokeWidth={2} />
               From QR code image…
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setAdding(true)}>
+              <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} />
+              Paste or enter details…
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        <Button size="xs" className="ml-0.5" onClick={() => setAdding(true)}>
-          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2.2} />
-          Add
-        </Button>
       </header>
 
       {total >= SEARCH_FROM && (

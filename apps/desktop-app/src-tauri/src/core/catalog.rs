@@ -7,7 +7,10 @@
 
 use rustls::pki_types::ServerName;
 
-use crate::core::models::{Outbound, ServerEdit, ServerNode, TrojanConfig, VlessConfig};
+use crate::core::models::{
+    Outbound, Security, ServerEdit, ServerNode, Transport, TrojanConfig, VlessConfig, XhttpMode,
+};
+use crate::core::tunnel::transport;
 use crate::error::{AppError, AppResult};
 
 /// The local route monitor mode and the diagnostic option run through.
@@ -149,6 +152,8 @@ struct LinkParts {
     sni: String,
     alpn: Vec<String>,
     allow_insecure: bool,
+    security: Security,
+    transport: Transport,
 }
 
 fn invalid(msg: &str) -> AppError {
@@ -196,60 +201,62 @@ fn parse_parts(uri: &str, scheme: &str, secret_name: &str) -> AppResult<LinkPart
         .parse()
         .map_err(|_| invalid("the port must be a number"))?;
 
-    let mut sni = String::new();
-    let mut alpn = crate::core::models::default_alpn();
-    let mut allow_insecure = false;
-    let mut security = String::new();
-    let mut transport = String::new();
-
-    for pair in query.split('&').filter(|p| !p.is_empty()) {
-        let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
-        let value = percent_decode(value);
-        match key {
-            "sni" | "peer" => sni = value,
-            // `host` is the HTTP Host header for ws/h2 transports; a fallback
-            // name only when nothing more specific was given.
-            "host" => {
-                if sni.is_empty() {
-                    sni = value;
-                }
-            }
-            "security" => security = value,
-            "type" => transport = value,
-            "alpn" => {
-                let parsed: Vec<String> = value
-                    .split(',')
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect();
-                if !parsed.is_empty() {
-                    alpn = parsed;
-                }
-            }
-            "allowInsecure" | "insecure" => allow_insecure = value == "1" || value == "true",
-            _ => {}
-        }
-    }
+    let params: Vec<(&str, String)> = query
+        .split('&')
+        .filter(|pair| !pair.is_empty())
+        .map(|pair| {
+            let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
+            (key, percent_decode(value))
+        })
+        .collect();
+    // The first value given for a key, or "" when there is none.
+    let param = |key: &str| {
+        params
+            .iter()
+            .find(|(k, _)| *k == key)
+            .map_or("", |(_, value)| value.as_str())
+    };
 
     // Reject what this client cannot actually speak, rather than importing a
     // node that would fail later with a confusing handshake error. REALITY and
     // XTLS in particular look like TLS in the link but need a different
     // handshake entirely.
-    if !security.is_empty() && security != "tls" {
-        return Err(invalid(&format!(
-            "`{security}` isn't supported yet - this client speaks plain TLS"
-        )));
+    let security = match param("security") {
+        "" | "tls" => Security::Tls,
+        "none" => Security::None,
+        other => {
+            return Err(invalid(&format!(
+                "`{other}` isn't supported yet - this client speaks plain TLS, or no TLS"
+            )))
+        }
+    };
+    // A server expecting XTLS Vision refuses a client without it, and VLESS
+    // encryption is a handshake of its own; neither is spoken here.
+    let flow = param("flow");
+    if !flow.is_empty() {
+        return Err(invalid(&format!("the `{flow}` flow isn't supported yet")));
     }
-    if !transport.is_empty() && transport != "tcp" {
-        return Err(invalid(&format!(
-            "`{transport}` transport isn't supported yet - this client speaks raw TCP"
-        )));
+    if !matches!(param("encryption"), "" | "none") {
+        return Err(invalid("encrypted VLESS isn't supported yet"));
     }
-    // Without an explicit SNI there is nothing to camouflage as; fall back to the
-    // real host so the handshake at least stays valid.
-    if sni.is_empty() {
-        sni = host.to_string();
-    }
+    let transport = parse_transport(&param)?;
+
+    // `host` is the HTTP Host header for the HTTP transports; a fallback name
+    // only when nothing more specific was given. Without any SNI there is
+    // nothing to camouflage as, so the real host keeps the handshake valid.
+    let first_host = param("host").split(',').next().unwrap_or("").trim();
+    let sni = [param("sni"), param("peer"), first_host, host]
+        .into_iter()
+        .find(|name| !name.is_empty())
+        .unwrap_or(host)
+        .to_string();
+
+    let alpn: Vec<String> = param("alpn")
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    let insecure = [param("allowInsecure"), param("insecure")];
 
     Ok(LinkParts {
         secret,
@@ -257,9 +264,115 @@ fn parse_parts(uri: &str, scheme: &str, secret_name: &str) -> AppResult<LinkPart
         port,
         label,
         sni,
-        alpn,
-        allow_insecure,
+        alpn: if alpn.is_empty() {
+            crate::core::models::default_alpn()
+        } else {
+            alpn
+        },
+        allow_insecure: insecure.iter().any(|v| *v == "1" || *v == "true"),
+        security,
+        transport,
     })
+}
+
+/// The transport a link's `type` names, with its settings.
+fn parse_transport<'a>(param: &impl Fn(&str) -> &'a str) -> AppResult<Transport> {
+    let path = param("path").to_string();
+    let host = param("host").to_string();
+
+    Ok(match param("type") {
+        // Xray has been renaming `tcp` to `raw`.
+        "" | "tcp" | "raw" => match param("headerType") {
+            "" | "none" => Transport::Tcp,
+            "http" => Transport::TcpHttp { host, path },
+            other => {
+                return Err(invalid(&format!(
+                    "the `{other}` TCP header isn't supported yet"
+                )))
+            }
+        },
+        "ws" | "websocket" => {
+            let (path, early_data) = split_early_data(&path);
+            Transport::Ws {
+                path,
+                host,
+                early_data,
+            }
+        }
+        // `ed` here only tells Xray not to wait for the upgrade's answer;
+        // this client always waits, so it has no use for it.
+        "httpupgrade" => Transport::HttpUpgrade {
+            path: split_early_data(&path).0,
+            host,
+        },
+        "grpc" | "gun" => Transport::Grpc {
+            service_name: param("serviceName").to_string(),
+            authority: param("authority").to_string(),
+            multi: param("mode") == "multi",
+        },
+        "http" | "h2" => Transport::H2 { path, host },
+        "xhttp" | "splithttp" => {
+            let mode = match param("mode") {
+                "" | "auto" => XhttpMode::Auto,
+                "packet-up" => XhttpMode::PacketUp,
+                "stream-up" => XhttpMode::StreamUp,
+                "stream-one" => XhttpMode::StreamOne,
+                other => return Err(invalid(&format!("the XHTTP mode `{other}` isn't known"))),
+            };
+            let extra = param("extra").to_string();
+            transport::check_xhttp_extra(&extra)?;
+            Transport::Xhttp {
+                path,
+                host,
+                mode,
+                extra,
+            }
+        }
+        kind @ ("kcp" | "mkcp" | "quic") => {
+            return Err(invalid(&format!(
+                "`{kind}` runs over UDP, which this client doesn't tunnel yet"
+            )))
+        }
+        other => {
+            return Err(invalid(&format!(
+                "`{other}` transport isn't supported yet"
+            )))
+        }
+    })
+}
+
+/// Splits Xray's `ed` - early-data bytes - out of a path's query, where links
+/// carry it: `/ws?ed=2048` is the path `/ws` with 2048 bytes.
+fn split_early_data(path: &str) -> (String, usize) {
+    let Some((base, query)) = path.split_once('?') else {
+        return (path.to_string(), 0);
+    };
+    let mut early_data = 0;
+    let rest: Vec<&str> = query
+        .split('&')
+        .filter(|pair| match pair.strip_prefix("ed=") {
+            Some(bytes) => {
+                early_data = bytes.parse().unwrap_or(0);
+                false
+            }
+            None => !pair.is_empty(),
+        })
+        .collect();
+    let path = if rest.is_empty() {
+        base.to_string()
+    } else {
+        format!("{base}?{}", rest.join("&"))
+    };
+    (path, early_data)
+}
+
+/// The inverse of [`split_early_data`].
+fn join_early_data(path: &str, early_data: usize) -> String {
+    match (early_data, path.contains('?')) {
+        (0, _) => path.to_string(),
+        (_, true) => format!("{path}&ed={early_data}"),
+        (_, false) => format!("{path}?ed={early_data}"),
+    }
 }
 
 fn custom_node(id_seed: &str, parts: &LinkParts, outbound: Outbound) -> ServerNode {
@@ -295,6 +408,8 @@ pub fn parse_vless_uri(uri: &str) -> AppResult<ServerNode> {
         sni: parts.sni.clone(),
         alpn: parts.alpn.clone(),
         allow_insecure: parts.allow_insecure,
+        security: parts.security,
+        transport: parts.transport.clone(),
     });
     Ok(custom_node(&seed, &parts, outbound))
 }
@@ -310,6 +425,8 @@ pub fn parse_trojan_uri(uri: &str) -> AppResult<ServerNode> {
         sni: parts.sni.clone(),
         alpn: parts.alpn.clone(),
         allow_insecure: parts.allow_insecure,
+        security: parts.security,
+        transport: parts.transport.clone(),
     });
     Ok(custom_node(&seed, &parts, outbound))
 }
@@ -322,10 +439,10 @@ pub fn parse_trojan_uri(uri: &str) -> AppResult<ServerNode> {
 /// can be pasted into this or any other client. `None` for the direct route,
 /// which has nothing to share.
 pub fn share_link(node: &ServerNode) -> Option<String> {
-    let (scheme, secret, tls) = match &node.outbound {
+    let (scheme, secret, sni, alpn, security, transport) = match &node.outbound {
         Outbound::Direct => return None,
-        Outbound::Vless(config) => ("vless", config.uuid.as_str(), node.outbound.tls()?),
-        Outbound::Trojan(config) => ("trojan", config.password.as_str(), node.outbound.tls()?),
+        Outbound::Vless(c) => ("vless", &c.uuid, &c.sni, &c.alpn, c.security, &c.transport),
+        Outbound::Trojan(c) => ("trojan", &c.password, &c.sni, &c.alpn, c.security, &c.transport),
     };
 
     let host = if node.host.contains(':') {
@@ -338,11 +455,16 @@ pub fn share_link(node: &ServerNode) -> Option<String> {
     if scheme == "vless" {
         query.push("encryption=none".to_string());
     }
-    query.push("security=tls".to_string());
-    query.push(format!("sni={}", percent_encode(tls.sni)));
-    query.push(format!("alpn={}", percent_encode(&tls.alpn.join(","))));
-    query.push("type=tcp".to_string());
-    if tls.allow_insecure {
+    // The SNI and ALPN go along even without TLS, so the link imports back
+    // to exactly this server.
+    query.push(match security {
+        Security::Tls => "security=tls".to_string(),
+        Security::None => "security=none".to_string(),
+    });
+    query.push(format!("sni={}", percent_encode(sni)));
+    query.push(format!("alpn={}", percent_encode(&alpn.join(","))));
+    query.extend(transport_params(transport));
+    if node.outbound.tls().is_some_and(|tls| tls.allow_insecure) {
         query.push("allowInsecure=1".to_string());
     }
 
@@ -353,6 +475,66 @@ pub fn share_link(node: &ServerNode) -> Option<String> {
         query.join("&"),
         percent_encode(&node.name)
     ))
+}
+
+/// `type=` and the settings that go with it, as [`parse_transport`] reads them.
+fn transport_params(transport: &Transport) -> Vec<String> {
+    let kind = match transport {
+        Transport::Tcp | Transport::TcpHttp { .. } => "tcp",
+        Transport::Ws { .. } => "ws",
+        Transport::HttpUpgrade { .. } => "httpupgrade",
+        Transport::Grpc { .. } => "grpc",
+        Transport::H2 { .. } => "http",
+        Transport::Xhttp { .. } => "xhttp",
+    };
+    let mut query = vec![format!("type={kind}")];
+    let mut push = |key: &str, value: &str| {
+        if !value.is_empty() {
+            query.push(format!("{key}={}", percent_encode(value)));
+        }
+    };
+
+    match transport {
+        Transport::Tcp => {}
+        Transport::TcpHttp { host, path } => {
+            push("headerType", "http");
+            push("host", host);
+            push("path", path);
+        }
+        Transport::Ws {
+            path,
+            host,
+            early_data,
+        } => {
+            push("path", &join_early_data(path, *early_data));
+            push("host", host);
+        }
+        Transport::HttpUpgrade { path, host } | Transport::H2 { path, host } => {
+            push("path", path);
+            push("host", host);
+        }
+        Transport::Grpc {
+            service_name,
+            authority,
+            multi,
+        } => {
+            push("serviceName", service_name);
+            push("authority", authority);
+            push("mode", if *multi { "multi" } else { "gun" });
+        }
+        Transport::Xhttp {
+            path,
+            host,
+            mode,
+            extra,
+        } => {
+            push("path", path);
+            push("host", host);
+            push("mode", mode.as_str());
+            push("extra", extra);
+        }
+    }
+    query
 }
 
 // ---------------------------------------------------------------------------
@@ -401,9 +583,14 @@ pub fn apply_edit(node: &mut ServerNode, edit: ServerEdit) -> AppResult<()> {
                 Ok(())
             };
         }
-        Outbound::Vless(config) => (&mut config.sni, &mut config.allow_insecure),
-        Outbound::Trojan(config) => (&mut config.sni, &mut config.allow_insecure),
+        Outbound::Vless(config) => (&mut config.sni, &mut config.allow_insecure, config.security),
+        Outbound::Trojan(config) => (&mut config.sni, &mut config.allow_insecure, config.security),
     };
+    if tls.2 == Security::None && (edit.sni.is_some() || edit.allow_insecure.is_some()) {
+        return Err(bad(
+            "This server doesn't use TLS, so it has no masking domain or certificate check to change.",
+        ));
+    }
 
     if let Some(sni) = edit.sni {
         let sni = sni.trim();
@@ -562,15 +749,129 @@ mod tests {
         for uri in [
             "vless://key@host:443?security=reality&pbk=abc&type=tcp",
             "vless://key@host:443?security=xtls&type=tcp",
-            "vless://key@host:443?security=tls&type=ws&path=%2Fws",
-            "vless://key@host:443?security=tls&type=grpc",
+            "vless://key@host:443?security=tls&type=tcp&flow=xtls-rprx-vision",
+            "vless://key@host:443?security=tls&type=tcp&encryption=mlkem768x25519plus.native.0rtt.abc",
+            "vless://key@host:443?security=tls&type=kcp",
+            "vless://key@host:443?security=tls&type=tcp&headerType=srtp",
+            "vless://key@host:443?security=tls&type=xhttp&mode=stream-sideways",
+            "vless://key@host:443?security=tls&type=xhttp&extra=%7B%22downloadSettings%22%3A%7B%7D%7D",
         ] {
             let err = parse_vless_uri(uri).expect_err("should reject");
             assert_eq!(err.code(), "INVALID_INPUT", "{uri}");
         }
 
-        // Plain TLS over raw TCP is the supported combination.
-        assert!(parse_vless_uri("vless://key@host:443?security=tls&type=tcp").is_ok());
+        for uri in [
+            "vless://key@host:443?security=tls&type=tcp",
+            "vless://key@host:443?security=tls&type=ws&path=%2Fws",
+            "vless://key@host:443?security=tls&type=grpc",
+            "vless://key@host:80?security=none&type=httpupgrade",
+        ] {
+            assert!(parse_vless_uri(uri).is_ok(), "{uri}");
+        }
+    }
+
+    fn transport_of(uri: &str) -> (Transport, Security) {
+        match parse_share_link(uri).expect(uri).outbound {
+            Outbound::Vless(v) => (v.transport, v.security),
+            Outbound::Trojan(t) => (t.transport, t.security),
+            Outbound::Direct => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn every_transport_reads_its_own_settings() {
+        assert_eq!(
+            transport_of("vless://k@h:443?type=ws&path=%2Fws%3Fed%3D2048&host=cdn.example.com"),
+            (
+                Transport::Ws {
+                    path: "/ws".into(),
+                    host: "cdn.example.com".into(),
+                    early_data: 2048,
+                },
+                Security::Tls
+            )
+        );
+        assert_eq!(
+            transport_of("trojan://p@h:80?security=none&type=httpupgrade&path=%2Fup%3Fed%3D2048"),
+            (
+                Transport::HttpUpgrade {
+                    path: "/up".into(),
+                    host: String::new(),
+                },
+                Security::None
+            )
+        );
+        assert_eq!(
+            transport_of("vless://k@h:443?type=grpc&serviceName=my%20svc&mode=multi&authority=a.example"),
+            (
+                Transport::Grpc {
+                    service_name: "my svc".into(),
+                    authority: "a.example".into(),
+                    multi: true,
+                },
+                Security::Tls
+            )
+        );
+        assert_eq!(
+            transport_of("vless://k@h:443?type=xhttp&path=%2Fxh&mode=stream-one").0,
+            Transport::Xhttp {
+                path: "/xh".into(),
+                host: String::new(),
+                mode: XhttpMode::StreamOne,
+                extra: String::new(),
+            }
+        );
+        assert!(matches!(
+            transport_of("vless://k@h:443?type=splithttp").0,
+            Transport::Xhttp { mode: XhttpMode::Auto, .. }
+        ));
+        assert_eq!(
+            transport_of("vless://k@h:80?type=tcp&headerType=http&host=a.com%2Cb.com&path=%2F").0,
+            Transport::TcpHttp {
+                host: "a.com,b.com".into(),
+                path: "/".into(),
+            }
+        );
+        assert_eq!(transport_of("vless://k@h:443?type=raw").0, Transport::Tcp);
+        assert!(matches!(
+            transport_of("vless://k@h:443?type=h2&path=%2Fh2").0,
+            Transport::H2 { .. }
+        ));
+    }
+
+    #[test]
+    fn the_host_header_stands_in_for_a_missing_sni() {
+        let node = parse_vless_uri("vless://k@203.0.113.10:443?type=ws&host=cdn.example.com").unwrap();
+        assert_eq!(node.outbound.tls().unwrap().sni, "cdn.example.com");
+
+        let node = parse_vless_uri("vless://k@203.0.113.10:443?sni=aka.ms&type=ws&host=cdn.example.com")
+            .unwrap();
+        assert_eq!(node.outbound.tls().unwrap().sni, "aka.ms");
+    }
+
+    #[test]
+    fn early_data_moves_between_the_path_and_the_link() {
+        assert_eq!(split_early_data("/ws"), ("/ws".to_string(), 0));
+        assert_eq!(split_early_data("/ws?ed=2048"), ("/ws".to_string(), 2048));
+        assert_eq!(split_early_data("/ws?a=1&ed=80&b=2"), ("/ws?a=1&b=2".to_string(), 80));
+        assert_eq!(join_early_data("/ws", 2048), "/ws?ed=2048");
+        assert_eq!(join_early_data("/ws?a=1", 80), "/ws?a=1&ed=80");
+        assert_eq!(join_early_data("/ws", 0), "/ws");
+    }
+
+    /// Catalogs saved before transports existed have no such fields; they
+    /// must still load, as the TLS-over-TCP servers they were.
+    #[test]
+    fn servers_saved_before_transports_load_as_tls_over_tcp() {
+        let saved = r#"{"kind":"vless","uuid":"k","sni":"aka.ms","alpn":["h2"],"allowInsecure":false}"#;
+        let outbound: Outbound = serde_json::from_str(saved).unwrap();
+        match outbound {
+            Outbound::Vless(v) => {
+                assert_eq!(v.transport, Transport::Tcp);
+                assert_eq!(v.security, Security::Tls);
+            }
+            other => panic!("expected vless, got {other:?}"),
+        }
     }
 
     #[test]
@@ -596,7 +897,7 @@ mod tests {
 
     #[test]
     fn trojan_rejects_what_this_client_cannot_speak() {
-        assert!(parse_trojan_uri("trojan://p@host:443?type=ws&path=%2F").is_err());
+        assert!(parse_trojan_uri("trojan://p@host:443?type=quic").is_err());
         assert!(parse_trojan_uri("trojan://p@host:443?security=reality").is_err());
         assert!(
             parse_trojan_uri("trojan://@host:443").is_err(),
@@ -652,6 +953,13 @@ mod tests {
         for link in [
             "vless://2b4f8c1e-0000-4000-8000-abcdefabcdef@[2001:db8::1]:8443?security=tls&sni=aka.ms&alpn=h2&type=tcp&allowInsecure=1#Edge%20%231",
             "trojan://p%40ss@edge.example.org:443?security=tls&sni=zoom.us#Trojan%20%C3%A9",
+            "vless://k@edge.example.org:443?security=tls&sni=aka.ms&type=ws&path=%2Fws%3Fx%3D1%26ed%3D2048&host=cdn.example.com#WS",
+            "vless://k@edge.example.org:80?security=none&type=ws&path=%2Fws&host=cdn.example.com#Plain",
+            "trojan://p@edge.example.org:443?type=grpc&serviceName=svc&mode=multi&authority=a.example#gRPC",
+            "vless://k@edge.example.org:443?type=httpupgrade&path=%2Fup&host=cdn.example.com#Up",
+            "vless://k@edge.example.org:443?type=http&path=%2Fh2&host=a.example%2Cb.example#H2",
+            "vless://k@edge.example.org:443?type=xhttp&path=%2Fxh&mode=packet-up&extra=%7B%22xPaddingBytes%22%3A%22100-200%22%7D#XHTTP",
+            "vless://k@edge.example.org:80?security=none&type=tcp&headerType=http&host=a.example&path=%2Fp#Fake",
         ] {
             let node = parse_share_link(link).unwrap();
             let shared = share_link(&node).expect("shareable");
@@ -696,6 +1004,22 @@ mod tests {
             }
             other => panic!("expected vless, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn a_server_without_tls_has_no_masking_settings_to_edit() {
+        let mut node = parse_vless_uri("vless://k@edge.example.org:80?security=none&type=ws").unwrap();
+        assert!(node.outbound.tls().is_none());
+        let edit = ServerEdit {
+            sni: Some("www.microsoft.com".into()),
+            ..ServerEdit::default()
+        };
+        assert!(apply_edit(&mut node, edit).is_err());
+        let rename = ServerEdit {
+            name: Some("Port 80".into()),
+            ..ServerEdit::default()
+        };
+        assert!(apply_edit(&mut node, rename).is_ok());
     }
 
     #[test]

@@ -7,11 +7,12 @@
 //! then dials out, so every server read 0 ms. A ClientHello has to reach
 //! whatever really answers.
 //!
-//! Every server OpenWire speaks to is behind TLS, so a ClientHello is a message
-//! it answers - and it is sent with the same SNI and ALPN as the real
-//! connection, so a network that treats the two differently cannot make the
-//! probe lie about the tunnel. Nothing past the first byte back is read: no
-//! certificate is checked and no credentials are sent.
+//! A server behind TLS answers a ClientHello - and it is sent with the same
+//! SNI and ALPN as the real connection, so a network that treats the two
+//! differently cannot make the probe lie about the tunnel. A server without
+//! TLS gets what its transport would say first instead. Nothing past the
+//! first byte back is read: no certificate is checked and no credentials
+//! are sent.
 
 use std::time::{Duration, Instant};
 
@@ -19,35 +20,102 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 
-use crate::core::models::ServerNode;
-use crate::core::tunnel::tls;
+use crate::core::models::{ServerNode, Transport};
+use crate::core::tunnel::{tls, transport};
 
 const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
 const ATTEMPTS: usize = 2;
+
+/// HTTP/2's connection preface, then an empty SETTINGS frame.
+const H2_PREFACE: &[u8] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n\x00\x00\x00\x04\x00\x00\x00\x00\x00";
 
 /// A server, as the probe needs to reach it: the way the tunnel does.
 #[derive(Debug, Clone)]
 pub struct Target {
     pub host: String,
     pub port: u16,
-    /// The name the tunnel's ClientHello carries; the host when it has none.
-    pub sni: String,
-    pub alpn: Vec<String>,
+    pub greeting: Greeting,
+}
+
+/// What the probe opens with: something the server answers before any
+/// credentials, said the way the tunnel would say it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Greeting {
+    /// A ClientHello. `sni` is the host when the server has none.
+    Tls { sni: String, alpn: Vec<String> },
+    /// The HTTP/2 preface, for a gRPC or h2 server without TLS.
+    H2c,
+    /// An upgrade request to the transport's own path, for the other HTTP
+    /// transports without TLS. An HTTPUpgrade server answers nothing else.
+    Http { host: String, path: String },
+    /// Raw TCP without TLS, fake HTTP header or not. A server like that says
+    /// nothing to a stranger, so it hanging up is the only answer there is.
+    Raw { host: String },
+}
+
+impl Greeting {
+    fn bytes(&self) -> Option<Vec<u8>> {
+        match self {
+            Self::Tls { sni, alpn } => tls::client_hello(sni, alpn),
+            Self::H2c => Some(H2_PREFACE.to_vec()),
+            Self::Http { host, path } => Some(
+                format!(
+                    "GET {path} HTTP/1.1\r\nHost: {host}\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n"
+                )
+                .into_bytes(),
+            ),
+            // Twice: a server behind a fake HTTP header takes the first as
+            // the disguise and gives up on the second, as a raw one gives up
+            // on the first.
+            Self::Raw { host } => {
+                Some(format!("GET / HTTP/1.1\r\nHost: {host}\r\n\r\n").repeat(2).into_bytes())
+            }
+        }
+    }
 }
 
 impl Target {
     pub fn of(node: &ServerNode) -> Self {
-        let tls = node.outbound.tls();
+        let transport = node.outbound.transport().cloned().unwrap_or_default();
+        let greeting = match node.outbound.tls() {
+            Some(tls) => Greeting::Tls {
+                sni: if tls.sni.is_empty() {
+                    node.host.clone()
+                } else {
+                    tls.sni.to_string()
+                },
+                alpn: transport::alpn(&transport, tls.alpn),
+            },
+            None => match &transport {
+                Transport::Tcp | Transport::TcpHttp { .. } => Greeting::Raw {
+                    host: node.host.clone(),
+                },
+                Transport::Grpc { .. } | Transport::H2 { .. } => Greeting::H2c,
+                Transport::Ws { host, path, .. }
+                | Transport::HttpUpgrade { host, path }
+                | Transport::Xhttp { host, path, .. } => {
+                    let first = |list: &str| {
+                        list.split(',')
+                            .map(str::trim)
+                            .find(|entry| !entry.is_empty())
+                            .map(str::to_string)
+                    };
+                    let path = first(path).unwrap_or_default();
+                    Greeting::Http {
+                        host: first(host).unwrap_or_else(|| node.host.clone()),
+                        path: if path.starts_with('/') {
+                            path
+                        } else {
+                            format!("/{path}")
+                        },
+                    }
+                }
+            },
+        };
         Self {
             host: node.host.clone(),
             port: node.port,
-            sni: tls
-                .as_ref()
-                .map(|tls| tls.sni)
-                .filter(|sni| !sni.is_empty())
-                .unwrap_or(node.host.as_str())
-                .to_string(),
-            alpn: tls.map(|tls| tls.alpn.to_vec()).unwrap_or_default(),
+            greeting,
         }
     }
 }
@@ -61,7 +129,8 @@ async fn round_trip(target: &Target, wait: Duration) -> Option<u32> {
     if target.host.is_empty() || target.port == 0 {
         return None;
     }
-    let hello = tls::client_hello(&target.sni, &target.alpn)?;
+    let hello = target.greeting.bytes()?;
+    let hangup_answers = matches!(target.greeting, Greeting::Raw { .. });
 
     let mut best: Option<u32> = None;
     for _ in 0..ATTEMPTS {
@@ -79,8 +148,14 @@ async fn round_trip(target: &Target, wait: Duration) -> Option<u32> {
         }
         let mut first = [0u8; 1];
         // A byte, not just the end of the stream: an interceptor whose own
-        // dial failed hangs up at once, from this machine.
-        if let Ok(Ok(1..)) = timeout(wait, stream.read(&mut first)).await {
+        // dial failed hangs up at once, from this machine. Only a raw server
+        // without TLS has nothing else to give.
+        let answered = match timeout(wait, stream.read(&mut first)).await {
+            Ok(Ok(1..)) => true,
+            Ok(Ok(0)) => hangup_answers,
+            _ => false,
+        };
+        if answered {
             let elapsed = started.elapsed().as_millis().min(u128::from(u32::MAX)) as u32;
             best = Some(best.map_or(elapsed, |b: u32| b.min(elapsed)));
         }
@@ -123,9 +198,38 @@ mod tests {
         Target {
             host: host.to_string(),
             port,
-            sni: "example.com".to_string(),
-            alpn: vec!["h2".to_string()],
+            greeting: Greeting::Tls {
+                sni: "example.com".to_string(),
+                alpn: vec!["h2".to_string()],
+            },
         }
+    }
+
+    #[test]
+    fn each_server_is_greeted_the_way_its_tunnel_opens() {
+        let tls = crate::core::catalog::parse_share_link(
+            "vless://k@edge.example.org:443?security=tls&sni=aka.ms&type=ws&path=%2Fws",
+        )
+        .unwrap();
+        assert_eq!(
+            Target::of(&tls).greeting,
+            Greeting::Tls {
+                sni: "aka.ms".into(),
+                alpn: vec!["http/1.1".into()]
+            }
+        );
+
+        let plain_ws = crate::core::catalog::parse_share_link(
+            "vless://k@edge.example.org:80?security=none&type=ws&path=%2Fws",
+        )
+        .unwrap();
+        assert!(matches!(Target::of(&plain_ws).greeting, Greeting::Http { .. }));
+
+        let plain_grpc = crate::core::catalog::parse_share_link(
+            "trojan://p@edge.example.org:80?security=none&type=grpc&serviceName=svc",
+        )
+        .unwrap();
+        assert_eq!(Target::of(&plain_grpc).greeting, Greeting::H2c);
     }
 
     #[tokio::test]

@@ -39,6 +39,9 @@ export interface StatsSnapshot {
   uptimeSecs: number
 }
 
+/** A share link's `type=`, with a fake HTTP header told apart from raw TCP. */
+export type Transport = 'tcp' | 'tcp-http' | 'ws' | 'httpupgrade' | 'grpc' | 'h2' | 'xhttp'
+
 export interface ServerSummary {
   id: string
   name: string
@@ -50,8 +53,13 @@ export interface ServerSummary {
   tier: Tier
   load: number
   tags: string[]
-  protocol: 'direct' | 'vless-tls' | 'trojan-tls'
-  /** The masking domain sent in the TLS handshake; empty for direct. */
+  protocol: 'direct' | 'vless' | 'trojan'
+  /** How the protocol is framed on the way; null for direct. */
+  transport: Transport | null
+  /** Whether the connection to the server is wrapped in TLS. */
+  tls: boolean
+  /** The masking domain sent in the TLS handshake; empty for direct and for
+   *  servers without TLS. */
   sni: string
   allowInsecure: boolean
   /** False until the node has credentials; connecting to it will be refused. */

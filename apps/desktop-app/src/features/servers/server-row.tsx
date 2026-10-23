@@ -97,9 +97,17 @@ export function ServerRow({
               Unverified
             </span>
           )}
+          {!server.tls && server.protocol !== 'direct' && (
+            <span
+              title="This server doesn't use TLS, so the tunnel itself isn't encrypted"
+              className="pointer-events-auto shrink-0 rounded-[3px] bg-warning/14 px-1 text-[10px] font-semibold text-warning"
+            >
+              No TLS
+            </span>
+          )}
         </div>
-        {/* The full stack on hover: every supported server is TCP + TLS
-            today, so chips would only crowd the address. */}
+        {/* The full stack on hover, e.g. VLESS · WS · TLS: chips in the row
+            would only crowd the address. */}
         <span
           title={chips.join(' · ')}
           className="pointer-events-auto block truncate font-mono text-[11px] text-muted-foreground"

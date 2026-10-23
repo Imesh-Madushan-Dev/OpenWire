@@ -55,7 +55,7 @@ export function ShareDialog({ server, open, onOpenChange }: ShareDialogProps) {
   }, [open, server.id, notify, onOpenChange])
 
   const value = link?.id === server.id ? link.value : null
-  const secret = server.protocol === 'trojan-tls' ? 'password' : 'access key'
+  const secret = server.protocol === 'trojan' ? 'password' : 'access key'
 
   const copy = async () => {
     if (!value) return
@@ -83,7 +83,7 @@ export function ShareDialog({ server, open, onOpenChange }: ShareDialogProps) {
           <DialogTitle>Share {server.name}</DialogTitle>
           <DialogDescription>
             Scan with OpenWire on another device, or any client that speaks{' '}
-            {server.protocol === 'trojan-tls' ? 'Trojan' : 'VLESS'}.
+            {server.protocol === 'trojan' ? 'Trojan' : 'VLESS'}.
           </DialogDescription>
         </DialogHeader>
 

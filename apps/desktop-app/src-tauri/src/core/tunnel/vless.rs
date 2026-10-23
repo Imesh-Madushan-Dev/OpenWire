@@ -1,37 +1,27 @@
-//! VLESS outbound, carried inside the masked TLS session from [`super::tls`].
+//! VLESS outbound, carried by whichever transport the server's link names -
+//! see [`super::transport`].
 
-use std::sync::Arc;
-
-use rustls::ClientConfig;
-use tokio::io::AsyncWriteExt;
-use tokio::net::TcpStream;
 use uuid::Uuid;
 
-use super::tls;
+use super::transport::Dialer;
+use super::IoStream;
 use crate::core::models::VlessConfig;
 use crate::error::{AppError, AppResult};
 
-/// Opens the masked tunnel and writes the VLESS request head for `target`.
+/// Opens the tunnel with the VLESS request head for `target` as its first bytes.
 pub async fn dial(
-    node_host: &str,
-    node_port: u16,
+    dialer: &Dialer,
     config: &VlessConfig,
-    tls: Arc<ClientConfig>,
     target_host: &str,
     target_port: u16,
-) -> AppResult<tokio_rustls::client::TlsStream<TcpStream>> {
+) -> AppResult<Box<dyn IoStream>> {
     let uuid = Uuid::parse_str(&config.uuid).map_err(|_| {
         AppError::Invalid("The access key for this server is not a valid UUID.".into())
     })?;
 
-    let mut stream = tls::connect(node_host, node_port, &config.sni, tls).await?;
-
-    stream
-        .write_all(&request_head(uuid.as_bytes(), target_host, target_port))
+    dialer
+        .open(request_head(uuid.as_bytes(), target_host, target_port))
         .await
-        .map_err(|e| AppError::Protocol(format!("write vless head: {e}")))?;
-
-    Ok(stream)
 }
 
 /// VLESS v0 request head:
