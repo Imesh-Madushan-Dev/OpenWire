@@ -93,7 +93,7 @@ export const features = {
       tab: 'VPN',
       tone: 'sky',
       title: 'A tunnel to your own server.',
-      body: 'Paste a vless:// or trojan:// link and press the power button. OpenWire runs a local proxy and points Windows at it, so every app that uses the system proxy goes through the tunnel, wrapped in TLS with a server name you choose - over TCP, WebSocket, gRPC or XHTTP, whichever your server speaks.',
+      body: 'Paste a vless:// or trojan:// link and press the power button. Apps that use the system proxy go through the tunnel straight away. Turn on Route every app and the rest follow too - games and command-line tools included - through OpenWire’s own network adapter. All of it is wrapped in TLS with a server name you choose, over TCP, WebSocket, gRPC or XHTTP, whichever your server speaks.',
       points: [
         'A kill switch that blocks traffic if the server drops',
         'Printers and NAS drives stay reachable on your local network',
@@ -157,7 +157,7 @@ export const how = {
   title: 'How the tunnel works.',
   lede: 'Four moving parts, all on your PC until the last one.',
   nodes: {
-    apps: { label: 'Your apps', detail: 'Anything that uses the system proxy' },
+    apps: { label: 'Your apps', detail: 'Those on the system proxy, or every app' },
     openwire: { label: 'OpenWire', detail: '127.0.0.1:10808' },
     tunnel: 'VLESS or Trojan, inside TLS',
     server: { label: 'Your server', detail: 'The one you run' },
@@ -180,7 +180,7 @@ export const how = {
     },
     {
       title: 'System proxy',
-      text: 'Windows points at the local listener while you are connected, and goes back exactly as it was afterwards.',
+      text: 'Windows points at the local listener while you are connected, and goes back exactly as it was afterwards. With Route every app on, a virtual network adapter hands it every app’s traffic instead.',
     },
   ],
 };
@@ -227,7 +227,6 @@ export const openSource = {
   roadmapTitle: 'Next on the list',
   roadmap: [
     { name: 'Firewall', text: 'Allow or block each app from reaching the network.' },
-    { name: 'TUN mode', text: 'A virtual network adapter, for apps that ignore the system proxy.' },
     { name: 'More protocols', text: 'REALITY and VMess.' },
     { name: 'macOS and Linux routing', text: 'The tunnel already runs there; the system wiring does not yet.' },
   ],

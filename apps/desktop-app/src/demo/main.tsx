@@ -7,7 +7,7 @@
  * machine without touching any real data.
  *
  *   ?view=settings&section=appearance&theme=neon&mode=light
- *   &update=0.4.0 shows that release as available
+ *   &update=0.6.0 shows that release as available
  */
 
 import { StrictMode } from 'react'
