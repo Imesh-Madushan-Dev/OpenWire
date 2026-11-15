@@ -27,6 +27,7 @@ import type {
   SettingsPatch,
   SpanTimeline,
   StatsSnapshot,
+  TunServiceStatus,
   UsageRange,
   UsageSample,
   UpdateStatus,
@@ -116,6 +117,11 @@ export const api = {
   /** Shows the Windows admin prompt; resolves once it has been answered. */
   netmonEnable: () => call<MonitorStatus>('netmon_enable'),
   netmonDisable: () => call<MonitorStatus>('netmon_disable'),
+
+  tunStatus: () => call<TunServiceStatus>('tun_status'),
+  /** Shows the Windows admin prompt; resolves once it has been answered. */
+  tunInstall: () => call<TunServiceStatus>('tun_install'),
+  tunUninstall: () => call<TunServiceStatus>('tun_uninstall'),
 
   devices: () => call<DevicesSnapshot>('devices_snapshot'),
   /** Sweeps the local network; resolves when it has finished. */

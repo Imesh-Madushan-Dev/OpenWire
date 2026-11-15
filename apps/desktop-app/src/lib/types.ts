@@ -25,6 +25,8 @@ export interface ConnectionState {
   listenAddr: string | null
   connectedAt: number | null
   systemProxy: boolean
+  /** Every app routed through the tunnel's network adapter. */
+  tun: boolean
   note: string | null
 }
 
@@ -98,6 +100,9 @@ export interface Settings {
   taskbarSpeed: boolean
   /** Ask GitHub now and then whether a newer release is out. */
   checkUpdates: boolean
+  /** Route every app through a virtual network adapter, not just the ones
+   *  that follow the system proxy. Needs the tunnel service. */
+  tunMode: boolean
   preferredServer: string | null
 }
 
@@ -223,6 +228,7 @@ export const INITIAL_CONNECTION: ConnectionState = {
   listenAddr: null,
   connectedAt: null,
   systemProxy: false,
+  tun: false,
   note: null,
 }
 
@@ -354,6 +360,17 @@ export const EMPTY_SUMMARY: UsageSummary = {
 // ---------------------------------------------------------------------------
 // Network monitor — mirrors `src-tauri/src/core/netmon/client.rs`
 // ---------------------------------------------------------------------------
+
+/** The tunnel service behind system-wide routing - mirrors
+ *  `ServiceStatus` in `core/tun/client.rs`. */
+export interface TunServiceStatus {
+  /** False off Windows. */
+  supported: boolean
+  installed: boolean
+  running: boolean
+  /** Why it can't be used as it is, already written for a person. */
+  problem: string | null
+}
 
 export interface MonitorStatus {
   /** False off Windows, where there is nothing to install. */

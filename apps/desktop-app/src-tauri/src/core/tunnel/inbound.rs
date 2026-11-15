@@ -3,12 +3,16 @@
 //! One listener speaks both SOCKS5 and HTTP proxy, chosen by sniffing the first
 //! byte (SOCKS5 always starts `0x05`). That matters on Windows: WinINET drives
 //! most apps through the HTTP proxy, while everything else prefers SOCKS5.
+//!
+//! The tunnel service hands over system-wide flows on the same listener,
+//! through a private SOCKS5 method - see [`crate::core::tun::wire`].
 
-use std::net::Ipv6Addr;
+use std::net::{Ipv6Addr, SocketAddr};
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
+use crate::core::tun::wire::{self, FlowRequest, Network, Status};
 use crate::error::{AppError, AppResult};
 
 /// Cap on the request head we will buffer, so a hostile local client cannot
@@ -20,6 +24,8 @@ pub enum Protocol {
     Socks5,
     HttpConnect,
     HttpPlain,
+    /// A flow from the tunnel service.
+    Tun,
 }
 
 #[derive(Debug)]
@@ -30,6 +36,11 @@ pub struct Request {
     /// Bytes already read from the client that belong upstream (the rewritten
     /// request line for plain HTTP, plus any pipelined body).
     pub prefix: Vec<u8>,
+    /// UDP only ever arrives from the tunnel service.
+    pub network: Network,
+    /// The app's own end of a system-wide flow, which names the app; the
+    /// loopback client port names the tunnel service instead.
+    pub origin: Option<SocketAddr>,
 }
 
 /// Reads just enough to know where the client wants to go.
@@ -68,10 +79,22 @@ pub async fn send_reply(stream: &mut TcpStream, protocol: Protocol, ok: bool) ->
         (Protocol::HttpPlain, false) => {
             b"HTTP/1.1 502 Bad Gateway\r\nProxy-Agent: OpenWire\r\nContent-Length: 0\r\n\r\n"
         }
+        (Protocol::Tun, ok) => {
+            return send_tun_status(stream, if ok { Status::Ok } else { Status::Failed }).await;
+        }
     };
 
     stream
         .write_all(bytes)
+        .await
+        .map_err(|e| AppError::Protocol(format!("reply: {e}")))
+}
+
+/// Answers a flow from the tunnel service - including "blocked", which a
+/// SOCKS5 or HTTP client has no way to be told.
+pub async fn send_tun_status(stream: &mut TcpStream, status: Status) -> AppResult<()> {
+    stream
+        .write_all(&wire::status_reply(status))
         .await
         .map_err(|e| AppError::Protocol(format!("reply: {e}")))
 }
@@ -94,6 +117,24 @@ async fn socks5_negotiate(stream: &mut TcpStream) -> AppResult<Request> {
         .read_exact(&mut methods)
         .await
         .map_err(|e| proto(format!("socks methods: {e}")))?;
+
+    if methods.contains(&wire::METHOD) {
+        stream
+            .write_all(&[0x05, wire::METHOD])
+            .await
+            .map_err(|e| proto(format!("socks method reply: {e}")))?;
+        let flow = FlowRequest::read(stream)
+            .await
+            .map_err(|e| proto(format!("tunnel flow request: {e}")))?;
+        return Ok(Request {
+            protocol: Protocol::Tun,
+            host: flow.destination.ip().to_string(),
+            port: flow.destination.port(),
+            prefix: Vec::new(),
+            network: flow.network,
+            origin: Some(flow.source),
+        });
+    }
 
     // "No authentication" - safe because the listener is loopback-only.
     stream
@@ -159,6 +200,8 @@ async fn socks5_negotiate(stream: &mut TcpStream) -> AppResult<Request> {
         host,
         port: u16::from_be_bytes(port),
         prefix: Vec::new(),
+        network: Network::Tcp,
+        origin: None,
     })
 }
 
@@ -209,6 +252,8 @@ async fn http_negotiate(stream: &mut TcpStream) -> AppResult<Request> {
             port,
             // Anything after the head on a CONNECT is already tunnelled payload.
             prefix: buf[head_end..].to_vec(),
+            network: Network::Tcp,
+            origin: None,
         });
     }
 
@@ -248,6 +293,8 @@ async fn http_negotiate(stream: &mut TcpStream) -> AppResult<Request> {
         host,
         port,
         prefix,
+        network: Network::Tcp,
+        origin: None,
     })
 }
 
@@ -317,6 +364,29 @@ mod tests {
         assert_eq!(req.host, "example.com");
         assert_eq!(req.port, 443);
         assert!(req.prefix.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_tunnel_service_flow_is_taken_through_the_private_method() {
+        let (mut client, mut server) = pair().await;
+        let flow = FlowRequest {
+            network: Network::Udp,
+            source: "172.19.0.1:50000".parse().unwrap(),
+            destination: "203.0.113.5:3478".parse().unwrap(),
+        };
+        tokio::spawn(async move {
+            client.write_all(&flow.handshake()).await.unwrap();
+            let mut choice = [0u8; 2];
+            client.read_exact(&mut choice).await.unwrap();
+            assert_eq!(choice, [0x05, wire::METHOD]);
+        });
+
+        let req = negotiate(&mut server).await.unwrap();
+        assert_eq!(req.protocol, Protocol::Tun);
+        assert_eq!(req.network, Network::Udp);
+        assert_eq!(req.host, "203.0.113.5");
+        assert_eq!(req.port, 3478);
+        assert_eq!(req.origin, Some("172.19.0.1:50000".parse().unwrap()));
     }
 
     #[tokio::test]

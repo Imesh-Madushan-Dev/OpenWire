@@ -50,6 +50,11 @@ pub enum AppError {
     #[error("network monitor: {0}")]
     Monitor(String),
 
+    /// System-wide routing could not start, or its service could not be set
+    /// up. Carries text already written for the user, like `Invalid`.
+    #[error("system-wide routing: {0}")]
+    Tun(String),
+
     /// GitHub could not be reached, or its answer made no sense.
     #[error("update check failed: {0}")]
     Update(String),
@@ -74,6 +79,7 @@ impl AppError {
             Self::Config(_) => "CONFIG_FAILED",
             Self::Invalid(_) => "INVALID_INPUT",
             Self::Monitor(_) => "MONITOR_FAILED",
+            Self::Tun(_) => "TUN_FAILED",
             Self::Update(_) => "UPDATE_CHECK_FAILED",
             Self::Internal(_) => "INTERNAL",
         }
@@ -108,7 +114,7 @@ impl AppError {
                 "Couldn't update your system network settings. Try relaunching the app.".into()
             }
             Self::Config(_) => "Couldn't save your settings to disk.".into(),
-            Self::Invalid(detail) | Self::Monitor(detail) => detail.clone(),
+            Self::Invalid(detail) | Self::Monitor(detail) | Self::Tun(detail) => detail.clone(),
             Self::Update(_) => {
                 "Couldn't reach GitHub to check for updates. Check your internet connection and try again.".into()
             }

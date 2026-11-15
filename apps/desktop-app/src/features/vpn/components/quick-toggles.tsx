@@ -10,13 +10,13 @@ import { cn } from 'cn'
 
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toneStyle, type Tone } from '@/lib/tone'
+import { useTunMode } from '@/features/vpn/use-tun-mode'
 import { useVpn } from '@/features/vpn/vpn-context'
 
 export function QuickToggles() {
-  const { settings, platform, updateSettings } = useVpn()
+  const { settings, updateSettings } = useVpn()
+  const tun = useTunMode()
   if (!settings) return null
-
-  const proxyUnsupported = platform ? !platform.systemProxySupported : false
 
   return (
     <div className="flex items-center gap-0.5">
@@ -33,13 +33,15 @@ export function QuickToggles() {
         tone="sky"
         label="All apps"
         tip={
-          proxyUnsupported
-            ? 'Not available on this platform yet'
-            : 'Send every app through the tunnel, not just ones you point at it'
+          !tun.supported
+            ? 'Needs Windows'
+            : tun.busy
+              ? 'Waiting for Windows to approve…'
+              : 'Every app through the tunnel, including ones that ignore the system proxy'
         }
-        on={settings.systemProxy && !proxyUnsupported}
-        disabled={proxyUnsupported}
-        onToggle={() => void updateSettings({ systemProxy: !settings.systemProxy })}
+        on={tun.enabled && tun.supported}
+        disabled={!tun.supported || tun.busy}
+        onToggle={() => void tun.setEnabled(!tun.enabled)}
       />
     </div>
   )

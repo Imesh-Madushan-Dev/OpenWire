@@ -33,7 +33,8 @@ OpenWire shows where your PC's traffic goes - by app, host, country and device -
 - VLESS and Trojan, over TCP, WebSocket, gRPC, XHTTP, HTTPUpgrade or HTTP/2, with a TLS server name (SNI) you choose
 - Import from a `vless://` or `trojan://` link, a subscription, a file or a QR code image; share as a link or QR code
 - Live latency per server, with automatic selection of the fastest
-- Kill switch, local network bypass, and your previous proxy settings restored on disconnect, exit or crash
+- Route every app through a virtual network adapter - games, command-line tools, UDP and every DNS lookup included - or only apps that follow the system proxy
+- Kill switch that blocks anything leaving outside the tunnel, DNS leak protection, local network bypass, and your previous proxy settings restored on disconnect, exit or crash
 
 **Monitoring**
 - Live graph of all traffic, from the last 5 minutes to the last month
@@ -82,7 +83,7 @@ OpenWire shows where your PC's traffic goes - by app, host, country and device -
 
 ## Getting started
 
-1. Download `OpenWire_x.y.z_x64-setup.exe` from [Releases](https://github.com/Imesh-Madushan-Dev/OpenWire/releases/latest) and run it. Administrator approval is needed once.
+1. Download `OpenWire_x.y.z_x64-setup.exe` from [Releases](https://github.com/Imesh-Madushan-Dev/OpenWire/releases/latest) and run it. Administrator approval is needed once, to install OpenWire and the small service that routes every app.
 2. Copy your server's share link and press **Ctrl+V** on the VPN page, or choose **Add**.
 3. Press the power button to connect.
 
@@ -105,7 +106,13 @@ Links using REALITY, XTLS Vision, VLESS encryption, VMess, mKCP or QUIC are refu
 your apps ──SOCKS5/HTTP──▶ OpenWire (127.0.0.1:10808) ──VLESS/Trojan + transport──▶ your server ──▶ internet
 ```
 
-OpenWire runs a local SOCKS5 and HTTP proxy, bound to loopback only, and points the Windows system proxy at it while connected. Local network destinations can skip the tunnel; everything else is sent to your server inside the link's transport, wrapped in TLS. See the [developer guide](apps/desktop-app/README.md) for certificate checking, the usage meter's data sources and the safety guarantees.
+OpenWire runs a local SOCKS5 and HTTP proxy, bound to loopback only. With **Route every app** on (Settings > Routing), a virtual network adapter sends all traffic there - the way WireGuard does - through a small Windows service that never sees your server's credentials:
+
+```
+every app ──▶ OpenWire adapter (Wintun) ──▶ OpenWire Tunnel service ──▶ local proxy ──▶ your server
+```
+
+Otherwise OpenWire points the Windows system proxy at it, which covers the apps that follow that setting. Either way, local network destinations can skip the tunnel; everything else is sent to your server inside the link's transport, wrapped in TLS. See the [developer guide](apps/desktop-app/README.md) for how system-wide routing works, certificate checking, the usage meter's data sources and the safety guarantees.
 
 ## Privacy
 
@@ -142,13 +149,13 @@ Architecture, tests and the screenshot generator are covered in the [developer g
 ## Roadmap
 
 - [ ] Firewall - allow or block apps from reaching the network
-- [ ] TUN mode, for apps that ignore the system proxy
+- [x] TUN mode, for apps that ignore the system proxy
 - [ ] REALITY and VMess
 - [ ] Automatic routing on macOS and Linux
 
 ## Acknowledgements
 
-IP geolocation by [DB-IP](https://db-ip.com), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). MAC vendors from the [IEEE Registration Authority](https://standards-oui.ieee.org/). Built with [Tauri](https://tauri.app), [React](https://react.dev), [Recharts](https://recharts.org), [Motion](https://motion.dev) and [Hugeicons](https://hugeicons.com). Layout inspired by [GlassWire](https://www.glasswire.com).
+IP geolocation by [DB-IP](https://db-ip.com), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). MAC vendors from the [IEEE Registration Authority](https://standards-oui.ieee.org/). System-wide routing uses [Wintun](https://www.wintun.net) by WireGuard LLC and [smoltcp](https://github.com/smoltcp-rs/smoltcp). Built with [Tauri](https://tauri.app), [React](https://react.dev), [Recharts](https://recharts.org), [Motion](https://motion.dev) and [Hugeicons](https://hugeicons.com). Layout inspired by [GlassWire](https://www.glasswire.com).
 
 ## License
 

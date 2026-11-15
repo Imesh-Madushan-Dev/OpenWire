@@ -51,14 +51,13 @@ pub const PROTOCOL: u32 = 1;
 /// that, what it lacks would simply never appear, with nothing to say why.
 ///
 /// 1: hosts carry the country their address is in.
-pub const REVISION: u32 = 1;
+/// 2: traffic on OpenWire's own adapter is left to the relay, which counts it
+///    against the apps behind it; an older service counts it a second time.
+pub const REVISION: u32 = 2;
 
 pub const FLAG_SERVICE: &str = "--netmon-service";
 pub const FLAG_INSTALL: &str = "--netmon-install";
 pub const FLAG_UNINSTALL: &str = "--netmon-uninstall";
-/// Passed to the service: the app executable it was installed from, so it can
-/// remove itself once the app has been uninstalled.
-pub const FLAG_OWNER: &str = "--owner";
 
 /// One line on the pipe, as JSON.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

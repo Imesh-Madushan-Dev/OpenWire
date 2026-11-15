@@ -261,6 +261,18 @@ impl UsageTracker {
             .unwrap_or_else(|| process::UNKNOWN_APP.to_string())
     }
 
+    /// Names the app behind a system-wide flow, from its end on the adapter.
+    pub fn app_for_flow(&self, udp: bool, local: std::net::SocketAddr) -> String {
+        // Queries the tunnel service resolves itself on Windows' behalf come
+        // from the adapter's DNS address. The DNS Client lives in svchost.
+        if local == std::net::SocketAddr::from((crate::core::tun::DNS_V4, 53)) {
+            return "svchost.exe".to_string();
+        }
+        self.resolver
+            .app_for_flow(udp, local)
+            .unwrap_or_else(|| process::UNKNOWN_APP.to_string())
+    }
+
     pub fn open(self: &Arc<Self>, key: UsageKey, metrics: Arc<Metrics>) -> ConnHandle {
         let recorder = Arc::new(ConnRecorder::new(metrics));
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);

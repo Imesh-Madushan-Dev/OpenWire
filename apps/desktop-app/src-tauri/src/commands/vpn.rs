@@ -9,6 +9,7 @@ use tokio::time::timeout;
 
 use crate::core::connlog::{self, Level, LogEntry};
 use crate::core::lan::Lan;
+use crate::core::net;
 use crate::core::models::{
     ConnectionState, Outbound, Phase, ServerNode, StatsSnapshot, Transport,
 };
@@ -160,6 +161,57 @@ async fn bring_up(
         });
     }
 
+    // System-wide routing carries a real server's traffic; the direct node
+    // and monitor mode stay on the system proxy, which is all they need.
+    let tun_mode = settings.tun_mode
+        && !monitoring
+        && !matches!(node.outbound, Outbound::Direct)
+        && cfg!(windows);
+    if settings.tun_mode && !monitoring && !cfg!(windows) {
+        state.log(
+            Level::Info,
+            "System-wide routing is only available on Windows; using the system proxy",
+        );
+    }
+
+    // The server's addresses, settled before any route exists: the service
+    // routes around exactly these, and the tunnel dials them rather than
+    // looking the name up again through itself.
+    let server_addresses = if tun_mode {
+        match net::lookup(&node.host).await {
+            Ok(addresses) => {
+                let listed: Vec<String> = addresses.iter().map(ToString::to_string).collect();
+                state.log(
+                    Level::Info,
+                    format!("Resolved {} to {}", node.host, listed.join(", ")),
+                );
+                net::pin(std::collections::HashMap::from([(
+                    node.host.clone(),
+                    addresses.clone(),
+                )]));
+                addresses
+            }
+            Err(err) => {
+                let error = AppError::Dial(format!("resolve {}: {err}", node.host));
+                let message = error.user_message();
+                state.log(
+                    Level::Error,
+                    format!(
+                        "Could not resolve {} - check the server address and your DNS",
+                        node.host
+                    ),
+                );
+                state.update_connection(|conn| {
+                    *conn = ConnectionState::default();
+                    conn.note = Some(message);
+                });
+                return Err(error);
+            }
+        }
+    } else {
+        Vec::new()
+    };
+
     // Zero before the tunnel starts: the health watcher writes latency almost
     // immediately, and resetting afterwards would wipe the first reading.
     state.metrics.reset();
@@ -182,6 +234,7 @@ async fn bring_up(
         Err(err) => {
             // Roll all the way back so a failed attempt cannot leave the UI
             // stuck on "Connecting".
+            net::release();
             let message = err.user_message();
             state.log(
                 Level::Error,
@@ -216,12 +269,43 @@ async fn bring_up(
         );
     }
 
+    // Every app through the adapter. Unlike the system proxy this is not
+    // best-effort: the user asked for everything to be covered, and quietly
+    // covering less would mislead.
+    #[cfg(windows)]
+    let tun_session = if tun_mode {
+        match start_routing(&app, state, listen_addr.port(), server_addresses, &settings).await {
+            Ok(session) => Some(session),
+            Err(err) => {
+                tunnel.stop();
+                net::release();
+                let message = err.user_message();
+                state.log(Level::Error, format!("Could not connect: {message}"));
+                state.update_connection(|conn| {
+                    *conn = ConnectionState::default();
+                    conn.note = Some(message);
+                });
+                return Err(err);
+            }
+        }
+    } else {
+        None
+    };
+    #[cfg(not(windows))]
+    let _ = server_addresses;
+    let tun_active = tun_mode;
+
     // The OS proxy is best-effort: a failure here still leaves a usable tunnel
     // for apps pointed at the loopback address manually, so warn rather than
     // tear the session down.
     let mut proxy_engaged = false;
     let mut guard: Option<ProxyGuard> = None;
-    if settings.system_proxy {
+    if tun_active {
+        state.log(
+            Level::Info,
+            "System proxy left alone - every app already goes through the adapter",
+        );
+    } else if settings.system_proxy {
         if sysproxy::is_supported() {
             match ProxyGuard::engage(
                 listen_addr.port(),
@@ -254,6 +338,10 @@ async fn bring_up(
     }
 
     state.install(tunnel, guard);
+    #[cfg(windows)]
+    if let Some(session) = tun_session {
+        state.install_tun(session);
+    }
     if monitoring {
         state.log(Level::Success, "Measuring usage");
     } else {
@@ -277,6 +365,7 @@ async fn bring_up(
         conn.listen_addr = Some(listen_addr.to_string());
         conn.connected_at = Some(now_millis());
         conn.system_proxy = proxy_engaged;
+        conn.tun = tun_active;
         conn.note = if monitoring {
             Some("Measuring usage only - your traffic is not masked.".to_string())
         } else {
@@ -308,6 +397,15 @@ pub async fn vpn_disconnect(
         conn.note = None;
     });
 
+    // Routes first, confirmed gone, before the listener they point at stops.
+    #[cfg(windows)]
+    if let Some(session) = state.take_tun() {
+        session.stop().await;
+        state.log(
+            Level::Info,
+            "System-wide routing off - the adapter and its routes are gone",
+        );
+    }
     state.teardown();
     state.update_connection(|conn| *conn = ConnectionState::default());
     state.log(
@@ -344,6 +442,75 @@ pub async fn vpn_toggle(
         vpn_disconnect(app, state).await
     } else {
         vpn_connect(app, state, server_id).await
+    }
+}
+
+/// Asks the tunnel service to route every app to the local proxy.
+#[cfg(windows)]
+async fn start_routing(
+    app: &AppHandle,
+    state: &AppState,
+    proxy_port: u16,
+    server_addresses: Vec<std::net::IpAddr>,
+    settings: &crate::core::models::Settings,
+) -> AppResult<crate::core::tun::client::TunSession> {
+    use crate::core::tun::client::TunSession;
+    use crate::core::tun::StartRequest;
+
+    state.log(Level::Info, "Setting up system-wide routing");
+    let generation = state.next_tun_generation();
+    let session = TunSession::start(
+        StartRequest {
+            proxy_port,
+            exclude: server_addresses,
+            lan_bypass: settings.lan_bypass,
+            kill_switch: settings.kill_switch,
+            dns: Vec::new(),
+        },
+        routing_lost(app.clone(), generation),
+    )
+    .await
+    .map_err(|err| AppError::Tun(err.user_message()))?;
+
+    net::avoid(session.interface_index);
+    state.log(
+        Level::Info,
+        format!(
+            "Every app now goes through the OpenWire adapter (IPv6 {}), with DNS resolved through the tunnel",
+            if session.ipv6 { "included" } else { "not available" }
+        ),
+    );
+    if settings.kill_switch {
+        state.log(
+            Level::Info,
+            "Kill switch is blocking anything that tries to leave outside the tunnel",
+        );
+    }
+    Ok(session)
+}
+
+/// What happens when the service ends routing on its own - it stopped, or
+/// the adapter went away. Traffic is going out directly from that moment,
+/// so the connection is ended and the user told, rather than showing a
+/// tunnel that no longer covers anything.
+#[cfg(windows)]
+fn routing_lost(app: AppHandle, generation: u64) -> impl FnOnce(String) + Send + 'static {
+    move |reason| {
+        tauri::async_runtime::spawn(async move {
+            let Some(state) = app.try_state::<AppState>() else {
+                return;
+            };
+            if state.tun_generation() != generation || !state.is_tunnel_up() {
+                return;
+            }
+            state.log(Level::Error, format!("System-wide routing stopped: {reason}"));
+            state.teardown();
+            state.update_connection(|conn| {
+                *conn = ConnectionState::default();
+                conn.note = Some(reason.clone());
+            });
+            state.notify("error", format!("Tunnel off. {reason}"));
+        });
     }
 }
 
@@ -418,10 +585,11 @@ fn spawn_server_check(app: AppHandle, node: ServerNode) {
         };
 
         if node.host.parse::<std::net::IpAddr>().is_err() {
-            let lookup = tokio::net::lookup_host((node.host.as_str(), node.port));
+            let lookup = net::resolve(node.host.as_str(), node.port);
             match timeout(Duration::from_secs(5), lookup).await {
                 Ok(Ok(addresses)) => {
-                    let mut ips: Vec<String> = addresses.map(|a| a.ip().to_string()).collect();
+                    let mut ips: Vec<String> =
+                        addresses.into_iter().map(|a| a.ip().to_string()).collect();
                     ips.sort();
                     ips.dedup();
                     log(Level::Info, format!("Resolved {} to {}", node.host, ips.join(", ")));

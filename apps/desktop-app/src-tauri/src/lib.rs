@@ -19,11 +19,12 @@ const EVENT_USAGE_SAMPLE: &str = "usage:sample";
 /// The network monitor service came, went, or changed state.
 const EVENT_NETMON_STATUS: &str = "netmon:status";
 
-/// Runs the network monitor's roles - the service and its elevated
-/// installer - when the command line asks for one. They share this binary
-/// but must never start Tauri, so `main` checks this first.
-pub fn netmon_dispatch() -> Option<i32> {
-    core::netmon::dispatch()
+/// Runs the services' roles - the network monitor and the tunnel, each a
+/// service plus its elevated installer - when the command line asks for one.
+/// They share this binary but must never start Tauri, so `main` checks this
+/// first.
+pub fn service_dispatch() -> Option<i32> {
+    core::netmon::dispatch().or_else(core::tun::dispatch)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -85,6 +86,9 @@ pub fn run() {
             commands::netmon::netmon_status,
             commands::netmon::netmon_enable,
             commands::netmon::netmon_disable,
+            commands::tun::tun_status,
+            commands::tun::tun_install,
+            commands::tun::tun_uninstall,
             commands::devices::devices_snapshot,
             commands::devices::devices_scan,
             commands::devices::devices_rename,

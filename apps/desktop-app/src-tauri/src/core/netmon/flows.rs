@@ -65,8 +65,14 @@ impl FlowTable {
     /// be gone a second from now, and with it any chance of naming it.
     pub fn add(&mut self, packet: &Packet, resolve: impl FnOnce(u32) -> AppName) {
         // The proxy hop (app -> OpenWire) is loopback, and counting it would put
-        // every tunnelled byte on the books twice.
-        if packet.daddr.is_loopback() || packet.saddr.is_loopback() || packet.daddr.is_unspecified()
+        // every tunnelled byte on the books twice. With every app routed, the
+        // same bytes cross OpenWire's adapter instead - the relay counts those
+        // too.
+        if packet.daddr.is_loopback()
+            || packet.saddr.is_loopback()
+            || packet.daddr.is_unspecified()
+            || crate::core::tun::on_adapter(&packet.saddr)
+            || crate::core::tun::on_adapter(&packet.daddr)
         {
             return;
         }
@@ -373,6 +379,20 @@ mod tests {
                 50002,
             ),
             named("openwire.exe"),
+        );
+
+        // An app routed system-wide: its packets cross OpenWire's adapter.
+        table.add(
+            &packet(
+                5,
+                Direction::Send,
+                10,
+                "198.51.100.4",
+                443,
+                "172.19.0.1",
+                50003,
+            ),
+            named("game.exe"),
         );
 
         let rows = fold(

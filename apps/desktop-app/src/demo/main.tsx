@@ -62,6 +62,8 @@ mockIPC(
         return {}
       case 'netmon_status':
         return data.monitor
+      case 'tun_status':
+        return { supported: true, installed: true, running: true, problem: null }
       case 'devices_snapshot':
         return data.devices()
       case 'plugin:autostart|is_enabled':

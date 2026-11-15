@@ -16,6 +16,7 @@ import {
   InformationCircleIcon,
   JusticeScale01Icon,
   LaptopPhoneSyncIcon,
+  NetworkIcon,
   Radar01Icon,
   RefreshIcon,
   Rocket01Icon,
@@ -41,6 +42,7 @@ import { isActive, type Settings } from '@/lib/types'
 import { ServerImportField } from '@/features/servers/server-import-field'
 import { useUpdate } from '@/features/update/use-update'
 import { monitorSummary, useMonitor } from '@/features/usage/use-monitor'
+import { useTunMode } from '@/features/vpn/use-tun-mode'
 import { useVpn } from '@/features/vpn/vpn-context'
 import { RestoreNetworkRow } from './restore-network-row'
 import { SECTIONS, type SectionId } from './sections'
@@ -175,29 +177,74 @@ function ProtectionSection({ settings }: { settings: Settings }) {
 
 function RoutingSection({ settings }: { settings: Settings }) {
   const { platform, connection, updateSettings } = useVpn()
+  const tun = useTunMode()
   const restartHint = isActive(connection.phase) ? RESTART_HINT : undefined
   const proxyUnsupported = platform ? !platform.systemProxySupported : false
 
   return (
     <SettingGroup>
       <SettingRow
+        icon={NetworkIcon}
+        title="Route every app"
+        description="Carry all traffic through a virtual network adapter, so games, command-line tools and anything else that ignores the system proxy go through the tunnel too - and every DNS lookup with them."
+        disabled={!tun.supported}
+        control={
+          <div className="flex shrink-0 items-center gap-2">
+            {tun.needsRepair && (
+              <Button variant="outline" size="sm" disabled={tun.busy} onClick={() => void tun.repair()}>
+                Repair
+              </Button>
+            )}
+            <Switch
+              aria-label="Route every app"
+              checked={tun.enabled && tun.supported}
+              disabled={tun.busy || !tun.supported}
+              onCheckedChange={(next) => void tun.setEnabled(next)}
+            />
+          </div>
+        }
+        hint={tunHint(tun, restartHint)}
+        hintTone={tun.needsRepair ? 'warning' : 'muted'}
+      />
+      <SettingRow
         icon={Wifi01Icon}
-        title="Route all apps"
-        description="Point Windows at the local proxy so every app goes through the tunnel."
+        title="Set the system proxy"
+        description="Point Windows at the local proxy, so apps that follow it go through the tunnel."
         checked={settings.systemProxy && !proxyUnsupported}
         onChange={(next) => void updateSettings({ systemProxy: next })}
-        disabled={proxyUnsupported}
+        disabled={proxyUnsupported || (tun.enabled && tun.supported)}
         hint={
-          proxyUnsupported
-            ? `Automatic routing isn't available on ${platform?.platform ?? 'this platform'} yet - point apps at the proxy address shown on the dashboard.`
-            : restartHint
+          tun.enabled && tun.supported
+            ? 'Not needed while every app goes through the adapter; used again when that is off.'
+            : proxyUnsupported
+              ? `Automatic routing isn't available on ${platform?.platform ?? 'this platform'} yet - point apps at the proxy address shown on the dashboard.`
+              : restartHint
         }
+        hintTone="muted"
       />
       {/* Keyed by the stored port: a change elsewhere remounts the field
           with the right value instead of syncing it through an effect. */}
       <PortRow key={settings.listenPort} port={settings.listenPort} />
     </SettingGroup>
   )
+}
+
+/** One line under the "Route every app" switch. */
+function tunHint(tun: ReturnType<typeof useTunMode>, restartHint: string | undefined): string {
+  if (!tun.supported) return 'Needs Windows.'
+  if (tun.busy) return 'Waiting for Windows to approve the change…'
+  if (tun.needsRepair) {
+    return (
+      tun.service?.problem ??
+      (tun.service?.installed
+        ? "The tunnel service isn't running. Repair restarts it."
+        : "The tunnel service isn't installed. Repair sets it up.")
+    )
+  }
+  if (restartHint) return restartHint
+  return tun.service?.installed
+    ? 'Runs through the OpenWire Tunnel service, which sits idle unless you are connected.'
+    : 'Windows asks for admin approval once, to set up the OpenWire Tunnel service.'
 }
 
 function MonitoringSection({ settings }: { settings: Settings }) {
@@ -381,11 +428,13 @@ function DiagnosticsSection() {
         <Fact
           label="System routing"
           value={
-            platform?.systemProxySupported
-              ? connection.systemProxy
-                ? 'Active'
-                : 'Available, not engaged'
-              : 'Manual on this platform'
+            connection.tun
+              ? 'Every app, through the OpenWire adapter'
+              : platform?.systemProxySupported
+                ? connection.systemProxy
+                  ? 'System proxy'
+                  : 'Available, not engaged'
+                : 'Manual on this platform'
           }
         />
         <Fact label="Platform" value={platform?.platform ?? '--'} />

@@ -6,6 +6,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -49,10 +50,17 @@ pub struct AppState {
     pub netmon: Arc<Monitor>,
     /// Other devices on the local network.
     pub lan: Arc<Lan>,
-    /// Dropping either of these tears down the matching resource, so the order
-    /// in `teardown` is what guarantees the OS proxy is always restored.
+    /// Dropping any of these tears down the matching resource, so the order
+    /// in `teardown` is what guarantees the OS proxy is always restored and
+    /// no route is left pointing at a stopped listener.
     tunnel: Mutex<Option<Tunnel>>,
     proxy: Mutex<Option<ProxyGuard>>,
+    /// System-wide routing, while it is on.
+    #[cfg(windows)]
+    tun: Mutex<Option<crate::core::tun::client::TunSession>>,
+    /// Counts routing sessions, so a late "it stopped" from an old one is not
+    /// mistaken for the current one ending.
+    tun_generation: AtomicU64,
 }
 
 impl AppState {
@@ -118,6 +126,9 @@ impl AppState {
             lan: Lan::load(devices_path),
             tunnel: Mutex::new(None),
             proxy: Mutex::new(None),
+            #[cfg(windows)]
+            tun: Mutex::new(None),
+            tun_generation: AtomicU64::new(0),
         })
     }
 
@@ -321,6 +332,27 @@ impl AppState {
         *self.proxy.lock().expect("proxy lock") = proxy;
     }
 
+    #[cfg(windows)]
+    pub fn install_tun(&self, session: crate::core::tun::client::TunSession) {
+        *self.tun.lock().expect("tun lock") = Some(session);
+    }
+
+    /// Takes the routing session out, for a caller that can wait for the
+    /// service to confirm the routes are gone before the listener stops.
+    #[cfg(windows)]
+    pub fn take_tun(&self) -> Option<crate::core::tun::client::TunSession> {
+        self.tun.lock().expect("tun lock").take()
+    }
+
+    /// Starts a new routing generation and returns it.
+    pub fn next_tun_generation(&self) -> u64 {
+        self.tun_generation.fetch_add(1, Ordering::SeqCst) + 1
+    }
+
+    pub fn tun_generation(&self) -> u64 {
+        self.tun_generation.load(Ordering::SeqCst)
+    }
+
     pub fn is_tunnel_up(&self) -> bool {
         self.tunnel.lock().expect("tunnel lock").is_some()
     }
@@ -332,10 +364,22 @@ impl AppState {
         matches!(self.connection().phase, Phase::Monitoring)
     }
 
-    /// Tears down in the safe order: restore the OS proxy first, then stop the
-    /// listener. Reversing it would leave a window where the system points at a
-    /// dead port.
+    /// Tears down in the safe order: restore the OS proxy and end system-wide
+    /// routing first, then stop the listener. Reversing it would leave a
+    /// window where the system points at a dead port.
     pub fn teardown(&self) {
+        // Whatever routing session this was, it is over: a late notice from
+        // it must not tear down the next one.
+        self.next_tun_generation();
+        #[cfg(windows)]
+        if let Some(session) = self.tun.lock().expect("tun lock").take() {
+            // Dropping it closes the pipe, which ends the session in the
+            // service. Async callers stop it first and wait for the routes
+            // to go; this is the path for exit and failure.
+            drop(session);
+        }
+        crate::core::net::release();
+
         let proxy = self.proxy.lock().expect("proxy lock").take();
         if let Some(guard) = proxy {
             if let Err(err) = guard.release() {

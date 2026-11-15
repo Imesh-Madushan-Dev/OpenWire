@@ -17,7 +17,6 @@
 use std::time::{Duration, Instant};
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
 use tokio::time::timeout;
 
 use crate::core::models::{ServerNode, Transport};
@@ -135,7 +134,9 @@ async fn round_trip(target: &Target, wait: Duration) -> Option<u32> {
     let mut best: Option<u32> = None;
     for _ in 0..ATTEMPTS {
         let Ok(Ok(mut stream)) =
-            timeout(wait, TcpStream::connect((target.host.as_str(), target.port))).await
+            // Off the adapter while system-wide routing is on: through the
+            // tunnel, every server would be timed via the one in use.
+            timeout(wait, crate::core::net::connect(&target.host, target.port)).await
         else {
             // Timed out or refused: try again, but a single success is enough.
             continue;

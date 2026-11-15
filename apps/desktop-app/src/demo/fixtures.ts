@@ -88,7 +88,8 @@ export const connected = (): ConnectionState => ({
   exitHost: '198.51.100.17',
   listenAddr: '127.0.0.1:10808',
   connectedAt: now() - 2 * 3600 - 17 * 60,
-  systemProxy: true,
+  systemProxy: false,
+  tun: true,
   note: null,
 })
 
@@ -118,6 +119,7 @@ export const settings: Settings = {
   watchDevices: true,
   taskbarSpeed: true,
   checkUpdates: true,
+  tunMode: true,
   preferredServer: 'singapore',
 }
 

@@ -1,5 +1,10 @@
 //! VLESS outbound, carried by whichever transport the server's link names -
 //! see [`super::transport`].
+//!
+//! UDP uses VLESS's own command 2: one destination per connection, each
+//! datagram a big-endian u16 length and the payload. That is byte for byte
+//! how the tunnel service frames datagrams, so a UDP flow is relayed exactly
+//! like a TCP one.
 
 use uuid::Uuid;
 
@@ -8,10 +13,33 @@ use super::IoStream;
 use crate::core::models::VlessConfig;
 use crate::error::{AppError, AppResult};
 
+const TCP: u8 = 0x01;
+const UDP: u8 = 0x02;
+
 /// Opens the tunnel with the VLESS request head for `target` as its first bytes.
 pub async fn dial(
     dialer: &Dialer,
     config: &VlessConfig,
+    target_host: &str,
+    target_port: u16,
+) -> AppResult<Box<dyn IoStream>> {
+    open(dialer, config, TCP, target_host, target_port).await
+}
+
+/// The same, for a UDP flow to `target`.
+pub async fn dial_udp(
+    dialer: &Dialer,
+    config: &VlessConfig,
+    target_host: &str,
+    target_port: u16,
+) -> AppResult<Box<dyn IoStream>> {
+    open(dialer, config, UDP, target_host, target_port).await
+}
+
+async fn open(
+    dialer: &Dialer,
+    config: &VlessConfig,
+    command: u8,
     target_host: &str,
     target_port: u16,
 ) -> AppResult<Box<dyn IoStream>> {
@@ -20,18 +48,18 @@ pub async fn dial(
     })?;
 
     dialer
-        .open(request_head(uuid.as_bytes(), target_host, target_port))
+        .open(request_head(uuid.as_bytes(), command, target_host, target_port))
         .await
 }
 
 /// VLESS v0 request head:
-/// `[ver=0][uuid:16][addon_len=0][cmd=1 tcp][port:u16be][atyp][addr]`
-fn request_head(uuid: &[u8; 16], host: &str, port: u16) -> Vec<u8> {
+/// `[ver=0][uuid:16][addon_len=0][cmd][port:u16be][atyp][addr]`
+fn request_head(uuid: &[u8; 16], command: u8, host: &str, port: u16) -> Vec<u8> {
     let mut head = Vec::with_capacity(32 + host.len());
     head.push(0x00); // version
     head.extend_from_slice(uuid);
     head.push(0x00); // no addons
-    head.push(0x01); // TCP
+    head.push(command);
     head.extend_from_slice(&port.to_be_bytes());
 
     // Note the address types are VLESS's, not SOCKS5's: 1=IPv4, 2=domain, 3=IPv6.
@@ -72,7 +100,7 @@ mod tests {
 
     #[test]
     fn domain_head_matches_the_vless_layout() {
-        let head = request_head(&uuid_bytes(), "example.com", 443);
+        let head = request_head(&uuid_bytes(), TCP, "example.com", 443);
 
         assert_eq!(head[0], 0x00, "version");
         assert_eq!(&head[1..17], &uuid_bytes(), "uuid");
@@ -86,20 +114,29 @@ mod tests {
 
     #[test]
     fn ip_literals_use_the_binary_address_types() {
-        let v4 = request_head(&uuid_bytes(), "203.0.113.10", 8443);
+        let v4 = request_head(&uuid_bytes(), TCP, "203.0.113.10", 8443);
         assert_eq!(v4[21], 0x01);
         assert_eq!(&v4[22..26], &[203, 0, 113, 10]);
         assert_eq!(v4.len(), 26);
 
-        let v6 = request_head(&uuid_bytes(), "::1", 443);
+        let v6 = request_head(&uuid_bytes(), TCP, "::1", 443);
         assert_eq!(v6[21], 0x03);
         assert_eq!(v6.len(), 38);
     }
 
     #[test]
+    fn a_udp_head_differs_only_in_its_command() {
+        let tcp = request_head(&uuid_bytes(), TCP, "203.0.113.10", 3478);
+        let udp = request_head(&uuid_bytes(), UDP, "203.0.113.10", 3478);
+        assert_eq!(udp[18], 0x02);
+        assert_eq!(tcp[..18], udp[..18]);
+        assert_eq!(tcp[19..], udp[19..]);
+    }
+
+    #[test]
     fn overlong_domains_are_truncated_not_panicking() {
         let long = "a".repeat(400);
-        let head = request_head(&uuid_bytes(), &long, 443);
+        let head = request_head(&uuid_bytes(), TCP, &long, 443);
         assert_eq!(head[22], 255);
     }
 }

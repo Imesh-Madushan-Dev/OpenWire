@@ -25,6 +25,51 @@ app  ──SOCKS5/HTTP──▶  127.0.0.1:10808  ──VLESS over TLS──▶ 
    values, captured before they are touched and restored on disconnect, on exit,
    and on panic.
 
+### Routing every app (TUN)
+
+The system proxy only reaches apps that follow it. With **Settings → Routing →
+Route every app** on, a virtual network adapter carries everything instead -
+games, command-line tools, UDP, and every DNS lookup:
+
+```
+every app ─▶ Wintun adapter ─▶ OpenWire Tunnel service ─▶ 127.0.0.1:10808 ─▶ VPS
+             (routes, DNS)     (userspace TCP/IP stack)   (the same proxy)
+```
+
+1. **Service** (`core/tun/service.rs`) — adapters, routes and firewall rules
+   need administrator rights, so a small Windows service does them, installed
+   by the setup program (or from Settings, with one UAC prompt). The app stays
+   unelevated and keeps the server, its credentials and the protocols; the
+   service never sees them. This is the split WireGuard, Mullvad and Tailscale
+   use. The service shares `core/winsvc` with the network monitor.
+2. **Control pipe** (`core/tun/client.rs`) — the app asks over
+   `\\.\pipe\openwire-tunnel`. The service only answers the OpenWire
+   executable it was installed from, and only routes to a proxy port that very
+   process is listening on (`core/tun/verify.rs`). A session lasts exactly as
+   long as the app holds the pipe open.
+3. **Adapter** (`core/tun/wintun.rs`, `netcfg.rs`) — WireGuard's signed Wintun
+   driver, bound by hand and loaded by full path. The adapter gets
+   `172.19.0.1/30` and `fdfe:dcba:9876::1/126`, the lowest interface metric,
+   and DNS server `172.19.0.2`.
+4. **Routes** (`core/tun/cidr.rs`) — everything except the server's own
+   addresses, loopback, link-local and multicast (and private ranges with the
+   LAN bypass) is routed into the adapter, as `/1`-or-narrower routes cut
+   around those holes. What is left out follows the machine's own default
+   route, so roaming needs no update.
+5. **Stack** (`core/tun/engine.rs`) — smoltcp, through `netstack-smoltcp`,
+   terminates each TCP connection; UDP arrives as datagrams. Each becomes a
+   flow on the local proxy through a private SOCKS5 method
+   (`core/tun/wire.rs`), which carries the app's own source address for usage
+   attribution. UDP rides VLESS's UDP command or Trojan's UDP ASSOCIATE. QUIC
+   (UDP 443) is dropped so browsers use TCP, which travels a TCP tunnel better.
+6. **DNS** (`core/tun/dns.rs`) — every query to port 53, to any address, is
+   answered through the tunnel by `1.1.1.1` / `8.8.8.8` over pipelined TCP,
+   with IDs rewritten so two apps cannot receive each other's answers.
+7. **No loops** (`core/net.rs`) — the app's own sockets must not follow the
+   routes back into itself. The server's name is resolved once before routing
+   starts and pinned, and every socket the app opens is bound to the real
+   network's interface with `IP_UNICAST_IF`.
+
 ## Running it
 
 ```bash
@@ -194,7 +239,18 @@ grow the store without bound. It lives in `usage.json` beside the other config.
   Recovery only touches settings still pointing at us, so a proxy you configured
   yourself is never clobbered.
 - **Kill switch** fails closed: while the server is unreachable the proxy refuses
-  connections rather than letting traffic out unmasked.
+  connections rather than letting traffic out unmasked. With every app routed
+  through the adapter it also installs Windows Filtering Platform rules that
+  block anything leaving outside the adapter - except the app itself, DHCP,
+  IPv6 neighbour discovery, and the local network with the LAN bypass.
+- With every app routed, DNS outside the adapter is blocked whatever the kill
+  switch says: Windows asks every network's resolver in parallel, so being
+  first in line is not enough.
+- Nothing system-wide routing changes can outlive it. The routes and DNS
+  server live on the adapter, which Windows removes with the process that
+  created it; the firewall rules are in a dynamic WFP session, deleted when
+  its handle closes. The service takes everything down the moment the app's
+  pipe closes - an app crash restores the network rather than stranding it.
 - The webview has no filesystem, shell, or HTTP capability (see
   `capabilities/default.json`), and runs under a restrictive CSP.
 - Errors cross the IPC boundary as `{ code, message }` with human-written text;
@@ -217,8 +273,12 @@ src-tauri/src/
   commands/               the IPC surface (vpn, servers, settings)
   core/
     tunnel/               inbound proxy, VLESS outbound, relay, health watch
+    tun/                  system-wide routing: service, Wintun, routes, stack, DNS
+    winsvc/               install, elevation and pipes shared by both services
+    netmon/               the network monitor service
     usage/                history tiers, per-app attribution, interface counters
     sysproxy/             per-platform OS proxy control
+    net.rs                the app's own sockets, kept off the adapter
     catalog · models · metrics · probe · store
   state.rs                the one owner of mutable state
   error.rs · tray.rs · lib.rs
@@ -226,8 +286,11 @@ src-tauri/src/
 
 ## Not built yet
 
-- **TUN/Wintun capture.** Routing is system-proxy based, which covers apps that
-  honour the OS proxy. A virtual adapter would catch the rest.
+- **TUN on macOS and Linux.** `core/tun/engine.rs` is platform-free; it needs
+  a utun or `/dev/net/tun` device and a privileged helper on each.
+- **IPv6 DNS servers on the adapter, and ICMP.** Queries over IPv4 already
+  carry AAAA lookups; ping through the tunnel is not something VLESS or Trojan
+  can carry, so pings time out rather than lie.
 - **Remote catalog + accounts.** `DOCS/desktop-app.md` describes a Next.js and
   Supabase control plane; the client is deliberately standalone for now, and
   `servers.json` is the source of truth.

@@ -73,19 +73,20 @@ impl ProcessResolver {
             }
         }
 
-        let pid = pid?;
-        if let Some(name) = inner.names.get(&pid) {
-            return Some(name.clone());
-        }
+        named(&mut inner, pid?)
+    }
 
-        let (name, path) = process_image(pid)?;
-        inner.names.insert(pid, name.clone());
-        inner.paths.insert(name.clone(), path);
-        // PIDs are recycled, so this cache must not grow forever.
-        if inner.names.len() > 512 {
-            inner.names.clear();
+    /// Executable name owning the local end of a system-wide flow. These
+    /// arrive through the tunnel service, so the loopback port names the
+    /// service; the flow's own source port, on the adapter, names the app.
+    pub fn app_for_flow(&self, udp: bool, local: std::net::SocketAddr) -> Option<String> {
+        if !udp && local.is_ipv4() {
+            // The hot path, with its cached table.
+            return self.app_for_port(local.port());
         }
-        Some(name)
+        let pid = read_owner(udp, local.is_ipv6(), local.port())?;
+        let mut inner = self.inner.lock().ok()?;
+        named(&mut inner, pid)
     }
 
     /// PNG data URL for an app's icon, or `None` when its path is unknown or
@@ -142,6 +143,22 @@ impl ProcessResolver {
             }
         }
     }
+}
+
+/// The executable name for `pid`, cached; learns its path for icons.
+fn named(inner: &mut Inner, pid: u32) -> Option<String> {
+    if let Some(name) = inner.names.get(&pid) {
+        return Some(name.clone());
+    }
+
+    let (name, path) = process_image(pid)?;
+    inner.names.insert(pid, name.clone());
+    inner.paths.insert(name.clone(), path);
+    // PIDs are recycled, so this cache must not grow forever.
+    if inner.names.len() > 512 {
+        inner.names.clear();
+    }
+    Some(name)
 }
 
 fn lookup(table: &[(u16, u32)], port: u16) -> Option<u32> {
@@ -217,6 +234,61 @@ fn read_tcp_table() -> Option<Vec<(u16, u32)>> {
     )
 }
 
+/// The process owning a local port in the TCP-over-IPv6 or UDP tables.
+/// Uncached: system-wide UDP flows and IPv6 connections are the rarer kind,
+/// and the cached IPv4 TCP table serves everything else.
+#[cfg(windows)]
+fn read_owner(udp: bool, ipv6: bool, port: u16) -> Option<u32> {
+    use windows_sys::Win32::NetworkManagement::IpHelper::{
+        GetExtendedTcpTable, GetExtendedUdpTable, MIB_TCP6ROW_OWNER_PID, MIB_UDP6ROW_OWNER_PID,
+        MIB_UDPROW_OWNER_PID, TCP_TABLE_OWNER_PID_ALL, UDP_TABLE_OWNER_PID,
+    };
+    use windows_sys::Win32::Networking::WinSock::{AF_INET, AF_INET6};
+
+    let family = if ipv6 { AF_INET6 } else { AF_INET } as u32;
+    let read = |buffer: *mut core::ffi::c_void, size: &mut u32| unsafe {
+        if udp {
+            GetExtendedUdpTable(buffer, size, 0, family, UDP_TABLE_OWNER_PID, 0)
+        } else {
+            GetExtendedTcpTable(buffer, size, 0, family, TCP_TABLE_OWNER_PID_ALL, 0)
+        }
+    };
+
+    let mut size = 0u32;
+    // Sizing call; the error it returns is expected.
+    read(std::ptr::null_mut(), &mut size);
+    if size == 0 {
+        return None;
+    }
+    let mut buffer: Vec<u32> = vec![0; (size as usize).div_ceil(4)];
+    if read(buffer.as_mut_ptr().cast(), &mut size) != 0 {
+        return None;
+    }
+
+    // Every one of these tables is a u32 count followed by its rows.
+    let count = buffer[0] as usize;
+    let rows = buffer[1..].as_ptr();
+    let port_of = |raw: u32| u16::from_be_bytes([raw as u8, (raw >> 8) as u8]);
+    // SAFETY: the call succeeded, so `count` rows of the type matching the
+    // requested table follow the count contiguously.
+    unsafe {
+        match (udp, ipv6) {
+            (true, false) => std::slice::from_raw_parts(rows.cast::<MIB_UDPROW_OWNER_PID>(), count)
+                .iter()
+                .find(|row| port_of(row.dwLocalPort) == port)
+                .map(|row| row.dwOwningPid),
+            (true, true) => std::slice::from_raw_parts(rows.cast::<MIB_UDP6ROW_OWNER_PID>(), count)
+                .iter()
+                .find(|row| port_of(row.dwLocalPort) == port)
+                .map(|row| row.dwOwningPid),
+            (false, _) => std::slice::from_raw_parts(rows.cast::<MIB_TCP6ROW_OWNER_PID>(), count)
+                .iter()
+                .find(|row| port_of(row.dwLocalPort) == port)
+                .map(|row| row.dwOwningPid),
+        }
+    }
+}
+
 /// `(executable name, full path)` for a pid.
 #[cfg(windows)]
 pub(crate) fn process_image(pid: u32) -> Option<(String, String)> {
@@ -268,6 +340,11 @@ fn process_image(_pid: u32) -> Option<(String, String)> {
     None
 }
 
+#[cfg(not(windows))]
+fn read_owner(_udp: bool, _ipv6: bool, _port: u16) -> Option<u32> {
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -286,6 +363,25 @@ mod tests {
             r"C:\App\2.0\app.exe",
             "the app moved when it updated; the old folder is gone"
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_udp_socket_and_an_ipv6_connection_are_owned_by_this_process() {
+        let resolver = ProcessResolver::new();
+        let udp = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+        let app = resolver
+            .app_for_flow(true, udp.local_addr().unwrap())
+            .expect("this process owns its UDP socket");
+        assert!(app.ends_with(".exe"), "{app}");
+
+        if let Ok(listener) = std::net::TcpListener::bind("[::1]:0") {
+            let client = std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+            assert_eq!(
+                resolver.app_for_flow(false, client.local_addr().unwrap()),
+                Some(app)
+            );
+        }
     }
 
     #[test]

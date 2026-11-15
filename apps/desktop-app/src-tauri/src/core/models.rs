@@ -422,6 +422,8 @@ pub struct ConnectionState {
     pub connected_at: Option<u64>,
     /// Whether the OS proxy is currently pointed at us.
     pub system_proxy: bool,
+    /// Whether every app is routed through the tunnel's network adapter.
+    pub tun: bool,
     /// Short, user-safe note ("Reconnecting", "Kill switch engaged").
     pub note: Option<String>,
 }
@@ -437,6 +439,7 @@ impl Default for ConnectionState {
             listen_addr: None,
             connected_at: None,
             system_proxy: false,
+            tun: false,
             note: None,
         }
     }
@@ -487,6 +490,11 @@ pub struct Settings {
     /// Ask GitHub now and then whether a newer release is out.
     #[serde(default = "default_true")]
     pub check_updates: bool,
+    /// Route every app through a virtual network adapter instead of the
+    /// system proxy, so apps that ignore the proxy are covered too. Needs the
+    /// tunnel service. Defaulted on its own, so older settings still load.
+    #[serde(default)]
+    pub tun_mode: bool,
     pub preferred_server: Option<String>,
 }
 
@@ -507,6 +515,7 @@ impl Default for Settings {
             watch_devices: true,
             taskbar_speed: true,
             check_updates: true,
+            tun_mode: false,
             preferred_server: None,
         }
     }
@@ -526,6 +535,7 @@ pub struct SettingsPatch {
     pub watch_devices: Option<bool>,
     pub taskbar_speed: Option<bool>,
     pub check_updates: Option<bool>,
+    pub tun_mode: Option<bool>,
     /// Double option: distinguishes "absent" from "explicit null", so the
     /// preferred server can actually be cleared.
     #[serde(default, deserialize_with = "double_option")]
@@ -570,6 +580,9 @@ impl Settings {
         }
         if let Some(v) = patch.check_updates {
             self.check_updates = v;
+        }
+        if let Some(v) = patch.tun_mode {
+            self.tun_mode = v;
         }
         if let Some(v) = patch.preferred_server {
             self.preferred_server = v;

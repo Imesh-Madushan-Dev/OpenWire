@@ -80,7 +80,9 @@ pub fn build(config: TlsSettings<'_>, endpoint_host: &str) -> AppResult<Arc<Clie
 /// Dials the endpoint: the TCP connection alone, which is all a server
 /// without TLS gets.
 pub async fn dial(node_host: &str, node_port: u16) -> AppResult<TcpStream> {
-    let tcp = timeout(DIAL_TIMEOUT, TcpStream::connect((node_host, node_port)))
+    // Through `net`: pinned addresses, and off the adapter while system-wide
+    // routing is on, or the tunnel would try to carry itself.
+    let tcp = timeout(DIAL_TIMEOUT, crate::core::net::connect(node_host, node_port))
         .await
         .map_err(|_| AppError::Dial(format!("{node_host}:{node_port} timed out")))?
         .map_err(|e| AppError::Dial(format!("{node_host}:{node_port}: {e}")))?;

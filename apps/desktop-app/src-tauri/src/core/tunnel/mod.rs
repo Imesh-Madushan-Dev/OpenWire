@@ -5,6 +5,7 @@ pub mod inbound;
 pub mod tls;
 pub mod transport;
 pub mod trojan;
+mod udp;
 pub mod vless;
 
 use std::net::{IpAddr, SocketAddr};
@@ -20,7 +21,9 @@ use tokio::time::timeout;
 use crate::core::geo;
 use crate::core::metrics::Metrics;
 use crate::core::models::{Outbound, ServerNode};
+use crate::core::net;
 use crate::core::probe;
+use crate::core::tun::wire::{Network, Status};
 use crate::core::usage::{ConnRecorder, TrafficKind, UsageKey, UsageTracker};
 use crate::error::{AppError, AppResult};
 
@@ -229,10 +232,26 @@ async fn handle(mut client: TcpStream, session: Arc<Session>) -> AppResult<()> {
         .await
         .map_err(|_| AppError::Protocol("client handshake timed out".into()))??;
 
+    // A system-wide flow comes from the tunnel service; the app is named by
+    // the flow's own end on the adapter instead.
+    let app = match request.origin {
+        Some(origin) => session
+            .usage
+            .app_for_flow(request.network == Network::Udp, origin),
+        None => app,
+    };
+
     // Fail closed: while degraded with the kill switch armed, nothing gets out.
     if session.kill_switch && session.degraded.load(Ordering::Relaxed) {
-        let _ = inbound::send_reply(&mut client, request.protocol, false).await;
+        let _ = match request.protocol {
+            inbound::Protocol::Tun => inbound::send_tun_status(&mut client, Status::Blocked).await,
+            protocol => inbound::send_reply(&mut client, protocol, false).await,
+        };
         return Err(AppError::Protocol("blocked by kill switch".into()));
+    }
+
+    if request.network == Network::Udp {
+        return udp::handle(client, request, app, session).await;
     }
 
     let bypass = session.lan_bypass && is_local_destination(&request.host);
@@ -284,9 +303,11 @@ async fn dial(
     direct: bool,
 ) -> AppResult<(Box<dyn IoStream>, Option<IpAddr>)> {
     if direct {
+        // Through `net`, which keeps it off the adapter while system-wide
+        // routing is on - it would otherwise come straight back here.
         let stream = timeout(
             DIRECT_DIAL_TIMEOUT,
-            TcpStream::connect((request.host.as_str(), request.port)),
+            net::connect(request.host.as_str(), request.port),
         )
         .await
         .map_err(|_| AppError::Dial(format!("{}:{} timed out", request.host, request.port)))?

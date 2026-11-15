@@ -94,6 +94,7 @@ mod windows {
     use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};
 
     use super::super::{scm, Message, PIPE_NAME, PROTOCOL, REVISION};
+    use crate::core::winsvc::pipe as winpipe;
     use super::{Monitor, MonitorStatus};
     use crate::core::usage::UsageTracker;
 
@@ -160,7 +161,7 @@ mod windows {
         for _ in 0..20 {
             match ClientOptions::new().read(true).write(false).open(PIPE_NAME) {
                 Ok(pipe) => {
-                    return (server_pid(&pipe) == Some(service_pid))
+                    return (winpipe::server_pid(&pipe) == Some(service_pid))
                         .then_some(pipe)
                         .or_else(|| {
                             log::warn!("network monitor pipe is served by an unexpected process");
@@ -175,16 +176,6 @@ mod windows {
             }
         }
         None
-    }
-
-    fn server_pid(pipe: &NamedPipeClient) -> Option<u32> {
-        use std::os::windows::io::AsRawHandle;
-        use windows_sys::Win32::System::Pipes::GetNamedPipeServerProcessId;
-
-        let mut pid = 0u32;
-        // SAFETY: a live pipe handle and a valid out-pointer.
-        let ok = unsafe { GetNamedPipeServerProcessId(pipe.as_raw_handle() as _, &mut pid) };
-        (ok != 0).then_some(pid)
     }
 
     #[derive(PartialEq, Eq)]
